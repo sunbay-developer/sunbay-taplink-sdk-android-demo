@@ -48,7 +48,7 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
 - **JVM Target**: 11
 
 ### 核心依赖
-- **Taplink SDK**: 0.0.6-SNAPSHOT
+- **Taplink SDK**: 1.0.1-SNAPSHOT
 - **AndroidX Core KTX**: 1.16.0
 - **AndroidX AppCompat**: 1.7.1
 - **Material Components**: 1.12.0
