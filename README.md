@@ -19,15 +19,12 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
 
 - **功能演示录屏**: 
 
-<video width="600" controls preload="metadata" poster="">
-  <source src="taplinkdemo.mp4" type="video/mp4">
-  您的浏览器不支持HTML5视频播放。请<a href="taplinkdemo.mp4" download>下载视频文件</a>直接观看。
-</video>
+[![演示视频](https://img.shields.io/badge/🎬_点击观看-演示视频-blue?style=for-the-badge)](./taplinkdemo.mp4)
 
-> 💡 **提示**: 如果视频无法播放，请尝试：
-> 1. 刷新页面重新加载
-> 2. 使用Chrome、Firefox或Edge浏览器
-> 3. 直接[下载视频文件](taplinkdemo.mp4)到本地播放
+> 📹 **视频说明**: 
+> - 点击上方按钮下载并观看演示视频
+> - 视频文件: [taplinkdemo.mp4](./taplinkdemo.mp4) (直接下载链接)
+> - 视频展示了完整的支付流程和功能操作
 
   - 展示完整的支付流程操作
   - App-to-App 模式连接演示
