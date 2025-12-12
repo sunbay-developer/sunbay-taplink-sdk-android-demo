@@ -4,11 +4,6 @@ Sunmi Taplink SDK 支付集成演示应用，展示如何集成和使用 Sunmi T
 
 > 🚀 **快速体验**: 下载 [APK文件](app/debug/TaplinkDemo-debug-1.0.0.apk) 直接安装，或观看演示视频了解功能
 
-<video width="600" controls>
-  <source src="taplinkdemo.mp4" type="video/mp4">
-  您的浏览器不支持视频播放，请<a href="taplinkdemo.mp4">点击此处下载视频</a>
-</video>
-
 ## 项目介绍
 
 TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使用 Taplink SDK 在 Android 应用中实现各种支付交易功能。该应用采用原生 Android 开发方式，使用 XML 布局和基于 Activity 的架构。
@@ -22,11 +17,21 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
   - 包含完整的支付功能演示
   - 支持 App-to-App 模式连接
 
-- **[taplinkdemo.mp4](taplinkdemo.mp4)** - 功能演示录屏
-  - 完整展示支付流程操作
-  - 演示各种交易类型的使用方法
-  - 展示交易历史和状态查询功能
-  - 演示错误处理和重试机制
+- **功能演示录屏**: 
+
+<video width="600" controls preload="metadata" poster="">
+  <source src="taplinkdemo.mp4" type="video/mp4">
+  您的浏览器不支持HTML5视频播放。请<a href="taplinkdemo.mp4" download>下载视频文件</a>直接观看。
+</video>
+
+> 💡 **提示**: 如果视频无法播放，请尝试：
+> 1. 刷新页面重新加载
+> 2. 使用Chrome、Firefox或Edge浏览器
+> 3. 直接[下载视频文件](taplinkdemo.mp4)到本地播放
+
+  - 展示完整的支付流程操作
+  - App-to-App 模式连接演示
+  - 交易历史和详情查看
 
 ## 功能特性
 
@@ -134,16 +139,6 @@ app/src/main/res/
   - 最小SDK: 25 (Android 7.1)
   - 目标SDK: 35 (Android 15)
   - 直接安装即可体验完整功能
-
-### 🎥 演示视频
-- **功能演示录屏**: 
-  <video width="600" controls>
-    <source src="taplinkdemo.mp4" type="video/mp4">
-    您的浏览器不支持视频播放，请<a href="taplinkdemo.mp4">点击此处下载视频</a>
-  </video>
-  - 展示完整的支付流程操作
-  - App-to-App 模式连接演示
-  - 交易历史和详情查看
 
 ## 快速开始
 
@@ -482,43 +477,3 @@ A:
 - LAN 模式连接  
 - Cloud 模式连接
 - 更多支付方式支持
-
-## 项目状态
-
-### 当前开发进度
-- ✅ 基础支付功能完成
-- ✅ App-to-App 模式完成
-- ✅ 交易历史管理完成
-- ✅ 后续交易操作完成
-- ✅ 智能重试机制完成
-- ✅ 错误处理机制完成
-- 🔄 重试逻辑优化进行中（参见 `.kiro/specs/retry-logic-fix/`）
-- ⏳ 其他连接模式开发中
-
-### Spec 驱动开发
-项目采用 Spec 驱动开发方法，当前有以下 Spec：
-
-1. **retry-logic-fix** - 重试逻辑修复
-   - 修复后续交易重试机制中的 transactionRequestId 使用问题
-   - 实现统一的错误分类和重试策略
-   - 完善重试状态管理和日志记录
-
-2. **taplink-payment-demo** - 支付演示功能
-   - 基础支付功能实现
-   - 交易管理和历史记录
-
-## 许可证
-
-Copyright © 2025 Sunmi Technology Co., Ltd. All rights reserved.
-
-## 联系信息
-
-- **开发团队**: TaPro Team
-- **技术支持**: [support@sunmi.com](mailto:support@sunmi.com)
-- **官方网站**: [https://www.sunmi.com](https://www.sunmi.com)
-
-## 相关资源
-
-- [商米开发者中心](https://developer.sunmi.com)
-- [Android 开发指南](https://developer.android.com)
-- [Taplink SDK 文档](md/)
