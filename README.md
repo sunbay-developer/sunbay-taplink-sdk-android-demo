@@ -12,7 +12,7 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
 
 本项目提供了完整的演示资源，方便开发者快速了解和体验：
 
-- **[TaplinkDemo-release-1.0.0.apk](app/release/TaplinkDemo-release-1.0.0.apk)** - 预编译的演示应用
+- **[TaplinkDemo-debug-1.0.0.apk](app/debug/TaplinkDemo-debug-1.0.0.apk)** - 预编译的演示应用
   - 可直接安装在 Android 7.1+ 设备上
   - 包含完整的支付功能演示
   - 支持 App-to-App 模式连接
