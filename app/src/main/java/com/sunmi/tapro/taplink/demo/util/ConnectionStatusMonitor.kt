@@ -7,29 +7,25 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
 import kotlinx.coroutines.*
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
  * Connection status monitor for cross-device connection modes
  * 
- * Provides network quality monitoring and connection health checks:
+ * Provides basic network connectivity monitoring:
  * - Network connectivity monitoring for LAN mode
- * - Connection quality assessment
- * - Automatic reconnection suggestions
- * - Real-time status updates
+ * - LAN device reachability checks
+ * - Real-time connection status updates
  */
 class ConnectionStatusMonitor(private val context: Context) {
     
     companion object {
         private const val TAG = "ConnectionStatusMonitor"
         private const val PING_TIMEOUT_MS = 3000
-        private const val QUALITY_CHECK_INTERVAL_MS = 10000L
     }
     
     private var isMonitoring = false
-    private var monitoringJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var statusListener: ConnectionStatusListener? = null
     
@@ -39,21 +35,11 @@ class ConnectionStatusMonitor(private val context: Context) {
     interface ConnectionStatusListener {
         fun onNetworkAvailable(isWifi: Boolean)
         fun onNetworkLost()
-        fun onConnectionQualityChanged(quality: NetworkQuality)
         fun onLanDeviceReachable(ip: String, responseTime: Long)
         fun onLanDeviceUnreachable(ip: String)
     }
     
-    /**
-     * Network quality levels
-     */
-    enum class NetworkQuality {
-        EXCELLENT,  // < 50ms, stable connection
-        GOOD,       // 50-150ms, good connection
-        FAIR,       // 150-300ms, acceptable connection
-        POOR,       // 300-1000ms, poor connection
-        UNAVAILABLE // > 1000ms or no connection
-    }
+
     
     /**
      * Start monitoring connection status
@@ -71,9 +57,6 @@ class ConnectionStatusMonitor(private val context: Context) {
         
         // Register network callback for connectivity changes
         registerNetworkCallback()
-        
-        // Start periodic quality checks
-        startQualityMonitoring()
     }
     
     /**
@@ -88,10 +71,6 @@ class ConnectionStatusMonitor(private val context: Context) {
         
         isMonitoring = false
         statusListener = null
-        
-        // Cancel monitoring job
-        monitoringJob?.cancel()
-        monitoringJob = null
         
         // Unregister network callback
         unregisterNetworkCallback()
@@ -123,41 +102,7 @@ class ConnectionStatusMonitor(private val context: Context) {
         }
     }
     
-    /**
-     * Get current network quality
-     */
-    suspend fun getCurrentNetworkQuality(): NetworkQuality {
-        return withContext(Dispatchers.IO) {
-            try {
-                val startTime = System.currentTimeMillis()
-                
-                // Ping a reliable host (Google DNS)
-                val address = InetAddress.getByName("8.8.8.8")
-                val reachable = address.isReachable(PING_TIMEOUT_MS)
-                
-                if (!reachable) {
-                    return@withContext NetworkQuality.UNAVAILABLE
-                }
-                
-                val responseTime = System.currentTimeMillis() - startTime
-                
-                val quality = when {
-                    responseTime < 50 -> NetworkQuality.EXCELLENT
-                    responseTime < 150 -> NetworkQuality.GOOD
-                    responseTime < 300 -> NetworkQuality.FAIR
-                    responseTime < 1000 -> NetworkQuality.POOR
-                    else -> NetworkQuality.UNAVAILABLE
-                }
-                
-                Log.d(TAG, "Network quality check - Response time: ${responseTime}ms, Quality: $quality")
-                return@withContext quality
-                
-            } catch (e: Exception) {
-                Log.w(TAG, "Network quality check failed: ${e.message}")
-                return@withContext NetworkQuality.UNAVAILABLE
-            }
-        }
-    }
+
     
     /**
      * Check if device is connected to WiFi
@@ -170,18 +115,7 @@ class ConnectionStatusMonitor(private val context: Context) {
         return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
     
-    /**
-     * Get network quality description
-     */
-    fun getNetworkQualityDescription(quality: NetworkQuality): String {
-        return when (quality) {
-            NetworkQuality.EXCELLENT -> "Excellent connection quality"
-            NetworkQuality.GOOD -> "Good connection quality"
-            NetworkQuality.FAIR -> "Fair connection quality - may affect performance"
-            NetworkQuality.POOR -> "Poor connection quality - expect delays"
-            NetworkQuality.UNAVAILABLE -> "No network connection available"
-        }
-    }
+
     
     /**
      * Register network connectivity callback
@@ -227,22 +161,5 @@ class ConnectionStatusMonitor(private val context: Context) {
         networkCallback = null
     }
     
-    /**
-     * Start periodic quality monitoring
-     */
-    private fun startQualityMonitoring() {
-        monitoringJob = CoroutineScope(Dispatchers.IO).launch {
-            while (isMonitoring) {
-                try {
-                    val quality = getCurrentNetworkQuality()
-                    statusListener?.onConnectionQualityChanged(quality)
-                    
-                    delay(QUALITY_CHECK_INTERVAL_MS)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Quality monitoring error: ${e.message}")
-                    delay(QUALITY_CHECK_INTERVAL_MS)
-                }
-            }
-        }
-    }
+
 }

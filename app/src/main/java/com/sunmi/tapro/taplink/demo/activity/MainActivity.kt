@@ -239,7 +239,7 @@ class MainActivity : Activity() {
     }
     
     /**
-     * Start connection status monitoring with enhanced network quality feedback
+     * Start connection status monitoring for network connectivity and LAN device reachability
      */
     private fun startConnectionStatusMonitoring() {
         connectionStatusMonitor.startMonitoring(object : ConnectionStatusMonitor.ConnectionStatusListener {
@@ -265,21 +265,7 @@ class MainActivity : Activity() {
                 }
             }
             
-            override fun onConnectionQualityChanged(quality: ConnectionStatusMonitor.NetworkQuality) {
-                runOnUiThread {
-                    val qualityDesc = connectionStatusMonitor.getNetworkQualityDescription(quality)
-                    Log.d(TAG, "Network quality: $qualityDesc")
-                    
-                    // Update status with quality indicator for poor connections
-                    if (quality == ConnectionStatusMonitor.NetworkQuality.POOR || 
-                        quality == ConnectionStatusMonitor.NetworkQuality.UNAVAILABLE) {
-                        val currentStatus = tvConnectionStatus.text.toString()
-                        if (!currentStatus.contains("Poor network")) {
-                            updateConnectionStatus("Connection Poor", false)
-                        }
-                    }
-                }
-            }
+
             
             override fun onLanDeviceReachable(ip: String, responseTime: Long) {
                 runOnUiThread {
