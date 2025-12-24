@@ -10,8 +10,8 @@
     <string name="taplink_merchant_id">M1254947005</string>
 
     <!-- Secret key - Used for signature verification, assigned by Taplink platform -->
-    <string name="taplink_secret_key">h6kgy3r0mrruiam3yeu1f9vorlcnd7zo</string>
-    
+    <string name="taplink_secret_key">your_taplink_secret_key</string>
+
     <!-- Default connection mode: APP_TO_APP, CABLE, LAN, CLOUD -->
     <string name="taplink_default_connection_mode">APP_TO_APP</string>
     

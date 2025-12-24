@@ -19,7 +19,7 @@ import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
-import com.sunmi.tapro.taplink.demo.util.ErrorHandler
+
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -90,6 +90,9 @@ class TransactionDetailActivity : AppCompatActivity() {
     private var transaction: Transaction? = null
     private lateinit var paymentService: TaplinkPaymentService
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    
+    // Current alert dialog reference for proper cleanup
+    private var currentAlertDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -742,11 +745,7 @@ class TransactionDetailActivity : AppCompatActivity() {
                             errorMessage = message
                         )
                         
-                        ErrorHandler.handlePaymentError(
-                            context = this@TransactionDetailActivity,
-                            errorCode = code,
-                            errorMessage = message
-                        )
+                        showPaymentError(code, message)
                     }
                 }
                 
@@ -854,13 +853,8 @@ class TransactionDetailActivity : AppCompatActivity() {
                             errorMessage = message
                         )
                         
-                        ErrorHandler.handlePaymentError(
-                            context = this@TransactionDetailActivity,
-                            errorCode = code,
-                            errorMessage = message,
-                            onRetryWithSameId = { executeVoid(transactionRequestId) },
-                            onRetryWithNewId = { executeVoid() }
-                        )
+                        showPaymentErrorWithRetry(code, message, 
+                            onRetry = { executeVoid() })
                     }
                 }
                 
@@ -930,13 +924,8 @@ class TransactionDetailActivity : AppCompatActivity() {
                     runOnUiThread {
                         progressDialog.dismiss()
                         
-                        ErrorHandler.handlePaymentError(
-                            context = this@TransactionDetailActivity,
-                            errorCode = code,
-                            errorMessage = message,
-                            onRetryWithSameId = { executeTipAdjust(tipAmount, transactionRequestId) },
-                            onRetryWithNewId = { executeTipAdjust(tipAmount) }
-                        )
+                        showPaymentErrorWithRetry(code, message, 
+                            onRetry = { executeTipAdjust(tipAmount) })
                     }
                 }
                 
@@ -1009,13 +998,8 @@ class TransactionDetailActivity : AppCompatActivity() {
                     runOnUiThread {
                         progressDialog.dismiss()
                         
-                        ErrorHandler.handlePaymentError(
-                            context = this@TransactionDetailActivity,
-                            errorCode = code,
-                            errorMessage = message,
-                            onRetryWithSameId = { executeIncrementalAuth(incrementalAmount, transactionRequestId) },
-                            onRetryWithNewId = { executeIncrementalAuth(incrementalAmount) }
-                        )
+                        showPaymentErrorWithRetry(code, message, 
+                            onRetry = { executeIncrementalAuth(incrementalAmount) })
                     }
                 }
                 
@@ -1132,13 +1116,8 @@ class TransactionDetailActivity : AppCompatActivity() {
                             errorMessage = message
                         )
                         
-                        ErrorHandler.handlePaymentError(
-                            context = this@TransactionDetailActivity,
-                            errorCode = code,
-                            errorMessage = message,
-                            onRetryWithSameId = { executePostAuth(amount, surchargeAmount, tipAmount, taxAmount, cashbackAmount, serviceFee, transactionRequestId) },
-                            onRetryWithNewId = { executePostAuth(amount, surchargeAmount, tipAmount, taxAmount, cashbackAmount, serviceFee) }
-                        )
+                        showPaymentErrorWithRetry(code, message, 
+                            onRetry = { executePostAuth(amount, surchargeAmount, tipAmount, taxAmount, cashbackAmount, serviceFee) })
                     }
                 }
                 
@@ -1402,6 +1381,50 @@ class TransactionDetailActivity : AppCompatActivity() {
         return progressDialog
     }
     
+    /**
+     * Show simple payment error dialog
+     */
+    private fun showPaymentError(code: String, message: String) {
+        val fullMessage = "$message\n\nError Code: $code"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Payment Error")
+            .setMessage(fullMessage)
+            .setPositiveButton("OK", null)
+            .setCancelable(false)
+            .show()
+    }
+    
+    /**
+     * Show payment error dialog with retry option
+     */
+    private fun showPaymentErrorWithRetry(code: String, message: String, onRetry: () -> Unit) {
+        val fullMessage = "$message\n\nError Code: $code"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Payment Error")
+            .setMessage(fullMessage)
+            .setPositiveButton("Retry") { _, _ -> onRetry() }
+            .setNegativeButton("Cancel", null)
+            .setCancelable(false)
+            .show()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        
+        // Clean up any progress dialogs and their timeout handlers
+        // The createProgressDialogWithTimeout method already handles cleanup in onDismissListener
+        // but we ensure any remaining dialogs are dismissed
+        
+        // Dismiss any current alert dialog
+        currentAlertDialog?.dismiss()
+        currentAlertDialog = null
+        
+        // No specific cleanup needed as progress dialogs are properly managed
+        // with timeout handlers that are cleaned up in onDismissListener
+    }
+
     /**
      * Show Toast message
      */

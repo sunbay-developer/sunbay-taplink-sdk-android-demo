@@ -20,12 +20,12 @@ object ConnectionPreferences {
     private const val KEY_MODE = "connection_mode"
     private const val KEY_LAN_IP = "lan_ip"
     private const val KEY_LAN_PORT = "lan_port"
-    private const val KEY_LAN_TLS_ENABLED = "lan_tls_enabled"
+    private const val KEY_CABLE_PROTOCOL = "cable_protocol"
     
     // Default values
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = 8443
-    private const val DEFAULT_LAN_TLS_ENABLED = false // LAN模式默认关闭TLS
+    private const val DEFAULT_CABLE_PROTOCOL = "AUTO"
     
     /**
      * Connection mode enumeration
@@ -34,6 +34,16 @@ object ConnectionPreferences {
         APP_TO_APP,    // Same-device integration (default)
         CABLE,         // Cross-device via cable
         LAN            // Local Area Network
+    }
+    
+    /**
+     * Cable protocol enumeration
+     */
+    enum class CableProtocol {
+        AUTO,          // Auto-detect protocol (default)
+        USB_AOA,       // USB Android Open Accessory 2.0
+        USB_VSP,       // USB Virtual Serial Port
+        RS232          // Standard RS232 serial communication
     }
     
     /**
@@ -50,10 +60,9 @@ object ConnectionPreferences {
      * @param mode Connection mode
      */
     fun saveConnectionMode(context: Context, mode: ConnectionMode) {
-        getPreferences(context)
-            .edit {
-                putString(KEY_MODE, mode.name)
-            }
+        getPreferences(context).edit {
+            putString(KEY_MODE, mode.name)
+        }
     }
     
     /**
@@ -81,11 +90,10 @@ object ConnectionPreferences {
      * @param port Port number
      */
     fun saveLanConfig(context: Context, ip: String, port: Int) {
-        getPreferences(context)
-            .edit {
-                putString(KEY_LAN_IP, ip)
-                    .putInt(KEY_LAN_PORT, port)
-            }
+        getPreferences(context).edit {
+            putString(KEY_LAN_IP, ip)
+            putInt(KEY_LAN_PORT, port)
+        }
     }
     
     /**
@@ -112,50 +120,41 @@ object ConnectionPreferences {
      * Get complete LAN configuration
      * 
      * @param context Android Context
-     * @return Triple(IP address, Port number, TLS enabled status)
+     * @return Pair(IP address, Port number)
      */
-    fun getLanConfig(context: Context): Triple<String?, Int, Boolean> {
+    fun getLanConfig(context: Context): Pair<String?, Int> {
         val prefs = getPreferences(context)
         val ip = prefs.getString(KEY_LAN_IP, null)
         val port = prefs.getInt(KEY_LAN_PORT, DEFAULT_LAN_PORT)
-        val tlsEnabled = prefs.getBoolean(KEY_LAN_TLS_ENABLED, DEFAULT_LAN_TLS_ENABLED)
-        return Triple(ip, port, tlsEnabled)
+        return Pair(ip, port)
     }
     
     /**
-     * Validate if LAN configuration is complete
+     * Save Cable protocol configuration
      * 
      * @param context Android Context
-     * @return Whether configuration is complete (IP address is not empty)
+     * @param protocol Cable protocol
      */
-    fun isLanConfigComplete(context: Context): Boolean {
-        val ip = getLanIp(context)
-        return !ip.isNullOrBlank()
+    fun saveCableProtocol(context: Context, protocol: CableProtocol) {
+        getPreferences(context).edit {
+            putString(KEY_CABLE_PROTOCOL, protocol.name)
+        }
     }
     
     /**
-     * Clear all connection configurations
+     * Get Cable protocol configuration
      * 
      * @param context Android Context
+     * @return Cable protocol, default is AUTO
      */
-    fun clearAll(context: Context) {
-        getPreferences(context)
-            .edit {
-                clear()
-            }
-    }
-    
-    /**
-     * Clear LAN configuration
-     * 
-     * @param context Android Context
-     */
-    fun clearLanConfig(context: Context) {
-        getPreferences(context)
-            .edit {
-                remove(KEY_LAN_IP)
-                    .remove(KEY_LAN_PORT)
-                    .remove(KEY_LAN_TLS_ENABLED)
-            }
+    fun getCableProtocol(context: Context): CableProtocol {
+        val prefs = getPreferences(context)
+        val protocolName = prefs.getString(KEY_CABLE_PROTOCOL, DEFAULT_CABLE_PROTOCOL)
+        return try {
+            CableProtocol.valueOf(protocolName ?: DEFAULT_CABLE_PROTOCOL)
+        } catch (e: IllegalArgumentException) {
+            // Return default value if saved value is invalid
+            CableProtocol.AUTO
+        }
     }
 }

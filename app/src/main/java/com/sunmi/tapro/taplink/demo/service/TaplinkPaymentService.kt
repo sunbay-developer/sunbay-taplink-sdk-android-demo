@@ -9,6 +9,7 @@ import com.sunmi.tapro.taplink.demo.util.NetworkUtils
 import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.config.TaplinkConfig
+import com.sunmi.tapro.taplink.sdk.enums.CableProtocol
 import com.sunmi.tapro.taplink.sdk.enums.ConnectionMode
 import com.sunmi.tapro.taplink.sdk.enums.LogLevel
 import com.sunmi.tapro.taplink.sdk.model.common.AmountInfo
@@ -66,65 +67,16 @@ class TaplinkPaymentService : PaymentService {
     private var context: Context? = null
 
     /**
-     * Generate user-friendly progress message from SDK event
-     * Prioritizes SDK-provided eventMsg over eventCode-based mapping
+     * Get progress message from SDK event - directly use SDK message
      */
     private fun getProgressMessage(event: SdkPaymentEvent, transactionType: String): String {
-        val eventStr = event.eventMsg
-        val eventMsg = event.eventMsg
-        
-        return when {
-            // If SDK provides eventMsg, use it directly for better accuracy
-            !eventMsg.isNullOrBlank() -> eventMsg
-            
-            // Otherwise use eventCode-based mapping
-            eventStr.contains("PROCESSING", ignoreCase = true) -> "Processing transaction"
-            eventStr.contains("WAITING_CARD", ignoreCase = true) -> "Please insert, swipe or tap card"
-            eventStr.contains("CARD_DETECTED", ignoreCase = true) -> "Card detected"
-            eventStr.contains("READING_CARD", ignoreCase = true) -> "Card information is being read"
-            eventStr.contains("WAITING_PIN", ignoreCase = true) -> "Please enter PIN on payment terminal"
-            eventStr.contains("WAITING_SIGNATURE", ignoreCase = true) -> "Please enter signature on payment terminal"
-            eventStr.contains("WAITING_RESPONSE", ignoreCase = true) -> "Waiting for payment gateway response"
-            eventStr.contains("PRINTING", ignoreCase = true) -> "Transaction is being printed"
-            eventStr.contains("COMPLETED", ignoreCase = true) -> "Transaction completed successfully"
-            eventStr.contains("CANCEL", ignoreCase = true) -> "Transaction cancelled"
-            else -> "$transactionType transaction processing..."
-        }
+        return event.eventMsg?.takeIf { it.isNotBlank() } 
+            ?: "$transactionType transaction processing..."
     }
 
     /**
-     * Re-initialize SDK for mode switching
-     * This method should be called when switching between connection modes
-     *
-     * @param context Android Context
-     * @param newMode New connection mode
-     * @return Initialization result
-     */
-    fun reinitializeForMode(
-        context: Context,
-        newMode: ConnectionPreferences.ConnectionMode
-    ): Boolean {
-        Log.d(TAG, "=== SDK Re-initialization for Mode Switch ===")
-        Log.d(TAG, "Current Mode: $currentMode")
-        Log.d(TAG, "New Mode: $newMode")
-
-        // Disconnect current connection if any
-        if (connected || connecting) {
-            Log.d(TAG, "Disconnecting current connection before re-initialization")
-            disconnect()
-        }
-
-        // Save new mode to preferences
-        ConnectionPreferences.saveConnectionMode(context, newMode)
-
-        // Re-initialize with new mode
-        return initialize(context, "", "", "")
-    }
-
-    /**
-     * Initialize SDK with connection mode detection
+     * Initialize SDK with simplified logic
      * Supports App-to-App, Cable, and LAN modes
-     * Re-initializes SDK when switching between modes
      */
     override fun initialize(
         context: Context,
@@ -133,57 +85,26 @@ class TaplinkPaymentService : PaymentService {
         secretKey: String
     ): Boolean {
         this.context = context
-
-        // Get current connection mode from preferences (this is the authoritative source)
         currentMode = ConnectionPreferences.getConnectionMode(context)
 
-        Log.d(TAG, "=== SDK Initialize Called ===")
-        Log.d(TAG, "Current connection mode: $currentMode")
+        Log.d(TAG, "Initializing SDK for mode: $currentMode")
 
-        // Read configuration parameters from resources (maintain consistency with existing approach)
+        // Read configuration from resources
         val actualAppId = context.getString(R.string.taplink_app_id)
         val actualMerchantId = context.getString(R.string.taplink_merchant_id)
         val actualSecretKey = context.getString(R.string.taplink_secret_key)
 
-        Log.d(TAG, "=== SDK Init Parameters ===")
-        Log.d(TAG, "App ID: $actualAppId")
-        Log.d(TAG, "Merchant ID: $actualMerchantId")
-        Log.d(TAG, "Secret Key: ${actualSecretKey.take(4)}****${actualSecretKey.takeLast(4)}")
-        Log.d(TAG, "Connection Mode: $currentMode")
-
-        // Validate configuration parameters
+        // Validate configuration
         if (actualAppId.isBlank() || actualMerchantId.isBlank() || actualSecretKey.isBlank()) {
-            Log.e(TAG, "=== SDK Initialization Failed: Missing Configuration ===")
-            Log.e(TAG, "App ID empty: ${actualAppId.isBlank()}")
-            Log.e(TAG, "Merchant ID empty: ${actualMerchantId.isBlank()}")
-            Log.e(TAG, "Secret Key empty: ${actualSecretKey.isBlank()}")
+            Log.e(TAG, "SDK initialization failed: Missing configuration")
             return false
         }
 
-        // Create SDK configuration based on connection mode (supports APP_TO_APP, CABLE, LAN)
+        // Map connection mode
         val sdkConnectionMode = when (currentMode) {
-            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                Log.d(TAG, "Configuring SDK for App-to-App mode")
-                ConnectionMode.APP_TO_APP
-            }
-
-            ConnectionPreferences.ConnectionMode.CABLE -> {
-                Log.d(TAG, "Configuring SDK for Cable mode")
-                ConnectionMode.CABLE
-            }
-
-            ConnectionPreferences.ConnectionMode.LAN -> {
-                Log.d(TAG, "Configuring SDK for LAN mode")
-                ConnectionMode.LAN
-            }
-
-            else -> {
-                Log.w(
-                    TAG,
-                    "Unsupported or uninitialized connection mode: $currentMode, using APP_TO_APP as default"
-                )
-                ConnectionMode.APP_TO_APP
-            }
+            ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
+            ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
+            else -> ConnectionMode.APP_TO_APP
         }
 
         val config = TaplinkConfig(
@@ -195,238 +116,126 @@ class TaplinkPaymentService : PaymentService {
             .setConnectionMode(sdkConnectionMode)
 
         return try {
-            Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, config)
-            Log.d(TAG, "=== SDK Initialization Success ===")
-            Log.d(TAG, "Mode: $currentMode")
-            Log.d(TAG, "SDK ready for connection")
+            Log.d(TAG, "SDK initialized successfully for mode: $currentMode")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "=== SDK Initialization Failed ===")
-            Log.e(TAG, "Mode: $currentMode")
-            Log.e(TAG, "Error: ${e.message}", e)
+            Log.e(TAG, "SDK initialization failed: ${e.message}", e)
             false
         }
     }
 
     /**
      * Connect to payment terminal based on current connection mode
-     * Creates appropriate ConnectionConfig based on mode (App-to-App, Cable, LAN)
-     * Supports first-time connection and subsequent auto-connection logic
+     * Simplified connection logic with unified configuration handling
      */
     override fun connect(listener: ConnectionListener) {
         this.connectionListener = listener
 
-        Log.d(TAG, "=== Taplink SDK Connection Started ===")
-        Log.d(TAG, "Connection Mode: $currentMode")
+        Log.d(TAG, "Connecting with mode: $currentMode")
 
-        // For LAN mode, check network connectivity first
+        // Check network for LAN mode
         if (currentMode == ConnectionPreferences.ConnectionMode.LAN) {
             context?.let { ctx ->
                 if (!NetworkUtils.isNetworkConnected(ctx)) {
                     Log.e(TAG, "Network not connected for LAN mode")
-                    val networkType = NetworkUtils.getNetworkType(ctx)
-                    Log.e(TAG, "Current network type: $networkType")
                     connectionListener?.onError(
                         "NETWORK_NOT_CONNECTED",
                         "Network is not connected. Please check your network connection and try again."
                     )
                     return
                 }
-                
-                val networkType = NetworkUtils.getNetworkType(ctx)
-                Log.d(TAG, "Network connected for LAN mode, type: $networkType")
-            } ?: run {
-                Log.e(TAG, "Context is null, cannot check network status")
-                connectionListener?.onError(
-                    "NO_CONTEXT",
-                    "Cannot check network status"
-                )
-                return
             }
         }
 
-        // Set connecting status
         connecting = true
 
-        // Create connection configuration based on mode
-        val connectionConfig = try {
-            createConnectionConfig()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create connection config", e)
-            connectionListener?.onError(
-                "CONFIG_ERROR",
-                "Failed to create connection configuration: ${e.message}"
-            )
-            connecting = false
-            return
-        }
+        // Create connection configuration
+        val connectionConfig = createConnectionConfig()
 
-        // For LAN mode, validate configuration requirements
-        if (currentMode == ConnectionPreferences.ConnectionMode.LAN) {
-            context?.let { ctx ->
-                val ip = ConnectionPreferences.getLanIp(ctx)
-                if (connectionConfig == null && (ip == null || ip.isEmpty())) {
-                    Log.e(TAG, "LAN mode requires IP configuration")
-                    connectionListener?.onError(
-                        "LAN_CONFIG_REQUIRED",
-                        "LAN mode requires IP address and port configuration"
-                    )
-                    connecting = false
-                    return
-                }
-            }
-        }
+        Log.d(TAG, "Calling TaplinkSDK.connect() with config: $connectionConfig")
 
-        Log.d(TAG, "=== Connection Request Parameters ===")
-        Log.d(TAG, "Connection Config: $connectionConfig")
-
-        Log.d(TAG, "=== Calling TaplinkSDK.connect() ===")
-
-        // Call SDK connect method with appropriate configuration
         TaplinkSDK.connect(connectionConfig, object : SdkConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
-                Log.d(TAG, "=== SDK Connection Callback: onConnected ===")
-                Log.d(TAG, "Device ID: $deviceId")
-                Log.d(TAG, "Tapro Version: $taproVersion")
-                Log.d(TAG, "Connection Mode: $currentMode")
-                // Reset connecting status
+                Log.d(TAG, "Connected - Device: $deviceId, Version: $taproVersion")
                 connecting = false
                 handleConnected(deviceId, taproVersion)
             }
 
             override fun onDisconnected(reason: String) {
-                Log.d(TAG, "=== SDK Connection Callback: onDisconnected ===")
-                Log.d(TAG, "Disconnect Reason: $reason")
-                Log.d(TAG, "Connection Mode: $currentMode")
-                // Reset connecting status
+                Log.d(TAG, "Disconnected - Reason: $reason")
                 connecting = false
                 handleDisconnected(reason)
             }
 
             override fun onError(error: SdkConnectionError) {
-                Log.e(TAG, "=== SDK Connection Callback: onError ===")
-                Log.e(TAG, "Error Code: ${error.code}")
-                Log.e(TAG, "Error Message: ${error.message}")
-                Log.e(TAG, "Connection Mode: $currentMode")
-                Log.e(TAG, "Full Error Object: $error")
-                // Reset connecting status
+                Log.e(TAG, "Connection error - Code: ${error.code}, Message: ${error.message}")
                 connecting = false
                 handleConnectionError(error.code, error.message)
             }
         })
-
-        Log.d(TAG, "=== TaplinkSDK.connect() Called Successfully ===")
-        Log.d(TAG, "Connection Mode: $currentMode")
-        Log.d(TAG, "Waiting for connection callbacks...")
     }
 
     /**
      * Create connection configuration based on current connection mode
-     * Handles first-time connection and auto-connection logic
+     * Unified configuration handling for all modes
+     * 
+     * Returns appropriate ConnectionConfig for LAN and Cable modes,
+     * or null for App-to-App mode (uses SDK default behavior)
      *
-     * @return ConnectionConfig for the current mode, or null for auto-detection/default behavior
+     * @return ConnectionConfig for the current mode, or null for auto-detection
      */
     private fun createConnectionConfig(): ConnectionConfig? {
         return when (currentMode) {
-            ConnectionPreferences.ConnectionMode.LAN -> {
-                createLanConnectionConfig()
-            }
-
-            ConnectionPreferences.ConnectionMode.CABLE -> {
-                createCableConnectionConfig()
-            }
-
-            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                createAppToAppConnectionConfig()
-            }
-
-            null -> {
-                Log.w(TAG, "Connection mode not initialized, using APP_TO_APP as default")
-                createAppToAppConnectionConfig()
-            }
+            ConnectionPreferences.ConnectionMode.LAN -> createLanConfig()
+            ConnectionPreferences.ConnectionMode.CABLE -> createCableConfig()
+            else -> null // App-to-App uses default behavior
         }
     }
 
     /**
      * Create LAN connection configuration
-     *
-     * Creates actual ConnectionConfig object with IP and port for LAN mode
-     * Falls back to null for auto-connection if no configuration is available
-     *
-     * @return ConnectionConfig with IP/port or null for auto-connection
+     * Validates IP address and port from preferences
+     * Throws IllegalArgumentException for invalid network parameters
      */
-    private fun createLanConnectionConfig(): ConnectionConfig? {
+    private fun createLanConfig(): ConnectionConfig? {
         val ctx = context ?: return null
-
         val ip = ConnectionPreferences.getLanIp(ctx)
         val port = ConnectionPreferences.getLanPort(ctx)
 
         if (ip != null && ip.isNotEmpty()) {
-            // Validate configuration parameters
-            Log.d(TAG, "=== LAN Connection Config (Creating) ===")
-            Log.d(TAG, "IP: $ip")
-            Log.d(TAG, "Port: $port")
-
-            // Validate IP address format
+            Log.d(TAG, "LAN config - IP: $ip, Port: $port")
+            
             if (!NetworkUtils.isValidIpAddress(ip)) {
-                Log.e(TAG, "Invalid IP address format: $ip")
                 throw IllegalArgumentException("Invalid IP address format: $ip")
             }
-
-            // Validate port range
             if (!NetworkUtils.isPortValid(port)) {
-                Log.e(TAG, "Invalid port number: $port")
                 throw IllegalArgumentException("Invalid port number: $port")
             }
 
-            Log.d(TAG, "LAN configuration validated successfully")
-
-            val connectionConfig =
-                ConnectionConfig()
-                    .setHost(ip)
-                    .setPort(port)
-
-            Log.d(TAG, "Created ConnectionConfig with host=$ip, port=$port")
-            return connectionConfig
+            return ConnectionConfig().setHost(ip).setPort(port)
         } else {
-            Log.d(TAG, "=== LAN Auto-Connect (using SDK cached device info) ===")
-            Log.d(TAG, "No explicit IP configuration, attempting auto-connect")
+            Log.d(TAG, "No LAN IP configured, using auto-connect")
             return null
         }
     }
 
     /**
-     * Create Cable connection configuration
-     * Uses auto-detection for cable type and protocol
-     *
-     * @return null to let SDK auto-detect cable type and protocol
+     * Create Cable connection configuration with protocol support
+     * Supports AUTO, USB_AOA, USB_VSP, RS232 protocols
      */
-    private fun createCableConnectionConfig(): ConnectionConfig? {
-        Log.d(TAG, "=== Cable Connection Config ===")
-        Log.d(TAG, "Auto-detect cable type and protocol")
-        Log.d(TAG, "Supported protocols: USB AOA, USB VSP, RS232")
-
-        // For Cable mode, pass null to let SDK auto-detect cable type and protocol
-        // SDK will automatically detect:
-        // - USB AOA (Android Open Accessory)
-        // - USB VSP (Virtual Serial Port)  
-        // - RS232 serial connection
-        return null
-    }
-
-    /**
-     * Create App-to-App connection configuration
-     * Uses default behavior for same-device communication
-     *
-     * @return null for default App-to-App behavior
-     */
-    private fun createAppToAppConnectionConfig(): ConnectionConfig? {
-        Log.d(TAG, "=== App-to-App Connection Config ===")
-        Log.d(TAG, "Using default same-device IPC communication")
-
-        // For App-to-App mode, pass null for default behavior
-        return null
+    private fun createCableConfig(): ConnectionConfig? {
+        val ctx = context ?: return null
+        val protocol = ConnectionPreferences.getCableProtocol(ctx)
+        
+        Log.d(TAG, "Cable config - Protocol: $protocol")
+        
+        return when (protocol) {
+            ConnectionPreferences.CableProtocol.AUTO -> null // Let SDK auto-detect
+            ConnectionPreferences.CableProtocol.USB_AOA -> ConnectionConfig().setCableProtocol(CableProtocol.USB_AOA)
+            ConnectionPreferences.CableProtocol.USB_VSP -> ConnectionConfig().setCableProtocol(CableProtocol.USB_VSP)
+            ConnectionPreferences.CableProtocol.RS232 -> ConnectionConfig().setCableProtocol(CableProtocol.RS232)
+        }
     }
 
     /**
@@ -437,12 +246,7 @@ class TaplinkPaymentService : PaymentService {
         connectedDeviceId = deviceId
         taproVersion = version
 
-        Log.d(TAG, "=== Connection Established Successfully ===")
-        Log.d(TAG, "Connected Device ID: $deviceId")
-        Log.d(TAG, "Tapro Version: $version")
-        Log.d(TAG, "Connection Status: CONNECTED")
-        Log.d(TAG, "Service Ready for Payment Operations")
-
+        Log.d(TAG, "Connected - Device: $deviceId, Version: $version")
         connectionListener?.onConnected(deviceId, version)
     }
 
@@ -454,89 +258,46 @@ class TaplinkPaymentService : PaymentService {
         connectedDeviceId = null
         taproVersion = null
 
-        Log.d(TAG, "=== Connection Disconnected ===")
-        Log.d(TAG, "Disconnect Reason: $reason")
-        Log.d(TAG, "Connection Status: DISCONNECTED")
-        Log.d(TAG, "Device ID: Cleared")
-        Log.d(TAG, "Tapro Version: Cleared")
-
+        Log.d(TAG, "Disconnected - Reason: $reason")
         connectionListener?.onDisconnected(reason)
     }
 
     /**
-     * Handle connection error with enhanced error mapping
+     * Handle connection error - directly forward SDK error
      */
     private fun handleConnectionError(code: String, message: String) {
         connected = false
         connectedDeviceId = null
         taproVersion = null
 
-        Log.e(TAG, "=== Connection Error ===")
-        Log.e(TAG, "Error Code: $code")
-        Log.e(TAG, "Error Message: $message")
-        Log.e(TAG, "Connection Mode: $currentMode")
-        Log.e(TAG, "Connection Status: FAILED")
-        Log.e(TAG, "Device ID: Cleared")
-        Log.e(TAG, "Tapro Version: Cleared")
-
-        // Map error codes to user-friendly messages based on connection mode
-        val (mappedCode, mappedMessage) = mapConnectionError(code, message)
-
-        connectionListener?.onError(mappedCode, mappedMessage)
+        Log.e(TAG, "Connection error - Code: $code, Message: $message")
+        connectionListener?.onError(code, message)
     }
 
     /**
-     * Pass through SDK error codes and messages without additional mapping
-     * SDK already provides appropriate error codes and user-friendly messages
-     *
-     * @param code Original error code from SDK
-     * @param message Original error message from SDK
-     * @return Pair of original error code and message
-     */
-    private fun mapConnectionError(code: String, message: String): Pair<String, String> {
-        Log.d(TAG, "Connection error mapping - Mode: $currentMode, Code: $code, Message: $message")
-
-        // Return SDK error information as-is
-        // SDK ConnectionError already provides appropriate error codes and user-friendly messages
-        return Pair(code, message)
-    }
-
-    /**
-     * Handle payment failure result, log complete error information
+     * Handle payment failure - directly forward SDK error
      */
     private fun handlePaymentFailure(
         transactionType: String,
         error: SdkPaymentError,
         callback: PaymentCallback
     ) {
-        // Log complete error response
-        Log.e(TAG, "=== $transactionType Response (Failure) ===")
-        Log.e(TAG, "Error Code: ${error.code}")
-        Log.e(TAG, "Error Message: ${error.message}")
-        Log.e(TAG, "Full Error Object: $error")
-
+        Log.e(TAG, "$transactionType failed - Code: ${error.code}, Message: ${error.message}")
         callback.onFailure(error.code, error.message)
     }
 
     /**
-     * Handle payment result, check actual transaction status and route to success or failure
+     * Handle payment result - simplified to directly forward SDK response
+     * Converts SDK result to internal PaymentResult format
+     * Determines success based on transaction result code and status
      */
     private fun handlePaymentResult(sdkResult: SdkPaymentResult, callback: PaymentCallback) {
-        // Log complete response first
-        Log.d(TAG, "=== Transaction Response (Raw) ===")
-        Log.d(TAG, "Response Code: ${sdkResult.code}")
-        Log.d(TAG, "Response Message: ${sdkResult.message}")
-        Log.d(TAG, "Transaction ID: ${sdkResult.transactionId}")
-        Log.d(TAG, "Transaction Request ID: ${sdkResult.transactionRequestId}")
-        Log.d(TAG, "Transaction Status: ${sdkResult.transactionStatus}")
-        Log.d(TAG, "Transaction Type: ${sdkResult.transactionType}")
-        Log.d(TAG, "Transaction Result Code: ${sdkResult.transactionResultCode}")
-        Log.d(TAG, "Transaction Result Message: ${sdkResult.transactionResultMsg}")
-        Log.d(TAG, "Full Response Object: $sdkResult")
+        Log.d(TAG, "Payment result - Code: ${sdkResult.code}, Status: ${sdkResult.transactionStatus}")
 
-        // Check if transaction actually succeeded
-        // Even if SDK calls onSuccess, we need to check transactionResultCode
-        val isActuallySuccessful = isTransactionSuccessful(sdkResult)
+        // Check if transaction is successful based on result code
+        val isSuccessful = sdkResult.transactionResultCode == "000" || 
+                          sdkResult.transactionResultCode == "0" ||
+                          sdkResult.transactionStatus == "SUCCESS"
 
         val result = PaymentResult(
             code = sdkResult.code,
@@ -603,61 +364,14 @@ class TaplinkPaymentService : PaymentService {
             }
         )
 
-        if (isActuallySuccessful) {
-            Log.d(TAG, "=== Transaction Actually Successful ===")
+        if (isSuccessful) {
             callback.onSuccess(result)
         } else {
-            Log.e(TAG, "=== Transaction Actually Failed (despite onSuccess callback) ===")
-            Log.e(TAG, "Failure Reason: ${sdkResult.transactionResultMsg}")
-            // Route to failure callback with the actual error details
             callback.onFailure(
                 sdkResult.transactionResultCode ?: "UNKNOWN_ERROR",
                 sdkResult.transactionResultMsg ?: "Transaction failed"
             )
         }
-    }
-
-    /**
-     * Check if transaction is actually successful based on result codes
-     * According to user feedback: Success transactions only return resultCode == "000"
-     */
-    private fun isTransactionSuccessful(sdkResult: SdkPaymentResult): Boolean {
-        Log.d(TAG, "=== Checking Transaction Success ===")
-        Log.d(TAG, "transactionStatus: ${sdkResult.transactionStatus}")
-        Log.d(TAG, "transactionResultCode: ${sdkResult.transactionResultCode}")
-        Log.d(TAG, "transactionResultMsg: ${sdkResult.transactionResultMsg}")
-        Log.d(TAG, "code: ${sdkResult.code}")
-
-        // According to user requirement: Success transactions return resultCode == "000" or "0"
-        // Check transactionResultCode first (most reliable indicator)
-        sdkResult.transactionResultCode?.let { resultCode ->
-            Log.d(TAG, "Checking transactionResultCode: $resultCode")
-            if (resultCode == "000" || resultCode == "0") {
-                Log.d(TAG, "SUCCESS by transactionResultCode: $resultCode")
-                return true
-            } else {
-                Log.d(TAG, "FAILED by transactionResultCode: $resultCode (not 000 or 0)")
-                return false
-            }
-        }
-
-        // If transactionResultCode is null, check transactionStatus as fallback
-        when (sdkResult.transactionStatus) {
-            "SUCCESS" -> {
-                Log.d(TAG, "SUCCESS by transactionStatus (fallback)")
-                return true
-            }
-
-            "FAILED" -> {
-                Log.d(TAG, "FAILED by transactionStatus (fallback)")
-                return false
-            }
-        }
-
-        // Final fallback: check main response code
-        val finalResult = sdkResult.code == "0"
-        Log.d(TAG, "Final result by code check (fallback): $finalResult (code: ${sdkResult.code})")
-        return finalResult
     }
 
     /**
@@ -709,144 +423,60 @@ class TaplinkPaymentService : PaymentService {
     }
 
     /**
-     * Connect with explicit LAN configuration
-     * Used for first-time LAN connection or when changing IP/port settings
-     *
-     * @param ip IP address of the Tapro device
-     * @param port Port number (default 8443)
-     * @param listener Connection status listener
+     * Connect with LAN configuration - simplified
      */
     fun connectWithLanConfig(
         ip: String,
         port: Int = 8443,
         listener: ConnectionListener
     ) {
-        // Check network connectivity first for LAN mode
-        context?.let { ctx ->
-            if (!NetworkUtils.isNetworkConnected(ctx)) {
-                Log.e(TAG, "Network not connected for LAN configuration")
-                val networkType = NetworkUtils.getNetworkType(ctx)
-                Log.e(TAG, "Current network type: $networkType")
-                listener.onError(
-                    "NETWORK_NOT_CONNECTED",
-                    "Network is not connected. Please check your network connection and try again."
-                )
-                return
-            }
-            
-            val networkType = NetworkUtils.getNetworkType(ctx)
-            Log.d(TAG, "Network connected for LAN configuration, type: $networkType")
-        } ?: run {
-            Log.e(TAG, "Context is null, cannot check network status")
-            listener.onError(
-                "NO_CONTEXT",
-                "Cannot check network status"
-            )
-            return
-        }
-        
-        // Validate parameters
+        // Basic validation
         if (!NetworkUtils.isValidIpAddress(ip)) {
             listener.onError("INVALID_IP", "Invalid IP address format: $ip")
             return
         }
-
         if (!NetworkUtils.isPortValid(port)) {
             listener.onError("INVALID_PORT", "Invalid port number: $port")
             return
         }
 
-        // Save configuration for future use
+        // Save configuration and switch mode
         context?.let { ctx ->
             ConnectionPreferences.saveLanConfig(ctx, ip, port)
-            Log.d(TAG, "LAN configuration saved: $ip:$port")
+            ConnectionPreferences.saveConnectionMode(ctx, ConnectionPreferences.ConnectionMode.LAN)
+            currentMode = ConnectionPreferences.ConnectionMode.LAN
+            Log.d(TAG, "LAN config saved: $ip:$port")
         }
 
-        // Set connection mode to LAN if not already
-        if (currentMode != ConnectionPreferences.ConnectionMode.LAN) {
-            context?.let { ctx ->
-                ConnectionPreferences.saveConnectionMode(
-                    ctx,
-                    ConnectionPreferences.ConnectionMode.LAN
-                )
-                currentMode = ConnectionPreferences.ConnectionMode.LAN
-                Log.d(TAG, "Connection mode switched to LAN")
-            }
-        }
-
-        // Proceed with normal connection
         connect(listener)
     }
 
     /**
-     * Connect with Cable mode
-     * Uses auto-detection for cable type and protocol
-     *
-     * @param listener Connection status listener
+     * Connect with Cable mode - simplified
      */
     fun connectWithCableMode(listener: ConnectionListener) {
-        // Set connection mode to Cable if not already
-        if (currentMode != ConnectionPreferences.ConnectionMode.CABLE) {
-            context?.let { ctx ->
-                ConnectionPreferences.saveConnectionMode(
-                    ctx,
-                    ConnectionPreferences.ConnectionMode.CABLE
-                )
-                currentMode = ConnectionPreferences.ConnectionMode.CABLE
-                Log.d(TAG, "Connection mode switched to Cable")
-            }
+        context?.let { ctx ->
+            ConnectionPreferences.saveConnectionMode(ctx, ConnectionPreferences.ConnectionMode.CABLE)
+            currentMode = ConnectionPreferences.ConnectionMode.CABLE
+            Log.d(TAG, "Switched to Cable mode")
         }
-
-        // Proceed with normal connection
         connect(listener)
     }
 
     /**
-     * Attempt auto-connection based on saved configuration and connection mode
-     * Used for application startup or reconnection scenarios
-     *
-     * @param listener Connection status listener
-     * @return true if auto-connection attempt was started, false if configuration is incomplete
+     * Attempt auto-connection - simplified
      */
     fun attemptAutoConnect(listener: ConnectionListener): Boolean {
-        Log.d(TAG, "=== Attempting Auto-Connect ===")
-        Log.d(TAG, "Current Mode: $currentMode")
-
+        Log.d(TAG, "Attempting auto-connect with mode: $currentMode")
+        
         return when (currentMode) {
-            ConnectionPreferences.ConnectionMode.LAN -> {
-                context?.let { ctx ->
-                    val ip = ConnectionPreferences.getLanIp(ctx)
-                    val port = ConnectionPreferences.getLanPort(ctx)
-                    if (ip != null && ip.isNotEmpty()) {
-                        Log.d(TAG, "Auto-connecting to LAN device: $ip:$port")
-                    } else {
-                        Log.d(TAG, "No LAN configuration available, attempting SDK auto-connect")
-                    }
-                    connect(listener)
-                    true
-                } ?: run {
-                    Log.w(TAG, "Context is null, cannot auto-connect")
-                    listener.onError("NO_CONTEXT", "Context is null, cannot auto-connect")
-                    false
-                }
-            }
-
-            ConnectionPreferences.ConnectionMode.CABLE -> {
-                Log.d(TAG, "Auto-connecting with Cable mode")
-                connect(listener)
-                true
-            }
-
-            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                Log.d(TAG, "Auto-connecting with App-to-App mode")
-                connect(listener)
-                true
-            }
-
             null -> {
-                Log.w(TAG, "Connection mode not initialized, cannot auto-connect")
                 listener.onError("MODE_NOT_INITIALIZED", "Connection mode not initialized")
                 false
+            }
+            else -> {
+                connect(listener)
+                true
             }
         }
     }
@@ -907,14 +537,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "SALE transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
-                // First check if we have eventMsg from SDK, use it if available
+                Log.d(TAG, "SALE progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "SALE")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -960,14 +584,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "AUTH transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
-                // First check if we have eventMsg from SDK, use it if available
+                Log.d(TAG, "AUTH progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "AUTH")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1023,13 +641,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "FORCED_AUTH transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "FORCED_AUTH progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "FORCED_AUTH")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1094,13 +707,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "REFUND transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "REFUND progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "REFUND")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1145,13 +753,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "VOID transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "VOID progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "VOID")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1214,13 +817,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "POST_AUTH transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "POST_AUTH progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "POST_AUTH")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1268,13 +866,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "INCREMENT_AUTH transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "INCREMENT_AUTH progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "INCREMENT_AUTH")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1321,13 +914,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "TIP_ADJUST transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "TIP_ADJUST progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "TIP_ADJUST")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1363,13 +951,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "QUERY transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "QUERY progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "QUERY")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })
@@ -1444,13 +1027,8 @@ class TaplinkPaymentService : PaymentService {
             }
 
             override fun onProgress(event: SdkPaymentEvent) {
-                // Convert SDK returned status code to user-friendly message
-                val eventStr = event.eventMsg
-                Log.d(TAG, "BATCH_CLOSE transaction progress - Event: $eventStr")
-
-                // Provide specific progress feedback based on event type
+                Log.d(TAG, "BATCH_CLOSE progress: ${event.eventMsg}")
                 val progressMessage = getProgressMessage(event, "BATCH_CLOSE")
-
                 callback.onProgress("PROCESSING", progressMessage)
             }
         })

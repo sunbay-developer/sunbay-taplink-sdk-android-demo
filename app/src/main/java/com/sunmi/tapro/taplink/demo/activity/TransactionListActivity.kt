@@ -48,6 +48,9 @@ class TransactionListActivity : AppCompatActivity() {
     private lateinit var adapter: TransactionAdapter
     private var transactions: List<Transaction> = emptyList()
     private lateinit var paymentService: TaplinkPaymentService
+    
+    // Current alert dialog reference for proper cleanup
+    private var currentAlertDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -150,23 +153,34 @@ class TransactionListActivity : AppCompatActivity() {
             return
         }
 
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+
         val input = android.widget.EditText(this)
         input.hint = "Enter Transaction Request ID"
         input.inputType = android.text.InputType.TYPE_CLASS_TEXT
 
-        AlertDialog.Builder(this)
+        currentAlertDialog = AlertDialog.Builder(this)
             .setTitle("Query Transaction")
             .setMessage("Please enter the Transaction Request ID to query")
             .setView(input)
-            .setPositiveButton("Query") { _, _ ->
+            .setPositiveButton("Query") { dialog, _ ->
                 val transactionRequestId = input.text.toString().trim()
                 if (transactionRequestId.isNotEmpty()) {
+                    dialog.dismiss()
+                    currentAlertDialog = null
                     executeQuery(transactionRequestId)
                 } else {
                     showToast("Please enter valid Transaction Request ID")
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                currentAlertDialog = null
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
+            }
             .show()
     }
 
@@ -414,7 +428,7 @@ class TransactionListActivity : AppCompatActivity() {
         paymentService.executeRefund(
             referenceOrderId = referenceOrderId,
             transactionRequestId = transactionRequestId,
-            originalTransactionId = "", // 无参考号退款，不设置原始交易ID
+            originalTransactionId = "", // Refund without reference, no original transaction ID set
             amount = java.math.BigDecimal.valueOf(amount),
             currency = "USD",
             description = "Refund without reference",
@@ -641,6 +655,20 @@ class TransactionListActivity : AppCompatActivity() {
      */
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        
+        // Clean up any progress dialogs
+        // ProgressDialog instances are created locally in methods and should be
+        // properly dismissed in their respective callbacks
+        
+        // Dismiss any current alert dialog
+        currentAlertDialog?.dismiss()
+        currentAlertDialog = null
+        
+        // No specific cleanup needed as progress dialogs are managed locally
     }
 
     /**

@@ -1,20 +1,27 @@
 package com.sunmi.tapro.taplink.demo.activity
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
-import android.text.TextWatcher
 import android.util.Log
 import android.view.View
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.Spinner
+import android.widget.Switch
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.lifecycle.lifecycleScope
 import com.sunmi.tapro.taplink.demo.R
-import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
+import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.NetworkUtils
+import kotlinx.coroutines.launch
 
 /**
  * Connection Mode Selection Activity
@@ -30,16 +37,6 @@ class ConnectionActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "ConnectionActivity"
         const val RESULT_CONNECTION_CHANGED = 100
-    }
-    
-    /**
-     * Cable protocol enumeration
-     */
-    enum class CableProtocol {
-        AUTO,       // 自动检测（默认）
-        USB_AOA,    // USB Android Open Accessory 2.0
-        USB_VSP,    // USB Virtual Serial Port (CDC-ACM)
-        RS232       // 标准 RS232 串行通信
     }
     
     // UI components
@@ -80,6 +77,9 @@ class ConnectionActivity : AppCompatActivity() {
     private var lastClickTime: Long = 0
     private val CLICK_INTERVAL: Long = 500 // 500ms interval
     
+    // Current alert dialog reference for proper cleanup
+    private var currentAlertDialog: android.app.AlertDialog? = null
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_connection)
@@ -90,9 +90,18 @@ class ConnectionActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
+        
         // Clean up validation runnables to prevent memory leaks
         etLanIp.removeCallbacks(ipValidationRunnable)
         etLanPort.removeCallbacks(portValidationRunnable)
+        
+        // Clear any other pending callbacks
+        etLanIp.removeCallbacks(null)
+        etLanPort.removeCallbacks(null)
+        
+        // Dismiss any current alert dialog
+        currentAlertDialog?.dismiss()
+        currentAlertDialog = null
     }
     
 
@@ -129,7 +138,6 @@ class ConnectionActivity : AppCompatActivity() {
         // LAN configuration inputs
         etLanIp = findViewById(R.id.et_lan_ip)
         etLanPort = findViewById(R.id.et_lan_port)
-//        switchTls = findViewById(R.id.switch_tls)
         
         // Cable configuration inputs
         spinnerCableProtocol = findViewById(R.id.spinner_cable_protocol)
@@ -176,11 +184,13 @@ class ConnectionActivity : AppCompatActivity() {
      * Load LAN configuration
      */
     private fun loadLanConfig() {
-        val (ip, port, _) = ConnectionPreferences.getLanConfig(this)
+        val lanConfig = ConnectionPreferences.getLanConfig(this)
+        val ip = lanConfig.first
+        val port = lanConfig.second
         
         ip?.let { etLanIp.setText(it) }
         etLanPort.setText(port.toString())
-//        switchTls.isChecked = false // LAN模式默认关闭TLS
+//        switchTls.isChecked = false // LAN mode defaults to TLS disabled
         
         Log.d(TAG, "Load LAN configuration - IP: $ip, Port: $port")
     }
@@ -189,17 +199,26 @@ class ConnectionActivity : AppCompatActivity() {
      * Setup cable protocol spinner
      */
     private fun setupCableProtocolSpinner() {
+        // Create protocol display names
+        val protocolNames = arrayOf(
+            "AUTO (Auto-detect)",
+            "USB_AOA (USB Android Open Accessory)",
+            "USB_VSP (USB Virtual Serial Port)",
+            "RS232 (Standard RS232 Serial)"
+        )
+        
         // Create adapter for spinner
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, CableProtocol.values())
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, protocolNames)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         
         // Set adapter to spinner
         spinnerCableProtocol.adapter = adapter
         
-        // Set default selection to AUTO
-        spinnerCableProtocol.setSelection(CableProtocol.AUTO.ordinal)
+        // Load saved protocol or set default to AUTO
+        val savedProtocol = ConnectionPreferences.getCableProtocol(this)
+        spinnerCableProtocol.setSelection(savedProtocol.ordinal)
         
-        Log.d(TAG, "Cable protocol spinner setup with AUTO as default")
+        Log.d(TAG, "Cable protocol spinner setup with saved protocol: $savedProtocol")
     }
     
     /**
@@ -216,12 +235,12 @@ class ConnectionActivity : AppCompatActivity() {
                 R.id.rb_cable -> {
                     selectedMode = ConnectionPreferences.ConnectionMode.CABLE
                     showConfigArea(ConnectionPreferences.ConnectionMode.CABLE)
-                    setupCableProtocolSpinner() // 初始化线缆协议选择器
+                    setupCableProtocolSpinner() // Initialize cable protocol spinner
                 }
                 R.id.rb_lan -> {
                     selectedMode = ConnectionPreferences.ConnectionMode.LAN
                     showConfigArea(ConnectionPreferences.ConnectionMode.LAN)
-                    loadLanConfig() // 重新加载LAN配置
+                    loadLanConfig() // Reload LAN configuration
                 }
             }
             
@@ -397,6 +416,11 @@ class ConnectionActivity : AppCompatActivity() {
             }
             
             ConnectionPreferences.ConnectionMode.LAN -> {
+                // Check network connectivity first
+                if (!NetworkUtils.isNetworkConnected(this)) {
+                    return ValidationResult(false, "No network connection available. Please check your network settings.")
+                }
+                
                 // Validate LAN configuration
                 val ip = etLanIp.text.toString().trim()
                 val portStr = etLanPort.text.toString().trim()
@@ -423,6 +447,13 @@ class ConnectionActivity : AppCompatActivity() {
                     return ValidationResult(false, "Port number must be between 1-65535. Recommended range: 8443-8453")
                 }
                 
+                // Check if target IP is in same subnet (warning, not error)
+                if (!NetworkUtils.isInSameSubnet(this, ip)) {
+                    val networkType = NetworkUtils.getNetworkType(this)
+                    val localIp = NetworkUtils.getLocalIpAddress(this)
+                    Log.w(TAG, "Target IP $ip may not be in same subnet as local IP $localIp (Network: $networkType)")
+                }
+                
                 return ValidationResult(true, "")
             }
             
@@ -441,109 +472,195 @@ class ConnectionActivity : AppCompatActivity() {
         // Save connection mode
         ConnectionPreferences.saveConnectionMode(this, selectedMode)
         
-        // Save LAN configuration (if in LAN mode)
-        if (selectedMode == ConnectionPreferences.ConnectionMode.LAN) {
-            val ip = etLanIp.text.toString().trim()
-            val port = etLanPort.text.toString().trim().toInt()
-//            val tlsEnabled = switchTls.isChecked
+        // Save mode-specific configuration
+        when (selectedMode) {
+            ConnectionPreferences.ConnectionMode.LAN -> {
+                val ip = etLanIp.text.toString().trim()
+                val port = etLanPort.text.toString().trim().toInt()
+                ConnectionPreferences.saveLanConfig(this, ip, port)
+                Log.d(TAG, "Save LAN configuration - IP: $ip, Port: $port")
+            }
             
-            ConnectionPreferences.saveLanConfig(this, ip, port)
+            ConnectionPreferences.ConnectionMode.CABLE -> {
+                // Save selected cable protocol
+                val selectedProtocolIndex = spinnerCableProtocol.selectedItemPosition
+                val selectedProtocol = ConnectionPreferences.CableProtocol.values()[selectedProtocolIndex]
+                ConnectionPreferences.saveCableProtocol(this, selectedProtocol)
+                Log.d(TAG, "Save Cable configuration - Protocol: $selectedProtocol")
+            }
             
-            Log.d(TAG, "Save LAN configuration - IP: $ip, Port: $port")
+            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
+                // No additional configuration needed for App-to-App mode
+                Log.d(TAG, "App-to-App mode - no additional configuration to save")
+            }
         }
         
         Log.d(TAG, "Configuration saved successfully - Mode: $selectedMode")
     }
     
     /**
-     * Reconnect with new mode (includes SDK re-initialization)
+     * Reconnect with new mode
      */
     private fun reconnectWithNewMode() {
-        Log.d(TAG, "Start reconnecting with mode switch - Mode: $selectedMode")
+        Log.d(TAG, "Start reconnecting with mode: $selectedMode")
         
-        // Show connecting status
-        btnConfirm.text = "Connecting..."
+        // Show connecting status with detailed progress
+        updateConnectionProgress("Initializing SDK...")
         btnConfirm.isEnabled = false
 
-        // Disconnect current connection
-        paymentService.disconnect()
-        
-        // Wait a moment before re-initializing SDK and connecting
-        btnConfirm.postDelayed({
-            reinitializeSDKAndConnect()
-        }, 500)
+        // Re-initialize and connect
+        reinitializeSDKAndConnect()
+    }
+    
+    /**
+     * Update connection progress display
+     */
+    private fun updateConnectionProgress(message: String) {
+        btnConfirm.text = message
+        Log.d(TAG, "Connection progress: $message")
     }
     
     /**
      * Re-initialize SDK and connect for mode switching
-     * This method handles SDK re-initialization when switching between connection modes
      */
     private fun reinitializeSDKAndConnect() {
-        Log.d(TAG, "=== SDK Re-initialization for Mode Switch ===")
-        Log.d(TAG, "Target Mode: $selectedMode")
+        Log.d(TAG, "Starting connection with mode: $selectedMode")
         
-        // Ensure SDK is completely disconnected before re-initialization
-        try {
-            Log.d(TAG, "Ensuring SDK is fully disconnected before re-initialization")
-            paymentService.disconnect()
-            
-            // Add a small delay to ensure complete disconnection
-            Thread.sleep(200)
-        } catch (e: Exception) {
-            Log.w(TAG, "Error during pre-initialization disconnect: ${e.message}")
-        }
+        // Step 1: Disconnect current connection
+        updateConnectionProgress("Disconnecting...")
+        paymentService.disconnect()
         
-        // Re-initialize SDK for the new connection mode
-        val reinitSuccess = paymentService.reinitializeForMode(this, selectedMode)
+        // Step 2: Re-initialize SDK for the new connection mode
+        updateConnectionProgress("Initializing SDK...")
+        val reinitSuccess = paymentService.initialize(
+            context = this,
+            appId = "", // Will be read from resources in initialize method
+            merchantId = "", // Will be read from resources in initialize method
+            secretKey = "" // Will be read from resources in initialize method
+        )
+        
         if (!reinitSuccess) {
             Log.e(TAG, "SDK re-initialization failed for mode: $selectedMode")
-            showConnectionResult(false, "SDK re-initialization failed")
+            showConnectionResult(false, "SDK initialization failed for $selectedMode mode")
             return
         }
         
-        Log.d(TAG, "SDK re-initialized successfully for mode: $selectedMode")
+        Log.d(TAG, "SDK initialized successfully for mode: $selectedMode")
         
-        // Add a small delay before attempting connection to ensure SDK is ready
-        btnConfirm.postDelayed({
-            Log.d(TAG, "Starting connection attempt after SDK re-initialization")
-            
-            // Connect to payment terminal with new mode
-            paymentService.connect(object : ConnectionListener {
-                override fun onConnected(deviceId: String, taproVersion: String) {
-                    Log.d(TAG, "Mode switch connection successful - DeviceId: $deviceId, Version: $taproVersion")
-                    runOnUiThread {
-                        showConnectionResult(true, "Connected (v$taproVersion)")
-                    }
-                }
+        // Step 3: Start connection process with pre-check
+        when (selectedMode) {
+            ConnectionPreferences.ConnectionMode.LAN -> {
+                val lanConfig = ConnectionPreferences.getLanConfig(this)
+                val ip = lanConfig.first ?: "unknown"
+                val port = lanConfig.second
+                updateConnectionProgress("Testing connectivity to $ip:$port...")
                 
-                override fun onDisconnected(reason: String) {
-                    Log.d(TAG, "Mode switch connection disconnected - Reason: $reason")
+                // Pre-check network connectivity
+                lifecycleScope.launch {
+                    val ipAddress = lanConfig.first ?: return@launch
+                    val portNumber = lanConfig.second
+                    val isReachable = NetworkUtils.testConnection(ipAddress, portNumber, 3000)
+                    if (!isReachable) {
+                        Log.w(TAG, "Pre-check failed: Cannot reach $ipAddress:$portNumber")
+                        runOnUiThread {
+                            updateConnectionProgress("Host unreachable, trying SDK connection...")
+                        }
+                    } else {
+                        Log.d(TAG, "Pre-check successful: $ipAddress:$portNumber is reachable")
+                        runOnUiThread {
+                            updateConnectionProgress("Host reachable, establishing connection...")
+                        }
+                    }
+                    
+                    // Continue with SDK connection regardless of pre-check result
                     runOnUiThread {
-                        showConnectionResult(false, "Connection disconnected: $reason")
+                        startSDKConnection()
                     }
                 }
-                
-                override fun onError(code: String, message: String) {
-                    Log.e(TAG, "Mode switch connection failed - Code: $code, Message: $message")
-                    runOnUiThread {
-                        val errorMsg = mapConnectionError(code, message)
-                        showConnectionResult(false, errorMsg)
-                    }
-                }
-            })
-        }, 300)
+                return
+            }
+            ConnectionPreferences.ConnectionMode.CABLE -> {
+                updateConnectionProgress("Connecting via Cable...")
+            }
+            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
+                updateConnectionProgress("Connecting to Tapro App...")
+            }
+        }
+        
+        // For non-LAN modes, start connection immediately
+        startSDKConnection()
     }
     
     /**
-     * Use SDK provided error message directly without additional mapping
+     * Start SDK connection process
+     */
+    private fun startSDKConnection() {
+        Log.d(TAG, "Starting SDK connection for mode: $selectedMode")
+        
+        // Connect to payment terminal with new mode
+        paymentService.connect(object : ConnectionListener {
+            override fun onConnected(deviceId: String, taproVersion: String) {
+                Log.d(TAG, "Connection successful - DeviceId: $deviceId, Version: $taproVersion")
+                runOnUiThread {
+                    showConnectionResult(true, "Connected to $deviceId (v$taproVersion)")
+                }
+            }
+            
+            override fun onDisconnected(reason: String) {
+                Log.d(TAG, "Connection disconnected - Reason: $reason")
+                runOnUiThread {
+                    showConnectionResult(false, "Connection disconnected: $reason")
+                }
+            }
+            
+            override fun onError(code: String, message: String) {
+                Log.e(TAG, "Connection failed - Code: $code, Message: $message")
+                runOnUiThread {
+                    val errorMsg = mapConnectionError(code, message)
+                    showConnectionResult(false, errorMsg)
+                }
+            }
+        })
+    }
+    
+    /**
+     * Map connection error to user-friendly message
      */
     private fun mapConnectionError(code: String, message: String): String {
-        // Return SDK provided error message as-is
-        // SDK already provides user-friendly error messages and suggestions
-        return if (message.isNotEmpty()) {
-            message
-        } else {
-            "Connection failed (Code: $code)"
+        // Provide user-friendly error messages based on common connection issues
+        return when {
+            message.contains("ETIMEDOUT") || message.contains("Connection timed out") -> {
+                when (selectedMode) {
+                    ConnectionPreferences.ConnectionMode.LAN -> {
+                        val lanConfig = ConnectionPreferences.getLanConfig(this)
+                        val ip = lanConfig.first ?: "unknown"
+                        val port = lanConfig.second
+                        "Unable to connect to $ip:$port\n\n" +
+                        "Possible solutions:\n" +
+                        "• Check if the target device is powered on\n" +
+                        "• Verify the IP address and port are correct\n" +
+                        "• Ensure both devices are on the same network\n" +
+                        "• Check firewall settings\n\n" +
+                        "Error Code: $code"
+                    }
+                    else -> "Connection timeout. Please check network connectivity.\n\nError Code: $code"
+                }
+            }
+            message.contains("failed to connect") -> {
+                "Connection failed. Please check network settings and try again.\n\nError Code: $code"
+            }
+            message.contains("UnknownHostException") -> {
+                "Cannot resolve host address. Please check IP address.\n\nError Code: $code"
+            }
+            message.contains("ConnectException") -> {
+                "Connection refused. Please check if the service is running.\n\nError Code: $code"
+            }
+            message.isNotEmpty() -> {
+                "$message\n\nError Code: $code"
+            }
+            else -> {
+                "Connection failed. Please check your settings and try again.\n\nError Code: $code"
+            }
         }
     }
     
@@ -561,10 +678,10 @@ class ConnectionActivity : AppCompatActivity() {
             setResult(RESULT_CONNECTION_CHANGED, resultIntent)
             finish()
         } else {
-            // Connection failed, show error and restore button states
+            // Connection failed, show simple error dialog
             Log.e(TAG, "Connection failed - $message")
             
-            showConfigError(message)
+            showSimpleConnectionError(message)
             
             btnConfirm.text = getString(R.string.btn_confirm)
             btnConfirm.isEnabled = true
@@ -572,39 +689,36 @@ class ConnectionActivity : AppCompatActivity() {
     }
     
     /**
-     * Show configuration error with enhanced formatting and guidance
+     * Show simple connection error dialog
+     */
+    private fun showSimpleConnectionError(message: String) {
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+        
+        currentAlertDialog = android.app.AlertDialog.Builder(this)
+            .setTitle("Connection Failed")
+            .setMessage(message)
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                currentAlertDialog = null
+            }
+            .setNeutralButton("Retry") { dialog, _ -> 
+                dialog.dismiss()
+                currentAlertDialog = null
+                // Retry connection
+                handleConfirm()
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
+            }
+            .show()
+    }
+    
+    /**
+     * Show configuration error with simple message
      */
     private fun showConfigError(message: String) {
-        // Format error message with mode-specific guidance
-        val enhancedMessage = buildString {
-            append(message)
-            
-            // Add mode-specific troubleshooting tips
-            when (selectedMode) {
-                ConnectionPreferences.ConnectionMode.LAN -> {
-                    append("\n\nTroubleshooting tips:")
-                    append("\n• Ensure both devices are on the same network")
-                    append("\n• Verify IP address and port number")
-                    append("\n• Check if Tapro service is running")
-                }
-                ConnectionPreferences.ConnectionMode.CABLE -> {
-                    append("\n\nTroubleshooting tips:")
-                    append("\n• Check cable connection on both ends")
-                    append("\n• Try a different USB/serial cable")
-                    append("\n• Grant USB permissions if prompted")
-                    append("\n• Ensure cable supports data transfer")
-                }
-                ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                    append("\n\nTroubleshooting tips:")
-                    append("\n• Install Tapro app if not present")
-                    append("\n• Start Tapro app and wait for initialization")
-                    append("\n• Check app signature configuration")
-                    append("\n• Restart both apps if needed")
-                }
-            }
-        }
-        
-        tvConfigError.text = enhancedMessage
+        tvConfigError.text = message
         cardConfigError.visibility = View.VISIBLE
         
         Log.w(TAG, "Configuration error displayed - Mode: $selectedMode, Message: $message")
@@ -623,12 +737,17 @@ class ConnectionActivity : AppCompatActivity() {
     private fun handleExitApp() {
         Log.d(TAG, "User clicks exit app")
         
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+        
         // Show confirmation dialog
-        android.app.AlertDialog.Builder(this)
+        currentAlertDialog = android.app.AlertDialog.Builder(this)
             .setTitle("Exit Application")
             .setMessage("Are you sure you want to exit the application?")
-            .setPositiveButton("Exit") { _, _ ->
+            .setPositiveButton("Exit") { dialog, _ ->
                 Log.d(TAG, "User confirms exit")
+                dialog.dismiss()
+                currentAlertDialog = null
                 
                 // Disconnect payment service
                 try {
@@ -646,6 +765,10 @@ class ConnectionActivity : AppCompatActivity() {
             .setNegativeButton("Cancel") { dialog, _ ->
                 Log.d(TAG, "User cancels exit")
                 dialog.dismiss()
+                currentAlertDialog = null
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
             }
             .setCancelable(true)
             .show()

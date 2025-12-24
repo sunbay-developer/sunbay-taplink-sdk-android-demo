@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -22,9 +23,9 @@ import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
-import com.sunmi.tapro.taplink.demo.util.ErrorHandler
+
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
-import com.sunmi.tapro.taplink.demo.util.ConnectionStatusMonitor
+
 import java.math.BigDecimal
 import java.text.DecimalFormat
 
@@ -69,60 +70,29 @@ class MainActivity : Activity() {
     // Currently selected amount
     private var selectedAmount: BigDecimal = BigDecimal.ZERO
 
-    // Cache last transaction type for retry
-    private var lastTransactionType: TransactionType? = null
-
     // Amount formatter
     private val amountFormatter = DecimalFormat("$#,##0.00")
 
     // Payment progress dialog
     private var paymentProgressDialog: ProgressDialog? = null
+    
+    // Current alert dialog reference for proper cleanup
+    private var currentAlertDialog: AlertDialog? = null
 
     // Flag to indicate if custom amount is being programmatically updated (to avoid TextWatcher trigger)
     private var isUpdatingCustomAmount = false
-    
-    // Connection status monitor for network quality and device reachability
-    private lateinit var connectionStatusMonitor: ConnectionStatusMonitor
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        try {
-            Log.d(TAG, "MainActivity starting creation")
-            setContentView(R.layout.activity_main)
-
-            Log.d(TAG, "Layout file loaded successfully")
-
-            // Initialize UI components
-            initViews()
-            Log.d(TAG, "UI components initialization completed")
-
-            // Initialize payment service
-            initPaymentService()
-            Log.d(TAG, "Payment service initialization completed")
-            
-            // Initialize connection status monitor
-            initConnectionStatusMonitor()
-            Log.d(TAG, "Connection status monitor initialization completed")
-
-            // Now safe to update transaction buttons state
-            updateTransactionButtonsState()
-            Log.d(TAG, "Transaction buttons state updated")
-
-            // Set up event listeners
-            setupEventListeners()
-            Log.d(TAG, "Event listeners setup completed")
-
-            // Start auto-connection based on saved mode
-            startAutoConnection()
-            Log.d(TAG, "MainActivity creation completed")
-
-        } catch (e: Exception) {
-            Log.e(TAG, "MainActivity creation process failed", e)
-            // Show error message to user
-            Toast.makeText(this, "Application startup failed: ${e.message}", Toast.LENGTH_LONG)
-                .show()
-        }
+        // Initialize components in simple sequence
+        initViews()
+        initPaymentService()
+        setupEventListeners()
+        attemptAutoConnection()
+        
+        Log.d(TAG, "MainActivity initialization completed")
     }
 
 
@@ -130,173 +100,65 @@ class MainActivity : Activity() {
      * Initialize UI components
      */
     private fun initViews() {
-        try {
-            Log.d(TAG, "Begin initializing UI components")
+        // Top bar
+        layoutTopBar = findViewById(R.id.layout_top_bar)
+        tvConnectionType = findViewById(R.id.tv_connection_type)
+        tvConnectionStatus = findViewById(R.id.tv_connection_status)
+        btnSettings = findViewById(R.id.btn_settings)
+        btnTransactionHistory = findViewById(R.id.btn_transaction_history)
 
-            // Top bar
-            layoutTopBar = findViewById(R.id.layout_top_bar)
-            tvConnectionType = findViewById(R.id.tv_connection_type)
-            tvConnectionStatus = findViewById(R.id.tv_connection_status)
-            btnSettings = findViewById(R.id.btn_settings)
-            btnTransactionHistory = findViewById(R.id.btn_transaction_history)
+        // Product selection buttons
+        btnAmount10 = findViewById(R.id.btn_product_coffee)
+        btnAmount20 = findViewById(R.id.btn_product_sandwich)
+        btnAmount50 = findViewById(R.id.btn_product_lunch)
+        btnAmount100 = findViewById(R.id.btn_product_dinner)
 
-            // Product selection buttons
-            btnAmount10 = findViewById(R.id.btn_product_coffee)
-            btnAmount20 = findViewById(R.id.btn_product_sandwich)
-            btnAmount50 = findViewById(R.id.btn_product_lunch)
-            btnAmount100 = findViewById(R.id.btn_product_dinner)
+        // Custom amount input
+        etCustomAmount = findViewById(R.id.et_custom_amount)
 
-            // Custom amount input
-            etCustomAmount = findViewById(R.id.et_custom_amount)
+        // Currently selected amount display
+        tvSelectedAmount = findViewById(R.id.tv_selected_amount)
 
-            // Currently selected amount display
-            tvSelectedAmount = findViewById(R.id.tv_selected_amount)
+        // Transaction buttons
+        btnSale = findViewById(R.id.btn_sale)
+        btnAuth = findViewById(R.id.btn_auth)
+        btnForcedAuth = findViewById(R.id.btn_forced_auth)
 
-            // Transaction buttons
-            btnSale = findViewById(R.id.btn_sale)
-            btnAuth = findViewById(R.id.btn_auth)
-            btnForcedAuth = findViewById(R.id.btn_forced_auth)
+        // Payment status display
+        tvPaymentStatus = findViewById(R.id.tv_payment_status)
 
-            // Payment status display
-            tvPaymentStatus = findViewById(R.id.tv_payment_status)
-
-            Log.d(TAG, "All UI components found successfully")
-
-
-            // Initial state
-            updateSelectedAmountDisplay()
-            // Note: updatePayButtonState() will be called after initPaymentService()
-
-            Log.d(TAG, "UI components initialization completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "UI components initialization failed", e)
-            throw e
-        }
+        // Initialize display
+        updateSelectedAmountDisplay()
     }
 
     /**
      * Initialize payment service
-     * Re-initializes SDK if connection mode has changed since last initialization
      */
     private fun initPaymentService() {
-        try {
-            Log.d(TAG, "Begin initializing payment service instance")
-
-            // Get service instance
-            paymentService = TaplinkPaymentService.getInstance()
-            
-            // Get current connection mode
-            val currentMode = ConnectionPreferences.getConnectionMode(this)
-            val serviceMode = paymentService.getCurrentConnectionMode()
-            
-            Log.d(TAG, "Current saved mode: $currentMode")
-            Log.d(TAG, "Service current mode: $serviceMode")
-            
-            // Re-initialize SDK if mode has changed
-            if (currentMode != serviceMode) {
-                Log.d(TAG, "Connection mode changed, re-initializing SDK")
-                val success = paymentService.reinitializeForMode(this, currentMode)
-                if (success) {
-                    Log.d(TAG, "SDK re-initialization successful for mode: $currentMode")
-                } else {
-                    Log.e(TAG, "SDK re-initialization failed for mode: $currentMode")
-                    Toast.makeText(
-                        this,
-                        "Failed to initialize SDK for $currentMode mode",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            } else {
-                Log.d(TAG, "Connection mode unchanged, using existing SDK initialization")
+        // Get service instance
+        paymentService = TaplinkPaymentService.getInstance()
+        
+        // Get current connection mode
+        val currentMode = ConnectionPreferences.getConnectionMode(this)
+        val serviceMode = paymentService.getCurrentConnectionMode()
+        
+        // Re-initialize SDK if mode has changed
+        if (currentMode != serviceMode) {
+            val success = paymentService.initialize(
+                context = this,
+                appId = "", // Will be read from resources in initialize method
+                merchantId = "", // Will be read from resources in initialize method
+                secretKey = "" // Will be read from resources in initialize method
+            )
+            if (!success) {
+                showError("SDK Initialization Failed", "Failed to initialize SDK for $currentMode mode")
             }
-
-            Log.d(TAG, "Payment service instance initialized successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Payment service instance initialization failed", e)
-            Toast.makeText(
-                this,
-                "Payment service initialization failed: ${e.message}",
-                Toast.LENGTH_LONG
-            ).show()
         }
+        
+        // Update transaction buttons state after service initialization
+        updateTransactionButtonsState()
     }
     
-    /**
-     * Initialize connection status monitor for network quality and device reachability
-     */
-    private fun initConnectionStatusMonitor() {
-        try {
-            connectionStatusMonitor = ConnectionStatusMonitor(this)
-            
-            // Start monitoring for LAN mode only
-            val currentMode = ConnectionPreferences.getConnectionMode(this)
-            if (currentMode == ConnectionPreferences.ConnectionMode.LAN) {
-                startConnectionStatusMonitoring()
-            }
-            
-            Log.d(TAG, "Connection status monitor initialized for mode: $currentMode")
-        } catch (e: Exception) {
-            Log.e(TAG, "Connection status monitor initialization failed", e)
-        }
-    }
-    
-    /**
-     * Start connection status monitoring for network connectivity and LAN device reachability
-     */
-    private fun startConnectionStatusMonitoring() {
-        connectionStatusMonitor.startMonitoring(object : ConnectionStatusMonitor.ConnectionStatusListener {
-            override fun onNetworkAvailable(isWifi: Boolean) {
-                runOnUiThread {
-                    val networkType = if (isWifi) "WiFi" else "Mobile"
-                    Log.d(TAG, "Network available: $networkType")
-                    
-                    // Show brief toast for network changes
-                    if (isWifi) {
-//                        ErrorHandler.showToast(this@MainActivity, "WiFi connected - Good for LAN mode")
-                    } else {
-                        ErrorHandler.showToast(this@MainActivity, "Mobile network - LAN mode may not work")
-                    }
-                }
-            }
-            
-            override fun onNetworkLost() {
-                runOnUiThread {
-                    Log.w(TAG, "Network connection lost")
-                    updateConnectionStatus("Not Connected", false)
-                    ErrorHandler.showToast(this@MainActivity, "Network connection lost")
-                }
-            }
-            
-
-            
-            override fun onLanDeviceReachable(ip: String, responseTime: Long) {
-                runOnUiThread {
-                    Log.d(TAG, "LAN device reachable: $ip (${responseTime}ms)")
-                    // Could update UI with device reachability status
-                }
-            }
-            
-            override fun onLanDeviceUnreachable(ip: String) {
-                runOnUiThread {
-                    Log.w(TAG, "LAN device unreachable: $ip")
-                    // Could show warning about device availability
-                }
-            }
-        })
-    }
-    
-    /**
-     * Stop connection status monitoring
-     */
-    private fun stopConnectionStatusMonitoring() {
-        try {
-            connectionStatusMonitor.stopMonitoring()
-            Log.d(TAG, "Connection status monitoring stopped")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to stop connection status monitoring", e)
-        }
-    }
-
     /**
      * Set up event listeners
      */
@@ -346,30 +208,17 @@ class MainActivity : Activity() {
 
     /**
      * Start auto-connection based on saved connection mode
-     * Implements automatic connection logic for application restart
      */
-    private fun startAutoConnection() {
-        Log.d(TAG, "=== Starting Auto-Connection ===")
-        
-        // Get saved connection mode
+    private fun attemptAutoConnection() {
         val savedMode = ConnectionPreferences.getConnectionMode(this)
-        Log.d(TAG, "Saved connection mode: $savedMode")
-        
-        // Update connection status display
         updateConnectionStatus("Connecting...", false)
         
-        // Attempt auto-connection based on mode
         when (savedMode) {
-            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                Log.d(TAG, "Auto-connecting with App-to-App mode")
-                connectToPaymentService()
-            }
+            ConnectionPreferences.ConnectionMode.APP_TO_APP,
             ConnectionPreferences.ConnectionMode.CABLE -> {
-                Log.d(TAG, "Auto-connecting with Cable mode")
                 connectToPaymentService()
             }
             ConnectionPreferences.ConnectionMode.LAN -> {
-                Log.d(TAG, "Auto-connecting with LAN mode")
                 attemptLanAutoConnection()
             }
         }
@@ -377,27 +226,19 @@ class MainActivity : Activity() {
     
     /**
      * Attempt LAN auto-connection
-     * Uses saved IP configuration or SDK cached device info
      */
     private fun attemptLanAutoConnection() {
         val lanConfig = ConnectionPreferences.getLanConfig(this)
         val ip = lanConfig.first
-        val port = lanConfig.second
         
-        if (ip != null && ip.isNotEmpty()) {
-            Log.d(TAG, "LAN auto-connect using saved configuration: $ip:$port")
-            updateConnectionStatus("Connecting...", false)
-        } else {
-            Log.d(TAG, "LAN auto-connect using SDK cached device info")
-            updateConnectionStatus("Connecting...", false)
+        if (ip.isNullOrEmpty()) {
+            updateConnectionStatus("Configuration Required", false)
+            return
         }
         
-        // Use TaplinkPaymentService's auto-connect method
         val success = paymentService.attemptAutoConnect(object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 runOnUiThread {
-                    Log.d(TAG, "LAN auto-connect successful - Device ID: $deviceId, Version: $taproVersion")
-                    // Display version info in connection status
                     val statusText = if (taproVersion.isNotEmpty()) {
                         "Connected (v$taproVersion)"
                     } else {
@@ -409,64 +250,31 @@ class MainActivity : Activity() {
             
             override fun onDisconnected(reason: String) {
                 runOnUiThread {
-                    Log.d(TAG, "LAN auto-connect disconnected - Reason: $reason")
                     updateConnectionStatus("Not Connected", false)
                 }
             }
             
             override fun onError(code: String, message: String) {
                 runOnUiThread {
-                    Log.e(TAG, "LAN auto-connect error - Code: $code, Message: $message")
-                    handleAutoConnectionError(code, message)
+                    updateConnectionStatus("Connection Failed", false)
+                    showConnectionFailure(message.ifEmpty { "Auto-connect failed (Code: $code)" })
                 }
             }
         })
         
         if (!success) {
-            Log.w(TAG, "LAN auto-connect could not be started")
             updateConnectionStatus("Configuration Required", false)
         }
     }
-    
-    /**
-     * Handle auto-connection errors using SDK provided error information
-     * Shows brief status update and toast with SDK error message
-     */
-    private fun handleAutoConnectionError(code: String, message: String) {
-        val currentMode = ConnectionPreferences.getConnectionMode(this)
-        
-        // Use SDK provided error message for status
-        val modePrefix = when (currentMode) {
-            ConnectionPreferences.ConnectionMode.LAN -> "LAN"
-            ConnectionPreferences.ConnectionMode.CABLE -> "Cable"
-            ConnectionPreferences.ConnectionMode.APP_TO_APP -> "App-to-App"
-            else -> "Connection"
-        }
-        
-        updateConnectionStatus("Connection Failed", false)
-        
-        // Show SDK error message in toast
-        val toastMsg = message.ifEmpty {
-            "Auto-connect failed (Code: $code)"
-        }
-        ErrorHandler.showToast(this, toastMsg)
-        
-        Log.d(TAG, "Auto-connect error - Mode: $currentMode, Code: $code, Message: $message")
-    }
+
 
     /**
      * Connect to payment service
-     * Call TaplinkSDK.connect to establish connection based on current mode
      */
     private fun connectToPaymentService() {
-        val currentMode = ConnectionPreferences.getConnectionMode(this)
-        Log.d(TAG, "Connecting with mode: $currentMode")
-        
         paymentService.connect(object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 runOnUiThread {
-                    Log.d(TAG, "Connected - Device ID: $deviceId, Version: $taproVersion, Mode: $currentMode")
-                    // Display version info in connection status
                     val statusText = if (taproVersion.isNotEmpty()) {
                         "Connected (v$taproVersion)"
                     } else {
@@ -478,27 +286,14 @@ class MainActivity : Activity() {
 
             override fun onDisconnected(reason: String) {
                 runOnUiThread {
-                    Log.d(TAG, "Disconnected - Reason: $reason, Mode: $currentMode")
                     updateConnectionStatus("Not Connected", false)
                 }
             }
 
             override fun onError(code: String, message: String) {
                 runOnUiThread {
-                    Log.e(TAG, "Connection error - Code: $code, Message: $message, Mode: $currentMode")
-                    
                     updateConnectionStatus("Connection Failed", false)
-
-                    // Use unified error handling for manual connections (not auto-connect)
-                    ErrorHandler.handleConnectionError(
-                        context = this@MainActivity,
-                        errorCode = code,
-                        errorMessage = message,
-                        onRetry = {
-                            // Retry connection
-                            connectToPaymentService()
-                        }
-                    )
+                    showConnectionFailure(message.ifEmpty { "Connection failed (Code: $code)" })
                 }
             }
         })
@@ -507,7 +302,7 @@ class MainActivity : Activity() {
 
 
     /**
-     * Update connection status display with simple status information
+     * Update connection status display
      */
     private fun updateConnectionStatus(status: String, connected: Boolean) {
         // Update connection mode display
@@ -516,21 +311,60 @@ class MainActivity : Activity() {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> "App-to-App"
             ConnectionPreferences.ConnectionMode.CABLE -> "Cable"
             ConnectionPreferences.ConnectionMode.LAN -> "LAN"
-            else -> "Unknown Mode"
         }
         tvConnectionType.text = modeText
-        
-        // Display simple status without additional details
         tvConnectionStatus.text = status
 
         // Update transaction button state based on connection status
         updateTransactionButtonsState()
-        
-        // Log status change for debugging
-        Log.d(TAG, "Connection status updated: $modeText - $status (connected: $connected)")
     }
     
 
+
+    /**
+     * Show simple error dialog
+     */
+    private fun showError(title: String, message: String) {
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+        
+        currentAlertDialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                currentAlertDialog = null
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
+            }
+            .show()
+    }
+
+    /**
+     * Show connection failure dialog with retry option
+     */
+    private fun showConnectionFailure(message: String) {
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+        
+        currentAlertDialog = AlertDialog.Builder(this)
+            .setTitle("Connection Failed")
+            .setMessage(message)
+            .setPositiveButton("Retry") { dialog, _ -> 
+                dialog.dismiss()
+                currentAlertDialog = null
+                attemptAutoConnection()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                currentAlertDialog = null
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
+            }
+            .show()
+    }
 
     /**
      * Add amount
@@ -587,35 +421,20 @@ class MainActivity : Activity() {
      * Update transaction buttons state
      */
     private fun updateTransactionButtonsState() {
-        try {
-            // Check if paymentService is initialized
-            if (!::paymentService.isInitialized) {
-                Log.d(TAG, "PaymentService not initialized yet, skip button state update")
-                btnSale.isEnabled = false
-                btnAuth.isEnabled = false
-                btnForcedAuth.isEnabled = false
-                return
-            }
-
-            val connected = paymentService.isConnected()
-            val connecting = paymentService.isConnecting()
-            val hasAmount = selectedAmount > BigDecimal.ZERO
-            val enabled = connected && hasAmount
-
-            btnSale.isEnabled = enabled
-            btnAuth.isEnabled = enabled
-            btnForcedAuth.isEnabled = enabled
-
-            Log.d(
-                TAG,
-                "Update transaction buttons state - Connected: $connected, Connecting: $connecting, HasAmount: $hasAmount"
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating transaction buttons state", e)
+        if (!::paymentService.isInitialized) {
             btnSale.isEnabled = false
             btnAuth.isEnabled = false
             btnForcedAuth.isEnabled = false
+            return
         }
+
+        val connected = paymentService.isConnected()
+        val hasAmount = selectedAmount > BigDecimal.ZERO
+        val enabled = connected && hasAmount
+
+        btnSale.isEnabled = enabled
+        btnAuth.isEnabled = enabled
+        btnForcedAuth.isEnabled = enabled
     }
 
     /**
@@ -628,89 +447,88 @@ class MainActivity : Activity() {
         cashbackAmount: Double?,
         serviceFee: Double?
     ) {
+        if (!validatePaymentConditions()) return
+
+        val transactionData = createTransactionData()
+        val transaction = createSaleTransaction(transactionData, surchargeAmount, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        
+        TransactionRepository.addTransaction(transaction)
+        executeSalePayment(transactionData, surchargeAmount, tipAmount, taxAmount, cashbackAmount, serviceFee)
+    }
+
+    /**
+     * Validate payment conditions
+     */
+    private fun validatePaymentConditions(): Boolean {
         if (!paymentService.isConnected()) {
             showToast("Not connected to payment terminal")
-            return
+            return false
         }
 
         if (selectedAmount <= BigDecimal.ZERO) {
             showToast("Please select payment amount")
-            return
+            return false
         }
 
-        // Cache transaction type for retry
-        lastTransactionType = TransactionType.SALE
+        return true
+    }
 
-        Log.d(
-            TAG,
-            "Start SALE payment - Amount: $selectedAmount, SurchargeAmount: $surchargeAmount, TipAmount: $tipAmount, TaxAmount: $taxAmount, CashbackAmount: $cashbackAmount"
-        )
-
-        // Generate order ID and transaction request ID
+    /**
+     * Create transaction data with IDs
+     */
+    private fun createTransactionData(): TransactionData {
         val timestamp = System.currentTimeMillis()
-        val referenceOrderId = "ORDER_$timestamp"
-        val transactionRequestId = "TXN_REQ_${timestamp}_${(1000..9999).random()}"
-
-        Log.d(
-            TAG,
-            "Creating SALE transaction - RequestId: $transactionRequestId, OrderId: $referenceOrderId"
+        return TransactionData(
+            timestamp = timestamp,
+            referenceOrderId = "ORDER_$timestamp",
+            transactionRequestId = "TXN_REQ_${timestamp}_${(1000..9999).random()}"
         )
+    }
 
-        // Create transaction record (initial status is PROCESSING)
-        val transaction = Transaction(
-            transactionRequestId = transactionRequestId,
+    /**
+     * Create sale transaction record
+     */
+    private fun createSaleTransaction(
+        data: TransactionData,
+        surchargeAmount: Double?,
+        tipAmount: Double?,
+        taxAmount: Double?,
+        cashbackAmount: Double?,
+        serviceFee: Double?
+    ): Transaction {
+        return Transaction(
+            transactionRequestId = data.transactionRequestId,
             transactionId = null,
-            referenceOrderId = referenceOrderId,
+            referenceOrderId = data.referenceOrderId,
             type = TransactionType.SALE,
             amount = selectedAmount,
             currency = "USD",
             status = TransactionStatus.PROCESSING,
-            timestamp = timestamp,
+            timestamp = data.timestamp,
             surchargeAmount = surchargeAmount?.let { BigDecimal.valueOf(it) },
             tipAmount = tipAmount?.let { BigDecimal.valueOf(it) },
             taxAmount = taxAmount?.let { BigDecimal.valueOf(it) },
             cashbackAmount = cashbackAmount?.let { BigDecimal.valueOf(it) },
             serviceFee = serviceFee?.let { BigDecimal.valueOf(it) }
         )
+    }
 
-        // Save transaction to repository
-        val added = TransactionRepository.addTransaction(transaction)
-        Log.d(TAG, "Transaction added to repository: $added")
-
-        // Execute SALE payment
-        val callback = object : PaymentCallback {
-            override fun onSuccess(result: PaymentResult) {
-                runOnUiThread {
-                    handlePaymentSuccess(result)
-                }
-            }
-
-            override fun onFailure(code: String, message: String) {
-                runOnUiThread {
-                    handlePaymentFailure(transactionRequestId, code, message)
-                    hidePaymentProgressDialog()
-                }
-
-            }
-
-            override fun onProgress(status: String, message: String) {
-                runOnUiThread {
-                    Log.d(TAG, "Payment progress callback: $message")
-
-                    // Only show generic message for very generic processing messages
-                    val displayMessage = when {
-                        message.matches(Regex(".*transaction processing\\.\\.\\.", RegexOption.IGNORE_CASE)) ->
-                            "Payment processing, please complete in Tapro app"
-                        else -> message
-                    }
-                    updatePaymentProgress(displayMessage)
-                }
-            }
-        }
-
+    /**
+     * Execute sale payment
+     */
+    private fun executeSalePayment(
+        data: TransactionData,
+        surchargeAmount: Double?,
+        tipAmount: Double?,
+        taxAmount: Double?,
+        cashbackAmount: Double?,
+        serviceFee: Double?
+    ) {
+        val callback = createPaymentCallback(data.transactionRequestId)
+        
         paymentService.executeSale(
-            referenceOrderId = referenceOrderId,
-            transactionRequestId = transactionRequestId,
+            referenceOrderId = data.referenceOrderId,
+            transactionRequestId = data.transactionRequestId,
             amount = selectedAmount,
             currency = "USD",
             description = "Demo SALE Payment - ${amountFormatter.format(selectedAmount)}",
@@ -722,6 +540,46 @@ class MainActivity : Activity() {
             callback = callback
         )
     }
+
+    /**
+     * Create payment callback
+     */
+    private fun createPaymentCallback(transactionRequestId: String): PaymentCallback {
+        return object : PaymentCallback {
+            override fun onSuccess(result: PaymentResult) {
+                runOnUiThread {
+                    handlePaymentSuccess(result)
+                }
+            }
+
+            override fun onFailure(code: String, message: String) {
+                runOnUiThread {
+                    handlePaymentFailure(transactionRequestId, code, message)
+                    hidePaymentProgressDialog()
+                }
+            }
+
+            override fun onProgress(status: String, message: String) {
+                runOnUiThread {
+                    val displayMessage = when {
+                        message.matches(Regex(".*transaction processing\\.\\.\\.", RegexOption.IGNORE_CASE)) ->
+                            "Payment processing, please complete in Tapro app"
+                        else -> message
+                    }
+                    updatePaymentProgress(displayMessage)
+                }
+            }
+        }
+    }
+
+    /**
+     * Data class for transaction information
+     */
+    private data class TransactionData(
+        val timestamp: Long,
+        val referenceOrderId: String,
+        val transactionRequestId: String
+    )
 
     /**
      * Start payment
@@ -737,20 +595,10 @@ class MainActivity : Activity() {
             return
         }
 
-        // Cache transaction type for retry
-        lastTransactionType = transactionType
-
-        Log.d(TAG, "Start payment - Type: $transactionType, Amount: $selectedAmount")
-
         // Generate order ID and transaction request ID
         val timestamp = System.currentTimeMillis()
         val referenceOrderId = "ORDER_$timestamp"
         val transactionRequestId = "TXN_REQ_${timestamp}_${(1000..9999).random()}"
-
-        Log.d(
-            TAG,
-            "Creating transaction - RequestId: $transactionRequestId, OrderId: $referenceOrderId"
-        )
 
         // Create transaction record (initial status is PROCESSING)
         val transaction = Transaction(
@@ -765,8 +613,7 @@ class MainActivity : Activity() {
         )
 
         // Save transaction to repository
-        val added = TransactionRepository.addTransaction(transaction)
-        Log.d(TAG, "Transaction added to repository: $added")
+        TransactionRepository.addTransaction(transaction)
 
         // Execute payment method based on transaction type
         val callback = object : PaymentCallback {
@@ -784,11 +631,6 @@ class MainActivity : Activity() {
 
             override fun onProgress(status: String, message: String) {
                 runOnUiThread {
-                    // In App-to-App mode, progress callbacks are mainly for logging
-                    // Actual payment operations are performed in Tapro app
-                    Log.d(TAG, "Payment progress callback: $message")
-
-                    // Only show generic message for very generic processing messages
                     val displayMessage = when {
                         message.matches(Regex(".*transaction processing\\.\\.\\.", RegexOption.IGNORE_CASE)) ->
                             "Payment processing, please complete in Tapro app"
@@ -829,17 +671,8 @@ class MainActivity : Activity() {
             }
 
             TransactionType.FORCED_AUTH -> {
-                // FORCED_AUTH uses a predefined authorization code, no user input required
-                paymentService.executeForcedAuth(
-                    referenceOrderId = referenceOrderId,
-                    transactionRequestId = transactionRequestId,
-                    amount = selectedAmount,
-                    currency = "USD",
-                    description = "Demo FORCED_AUTH Payment - ${amountFormatter.format(selectedAmount)}",
-                    tipAmount = null,
-                    taxAmount = null,
-                    callback = callback
-                )
+                // FORCED_AUTH allows user to input tip and tax amounts, but uses predefined auth code
+                showForcedAuthAmountDialog(referenceOrderId, transactionRequestId, transaction, callback)
             }
             else -> {
                 showToast("Unsupported transaction type: $transactionType")
@@ -897,6 +730,91 @@ class MainActivity : Activity() {
             .show()
     }
 
+    /**
+     * Show forced auth amount dialog for user to enter tip and tax amounts
+     */
+    private fun showForcedAuthAmountDialog(
+        referenceOrderId: String,
+        transactionRequestId: String,
+        transaction: Transaction,
+        callback: PaymentCallback
+    ) {
+        if (!paymentService.isConnected()) {
+            showToast("Not connected to payment terminal")
+            return
+        }
+
+        if (selectedAmount <= BigDecimal.ZERO) {
+            showToast("Please select payment amount")
+            return
+        }
+
+        // Create dialog layout
+        val dialogView = layoutInflater.inflate(R.layout.dialog_additional_amounts, null)
+        val etTipAmount = dialogView.findViewById<EditText>(R.id.et_tip_amount)
+        val etTaxAmount = dialogView.findViewById<EditText>(R.id.et_tax_amount)
+        val tvSurchargeAmount = dialogView.findViewById<TextView>(R.id.tv_surcharge_amount)
+        val etSurchargeAmount = dialogView.findViewById<EditText>(R.id.et_surcharge_amount)
+        val tvCashbackAmount = dialogView.findViewById<TextView>(R.id.tv_cashback_amount)
+        val etCashbackAmount = dialogView.findViewById<EditText>(R.id.et_cashback_amount)
+        val tvServiceFee = dialogView.findViewById<TextView>(R.id.tv_service_fee)
+        val etServiceFee = dialogView.findViewById<EditText>(R.id.et_service_fee)
+
+        // Set base amount
+        val tvBaseAmount = dialogView.findViewById<TextView>(R.id.tv_base_amount)
+        tvBaseAmount.text = amountFormatter.format(selectedAmount)
+
+        // Hide fields not needed for FORCED_AUTH (only show tip and tax)
+        tvSurchargeAmount.visibility = View.GONE
+        etSurchargeAmount.visibility = View.GONE
+        tvCashbackAmount.visibility = View.GONE
+        etCashbackAmount.visibility = View.GONE
+        tvServiceFee.visibility = View.GONE
+        etServiceFee.visibility = View.GONE
+
+        // Pre-fill with original transaction amounts if available
+        transaction.tipAmount?.let { etTipAmount.setText(it.toString()) }
+        transaction.taxAmount?.let { etTaxAmount.setText(it.toString()) }
+
+        AlertDialog.Builder(this)
+            .setTitle("Forced Authorization - Additional Amounts")
+            .setMessage("Base Amount: ${amountFormatter.format(transaction.amount)}")
+            .setView(dialogView)
+            .setPositiveButton("Proceed") { _, _ ->
+                val tipAmount = etTipAmount.text.toString().toDoubleOrNull()
+                val taxAmount = etTaxAmount.text.toString().toDoubleOrNull()
+
+                // Execute forced authorization with predefined auth code
+                paymentService.executeForcedAuth(
+                    referenceOrderId = referenceOrderId,
+                    transactionRequestId = transactionRequestId,
+                    amount = selectedAmount,
+                    currency = "USD",
+                    description = "Demo FORCED_AUTH Payment - ${amountFormatter.format(selectedAmount)}",
+                    tipAmount = tipAmount?.let { BigDecimal.valueOf(it) },
+                    taxAmount = taxAmount?.let { BigDecimal.valueOf(it) },
+                    callback = callback
+                )
+            }
+            .setNegativeButton("Cancel") { _, _ ->
+                hidePaymentProgressDialog()
+            }
+            .setNeutralButton("Skip") { _, _ ->
+                // Execute forced authorization without additional amounts
+                paymentService.executeForcedAuth(
+                    referenceOrderId = referenceOrderId,
+                    transactionRequestId = transactionRequestId,
+                    amount = selectedAmount,
+                    currency = "USD",
+                    description = "Demo FORCED_AUTH Payment - ${amountFormatter.format(selectedAmount)}",
+                    tipAmount = null,
+                    taxAmount = null,
+                    callback = callback
+                )
+            }
+            .setCancelable(false)
+            .show()
+    }
 
     /**
      * Hide payment progress dialog
@@ -949,34 +867,94 @@ class MainActivity : Activity() {
      */
     private fun handlePaymentSuccess(result: PaymentResult) {
         Log.d(TAG, "Result: $result")
-        Log.d(
-            TAG,
-            "Payment result - TransactionId: ${result.transactionId}, Status: ${result.transactionStatus}"
-        )
+        Log.d(TAG, "Payment result - TransactionId: ${result.transactionId}, Status: ${result.transactionStatus}")
         Log.d(TAG, "Result transactionRequestId: ${result.transactionRequestId}")
 
         // Hide payment progress dialog
         hidePaymentProgressDialog()
 
-        // Determine transaction status based on transactionStatus field
-        val transactionStatus = when (result.transactionStatus) {
+        // Update transaction record
+        updateTransactionFromResult(result)
+
+        // Show result dialog
+        showResultDialog(result)
+    }
+
+    /**
+     * Update transaction record from payment result
+     * Handles both successful and failed payment results by updating the transaction status
+     * and associated metadata in the repository
+     */
+    private fun updateTransactionFromResult(result: PaymentResult) {
+        val transactionStatus = mapTransactionStatus(result.transactionStatus)
+        val requestId = result.transactionRequestId
+
+        if (requestId != null && requestId.isNotEmpty()) {
+            updateTransactionByRequestId(requestId, result, transactionStatus)
+        } else {
+            updateLatestProcessingTransaction(result, transactionStatus)
+        }
+    }
+
+    /**
+     * Map SDK transaction status to internal status
+     * Converts SDK status strings to internal TransactionStatus enum values
+     * Defaults to FAILED for unknown status values
+     */
+    private fun mapTransactionStatus(status: String?): TransactionStatus {
+        return when (status) {
             "SUCCESS" -> TransactionStatus.SUCCESS
             "FAILED" -> TransactionStatus.FAILED
             "PROCESSING" -> TransactionStatus.PROCESSING
-            else -> TransactionStatus.FAILED // Default to FAILED for unknown status
+            else -> TransactionStatus.FAILED
         }
+    }
 
-        // Update transaction record status with actual amounts from SDK
-        // First try using SDK returned transactionRequestId, if empty try using transactionId
-        val requestId = result.transactionRequestId
-        if (requestId != null && requestId.isNotEmpty()) {
-            val updated = TransactionRepository.updateTransactionWithAmounts(
-                transactionRequestId = requestId,
-                status = transactionStatus,
+    /**
+     * Update transaction by request ID
+     * Attempts to update the transaction using the SDK-provided request ID
+     * Falls back to updating the latest processing transaction if the ID is not found
+     */
+    private fun updateTransactionByRequestId(requestId: String, result: PaymentResult, status: TransactionStatus) {
+        val updated = TransactionRepository.updateTransactionWithAmounts(
+            transactionRequestId = requestId,
+            status = status,
+            transactionId = result.transactionId,
+            authCode = result.authCode,
+            errorCode = if (status == TransactionStatus.FAILED) result.transactionResultCode else null,
+            errorMessage = if (status == TransactionStatus.FAILED) result.transactionResultMsg else null,
+            orderAmount = result.amount?.orderAmount,
+            totalAmount = result.amount?.transAmount,
+            surchargeAmount = result.amount?.surchargeAmount,
+            tipAmount = result.amount?.tipAmount,
+            cashbackAmount = result.amount?.cashbackAmount,
+            serviceFee = result.amount?.serviceFee
+        )
+
+        if (!updated) {
+            Log.e(TAG, "Failed to update transaction status - transactionRequestId not found: $requestId")
+            updateLatestProcessingTransaction(result, status)
+        }
+    }
+
+    /**
+     * Update latest processing transaction
+     * Fallback method when SDK doesn't return a valid transaction request ID
+     * Updates the most recent transaction with PROCESSING status
+     */
+    private fun updateLatestProcessingTransaction(result: PaymentResult, status: TransactionStatus) {
+        val processingTransactions = TransactionRepository.getTransactionsByStatus(TransactionStatus.PROCESSING)
+        if (processingTransactions.isNotEmpty()) {
+            val latestProcessing = processingTransactions.first()
+            Log.d(TAG, "Updating latest PROCESSING transaction: ${latestProcessing.transactionRequestId}")
+            
+            TransactionRepository.updateTransactionWithAmounts(
+                transactionRequestId = latestProcessing.transactionRequestId,
+                status = status,
                 transactionId = result.transactionId,
                 authCode = result.authCode,
-                errorCode = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultCode else null,
-                errorMessage = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultMsg else null,
+                errorCode = if (status == TransactionStatus.FAILED) result.transactionResultCode else null,
+                errorMessage = if (status == TransactionStatus.FAILED) result.transactionResultMsg else null,
                 orderAmount = result.amount?.orderAmount,
                 totalAmount = result.amount?.transAmount,
                 surchargeAmount = result.amount?.surchargeAmount,
@@ -984,131 +962,89 @@ class MainActivity : Activity() {
                 cashbackAmount = result.amount?.cashbackAmount,
                 serviceFee = result.amount?.serviceFee
             )
-            if (!updated) {
-                Log.e(
-                    TAG,
-                    "Failed to update transaction status - transactionRequestId not found: $requestId"
-                )
-                // If the transactionRequestId returned by the SDK does not exist, try to find all transactions in PROCESSING status and update the latest one
-                val processingTransactions =
-                    TransactionRepository.getTransactionsByStatus(TransactionStatus.PROCESSING)
-                if (processingTransactions.isNotEmpty()) {
-                    val latestProcessing = processingTransactions.first()
-                    Log.d(
-                        TAG,
-                        "Updating latest PROCESSING transaction: ${latestProcessing.transactionRequestId}"
-                    )
-                    TransactionRepository.updateTransactionWithAmounts(
-                        transactionRequestId = latestProcessing.transactionRequestId,
-                        status = transactionStatus,
-                        transactionId = result.transactionId,
-                        authCode = result.authCode,
-                        errorCode = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultCode else null,
-                        errorMessage = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultMsg else null,
-                        orderAmount = result.amount?.orderAmount,
-                        totalAmount = result.amount?.transAmount,
-                        surchargeAmount = result.amount?.surchargeAmount,
-                        tipAmount = result.amount?.tipAmount,
-                        cashbackAmount = result.amount?.cashbackAmount,
-                        serviceFee = result.amount?.serviceFee
-                    )
-                }
-            }
         } else {
-            Log.w(
-                TAG,
-                "transactionRequestId is null or empty, trying to find by latest PROCESSING status"
-            )
-            // If the SDK does not return transactionRequestId, try to find the latest transaction in PROCESSING status
-            val processingTransactions =
-                TransactionRepository.getTransactionsByStatus(TransactionStatus.PROCESSING)
-            if (processingTransactions.isNotEmpty()) {
-                val latestProcessing = processingTransactions.first()
-                Log.d(
-                    TAG,
-                    "Updating latest PROCESSING transaction: ${latestProcessing.transactionRequestId}"
-                )
-                TransactionRepository.updateTransactionWithAmounts(
-                    transactionRequestId = latestProcessing.transactionRequestId,
-                    status = transactionStatus,
-                    transactionId = result.transactionId,
-                    authCode = result.authCode,
-                    errorCode = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultCode else null,
-                    errorMessage = if (transactionStatus == TransactionStatus.FAILED) result.transactionResultMsg else null,
-                    orderAmount = result.amount?.orderAmount,
-                    totalAmount = result.amount?.transAmount,
-                    surchargeAmount = result.amount?.surchargeAmount,
-                    tipAmount = result.amount?.tipAmount,
-                    cashbackAmount = result.amount?.cashbackAmount,
-                    serviceFee = result.amount?.serviceFee
-                )
-            } else {
-                Log.e(TAG, "No PROCESSING transaction found to update")
-            }
-        }
-
-        // Show result dialog based on transactionStatus
-        when (result.transactionStatus) {
-            "SUCCESS" -> {
-                showPaymentResultDialog(
-                    title = "Payment Success",
-                    message = "Transaction Completed\n" +
-                            "TotalAmount: ${amountFormatter.format(result.amount?.transAmount)}\n" +
-                            "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
-                            "Auth Code: ${result.authCode ?: "N/A"}\n" +
-                            "Status: ${result.transactionStatus}",
-                    isSuccess = true
-                )
-                // Reset amount selection only on success
-                resetAmountSelection()
-            }
-
-            "FAILED" -> {
-                showPaymentResultDialog(
-                    title = "Payment Failed",
-                    message = "Transaction Failed\n" +
-                            "Amount: ${amountFormatter.format(selectedAmount)}\n" +
-                            "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
-                            "Status: ${result.transactionStatus}\n" +
-                            "Error Code: ${result.transactionResultCode ?: "N/A"}\n" +
-                            "Error Message: ${result.transactionResultMsg ?: "N/A"}",
-                    isSuccess = false
-                )
-            }
-
-            "PROCESSING" -> {
-                showPaymentResultDialog(
-                    title = "Payment Processing",
-                    message = "Transaction Processing\n" +
-                            "Amount: ${amountFormatter.format(selectedAmount)}\n" +
-                            "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
-                            "Status: ${result.transactionStatus}\n" +
-                            "Please check transaction result later",
-                    isSuccess = false
-                )
-            }
-
-            else -> {
-                showPaymentResultDialog(
-                    title = "Unknown Payment Result",
-                    message = "Unknown Transaction Status\n" +
-                            "Amount: ${amountFormatter.format(selectedAmount)}\n" +
-                            "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
-                            "Status: ${result.transactionStatus ?: "UNKNOWN"}\n" +
-                            "Please contact support or check transaction history",
-                    isSuccess = false
-                )
-            }
+            Log.e(TAG, "No PROCESSING transaction found to update")
         }
     }
 
     /**
-     * Handle payment failure with intelligent retry
+     * Show payment result dialog based on status
+     */
+    private fun showResultDialog(result: PaymentResult) {
+        when (result.transactionStatus) {
+            "SUCCESS" -> showSuccessDialog(result)
+            "FAILED" -> showFailedDialog(result)
+            "PROCESSING" -> showProcessingDialog(result)
+            else -> showUnknownStatusDialog(result)
+        }
+    }
+
+    /**
+     * Show success dialog
+     */
+    private fun showSuccessDialog(result: PaymentResult) {
+        showPaymentResultDialog(
+            title = "Payment Success",
+            message = "Transaction Completed\n" +
+                    "TotalAmount: ${amountFormatter.format(result.amount?.transAmount)}\n" +
+                    "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
+                    "Auth Code: ${result.authCode ?: "N/A"}\n" +
+                    "Status: ${result.transactionStatus}",
+            isSuccess = true
+        )
+        resetAmountSelection()
+    }
+
+    /**
+     * Show failed dialog
+     */
+    private fun showFailedDialog(result: PaymentResult) {
+        showPaymentResultDialog(
+            title = "Payment Failed",
+            message = "Transaction Failed\n" +
+                    "Amount: ${amountFormatter.format(selectedAmount)}\n" +
+                    "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
+                    "Status: ${result.transactionStatus}\n" +
+                    "Error Code: ${result.transactionResultCode ?: "N/A"}\n" +
+                    "Error Message: ${result.transactionResultMsg ?: "N/A"}",
+            isSuccess = false
+        )
+    }
+
+    /**
+     * Show processing dialog
+     */
+    private fun showProcessingDialog(result: PaymentResult) {
+        showPaymentResultDialog(
+            title = "Payment Processing",
+            message = "Transaction Processing\n" +
+                    "Amount: ${amountFormatter.format(selectedAmount)}\n" +
+                    "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
+                    "Status: ${result.transactionStatus}\n" +
+                    "Please check transaction result later",
+            isSuccess = false
+        )
+    }
+
+    /**
+     * Show unknown status dialog
+     */
+    private fun showUnknownStatusDialog(result: PaymentResult) {
+        showPaymentResultDialog(
+            title = "Unknown Payment Result",
+            message = "Unknown Transaction Status\n" +
+                    "Amount: ${amountFormatter.format(selectedAmount)}\n" +
+                    "Transaction ID: ${result.transactionId ?: "N/A"}\n" +
+                    "Status: ${result.transactionStatus ?: "UNKNOWN"}\n" +
+                    "Please contact support or check transaction history",
+            isSuccess = false
+        )
+    }
+
+    /**
+     * Handle payment failure
      */
     private fun handlePaymentFailure(transactionRequestId: String, code: String, message: String) {
-        Log.e(TAG, "Payment failed - Code: $code, Message: $message")
-        Log.d(TAG, "Failed transactionRequestId: $transactionRequestId")
-
         // Ensure payment progress dialog is hidden before showing error dialog
         hidePaymentProgressDialog()
 
@@ -1121,19 +1057,11 @@ class MainActivity : Activity() {
         )
 
         if (!updated) {
-            Log.e(
-                TAG,
-                "Failed to update transaction status - transactionRequestId not found: $transactionRequestId"
-            )
             // If the transactionRequestId returned by the SDK does not exist, try to find all transactions in PROCESSING status and update the latest one
             val processingTransactions =
                 TransactionRepository.getTransactionsByStatus(TransactionStatus.PROCESSING)
             if (processingTransactions.isNotEmpty()) {
                 val latestProcessing = processingTransactions.first()
-                Log.d(
-                    TAG,
-                    "Updating latest PROCESSING transaction: ${latestProcessing.transactionRequestId}"
-                )
                 TransactionRepository.updateTransactionStatus(
                     transactionRequestId = latestProcessing.transactionRequestId,
                     status = TransactionStatus.FAILED,
@@ -1143,26 +1071,9 @@ class MainActivity : Activity() {
             }
         }
 
-        // Use postDelayed to ensure progress dialog is fully dismissed before showing error dialog
+        // Show simple payment error dialog
         tvPaymentStatus.postDelayed({
-            // Show error dialog using enhanced error handler with intelligent retry
-            ErrorHandler.handlePaymentError(
-                context = this,
-                errorCode = code,
-                errorMessage = message,
-                onQuery = if (code == "E10") {
-                    {
-                        // Query transaction status for timeout errors
-                        Log.d(TAG, "Querying transaction status for timeout error")
-                        queryLastTransaction()
-                    }
-                } else null,
-                onCancel = {
-                    Log.d(TAG, "User cancelled retry")
-                    // Reset amount selection on cancel
-                    resetAmountSelection()
-                }
-            )
+            showPaymentError(code, message)
         }, 100) // Short delay to ensure progress dialog is dismissed
     }
 
@@ -1326,14 +1237,20 @@ class MainActivity : Activity() {
      * Show payment result dialog
      */
     private fun showPaymentResultDialog(title: String, message: String, isSuccess: Boolean) {
-        AlertDialog.Builder(this)
+        // Dismiss any existing dialog first
+        currentAlertDialog?.dismiss()
+        
+        currentAlertDialog = AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
-
+                currentAlertDialog = null
                 // Hide status text
                 tvPaymentStatus.visibility = View.GONE
+            }
+            .setOnDismissListener {
+                currentAlertDialog = null
             }
             .setCancelable(true)
             .show()
@@ -1354,8 +1271,6 @@ class MainActivity : Activity() {
      * Open connection settings page
      */
     private fun openConnectionSettings() {
-        Log.d(TAG, "Open connection settings")
-
         val intent = Intent(this, ConnectionActivity::class.java)
         startActivityForResult(intent, REQUEST_CODE_CONNECTION)
     }
@@ -1364,10 +1279,36 @@ class MainActivity : Activity() {
      * Open transaction history page
      */
     private fun openTransactionHistory() {
-        Log.d(TAG, "Open transaction history")
-
         val intent = Intent(this, TransactionListActivity::class.java)
         startActivity(intent)
+    }
+
+    /**
+     * Show simple payment error dialog
+     */
+    private fun showPaymentError(code: String, message: String) {
+        val fullMessage = "$message\n\nError Code: $code"
+        
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Payment Error")
+            .setMessage(fullMessage)
+            .setCancelable(false)
+
+        // Add query button for timeout errors
+        if (code == "E10") {
+            builder.setPositiveButton("Query Status") { _, _ ->
+                queryLastTransaction()
+            }
+            builder.setNeutralButton("Cancel") { _, _ ->
+                resetAmountSelection()
+            }
+        } else {
+            builder.setPositiveButton("OK") { _, _ ->
+                resetAmountSelection()
+            }
+        }
+
+        builder.show()
     }
 
     /**
@@ -1381,51 +1322,36 @@ class MainActivity : Activity() {
         super.onResume()
 
         // Ensure progress dialog is hidden when returning from Tapro app
-        // Because payment results are returned via callbacks
         hidePaymentProgressDialog()
 
         // Check connection status when returning to the activity
         checkConnectionStatus()
-
-        Log.d(TAG, "MainActivity display reset")
     }
 
     /**
      * Check current connection status and update UI accordingly
      */
     private fun checkConnectionStatus() {
-        try {
-            if (::paymentService.isInitialized) {
-                val isConnecting = paymentService.isConnecting()
-                val isConnected = paymentService.isConnected()
-                Log.d(TAG, "Connection status check - Connecting: $isConnecting, Connected: $isConnected")
-
-                if (isConnecting) {
-                    updateConnectionStatus("Connecting...", false)
-                } else if (isConnected) {
-                    // If connected, get version info and update status
-                    val version = paymentService.getTaproVersion()
-                    val statusText = if (version != null) {
-                        "Connected (v$version)"
-                    } else {
-                        "Connected"
-                    }
-                    updateConnectionStatus(statusText, true)
+        if (::paymentService.isInitialized) {
+            val isConnected = paymentService.isConnected()
+            
+            if (isConnected) {
+                // If connected, get version info and update status
+                val version = paymentService.getTaproVersion()
+                val statusText = if (version != null) {
+                    "Connected (v$version)"
                 } else {
-                    updateConnectionStatus("Not Connected", false)
-                    Log.d(TAG, "Connection lost")
+                    "Connected"
                 }
+                updateConnectionStatus(statusText, true)
+            } else {
+                updateConnectionStatus("Not Connected", false)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking connection status", e)
-            updateConnectionStatus("Connection Error", false)
         }
     }
 
     override fun onPause() {
         super.onPause()
-
-        Log.d(TAG, "MainActivity paused")
     }
 
     override fun onDestroy() {
@@ -1434,12 +1360,13 @@ class MainActivity : Activity() {
         // Clean up resources
         hidePaymentProgressDialog()
         
-        // Stop connection status monitoring
-        if (::connectionStatusMonitor.isInitialized) {
-            stopConnectionStatusMonitoring()
-        }
-
-        Log.d(TAG, "MainActivity destroyed")
+        // Dismiss any current alert dialog
+        currentAlertDialog?.dismiss()
+        currentAlertDialog = null
+        
+        // Clear any pending callbacks to prevent memory leaks
+        tvPaymentStatus.removeCallbacks(null)
+        etCustomAmount.removeCallbacks(null)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -1449,13 +1376,7 @@ class MainActivity : Activity() {
             REQUEST_CODE_CONNECTION -> {
                 if (resultCode == ConnectionActivity.RESULT_CONNECTION_CHANGED) {
                     // Connection settings changed, show result information
-                    val connectionMode = data?.getStringExtra("connection_mode")
                     val connectionMessage = data?.getStringExtra("connection_message")
-
-                    Log.d(
-                        TAG,
-                        "Connection configuration changed - Mode: $connectionMode, Message: $connectionMessage"
-                    )
 
                     // Show connection result
                     connectionMessage?.let { message ->
@@ -1465,11 +1386,8 @@ class MainActivity : Activity() {
                     // Re-initialize payment service for the new mode
                     initPaymentService()
                     
-                    // Re-initialize connection status monitor for the new mode
-                    initConnectionStatusMonitor()
-                    
                     // Attempt auto-connection with new settings
-                    startAutoConnection()
+                    attemptAutoConnection()
                 }
             }
             REQUEST_CODE_TRANSACTION_LIST -> {

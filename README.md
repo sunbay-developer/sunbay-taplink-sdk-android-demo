@@ -17,8 +17,8 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
   - 包含完整的支付功能演示
   - 支持 App-to-App 模式连接
 
-- **[Tapro [standalone] - preview_uat_v1.0.0.87(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_uat_v1.0.0.87%28develop%29.apk)** - Tapro 支付终端应用
-  - 版本: v1.0.0.87 (develop)
+- **[Tapro [standalone] - preview_uat_v1.0.0.85(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_uat_v1.0.0.85%28develop%29.apk)** - Tapro 支付终端应用
+  - 版本: v1.0.0.85 (develop)
   - **必须安装**: App-to-App 模式需要Tapro应用处理支付
   - 需要将设备 SN 绑定到 SUNBAY 平台才能正常使用
   - 与 TaplinkDemo 配合使用完成支付交易
@@ -38,36 +38,32 @@ TaplinkDemo 是由商米提供的支付 SDK 集成示例应用，演示如何使
 ## 功能特性
 
 ### 支付交易功能
-- **销售交易 (SALE)** - 标准支付交易
+- **销售交易 (SALE)** - 标准支付交易，支持附加金额
 - **预授权交易 (AUTH)** - 预授权交易
-- **查询交易 (QUERY)** - 根据请求ID查询交易状态
-- **批次结算 (BATCH_CLOSE)** - 日终批次结算
+- **强制授权 (FORCED_AUTH)** - 强制授权交易
 - **退款交易 (REFUND)** - 退款操作
 - **撤销交易 (VOID)** - 交易撤销
 - **预授权完成 (POST_AUTH)** - 预授权完成
 - **增量授权 (INCREMENTAL_AUTH)** - 增量授权
-- **强制授权 (FORCE_AUTH)** - 强制授权
 - **小费调整 (TIP_ADJUST)** - 小费金额调整
+- **查询交易 (QUERY)** - 根据请求ID查询交易状态
+- **批次结算 (BATCH_CLOSE)** - 日终批次结算
 
 ### 连接模式
 - **App-to-App 模式** - 同设备集成（已实现）
-- **Cable 模式** - USB线缆连接（已实现）
+- **Cable 模式** - USB线缆连接，支持多种协议（AUTO、USB_AOA、USB_VSP、RS232）
 - **LAN 模式** - 局域网连接（已实现）
-- **Cloud 模式** - 云端连接（接口预留）
 
 ### 技术特性
-- 原生 Android UI，使用 XML 布局
-- 基于 Activity 的架构设计
-- Kotlin 协程异步处理
-- 交易历史记录管理
-- 连接配置管理
-- 实时支付状态更新
-- 智能重试机制
-- 错误处理和恢复
-- 交易金额详情支持（附加费、小费、税费、返现、服务费）
-- 多种连接模式支持（App-to-App、Cable、LAN）
-- 网络状态监控和设备可达性检测
-- 连接参数验证和配置管理
+- **原生 Android UI** - 使用 XML 布局和 Material Design
+- **基于 Activity 的架构** - 清晰的UI层次结构
+- **交易历史管理** - 完整的交易记录和状态跟踪
+- **连接配置管理** - 支持多种连接模式的配置和切换
+- **实时状态更新** - 支付进度和连接状态实时显示
+- **简单错误处理** - 直接显示SDK错误信息，用户友好的对话框
+- **附加金额支持** - 支持附加费、小费、税费、返现、服务费
+- **Cable协议配置** - 支持AUTO、USB_AOA、USB_VSP、RS232协议选择
+- **网络连接检测** - LAN模式的网络状态监控
 
 ## 技术栈
 
@@ -110,13 +106,10 @@ app/src/main/java/com/sunmi/tapro/taplink/demo/
 │   └── TransactionRepository.kt      # 交易数据管理
 ├── service/                          # SDK 集成层
 │   ├── PaymentService.kt             # 支付服务接口
-│   └── TaplinkPaymentService.kt     # App-to-App 支付实现
-├── util/                             # 工具类
+│   └── TaplinkPaymentService.kt     # 统一支付服务实现
+└── util/                             # 工具类
     ├── ConnectionPreferences.kt      # 连接配置管理
-    ├── ErrorHandler.kt               # 错误处理工具
-    ├── RetryManager.kt               # 重试管理器
-    ├── NetworkUtils.kt               # 网络工具类
-    └── ConnectionStatusMonitor.kt    # 连接状态监控
+    └── NetworkUtils.kt               # 网络工具类
 ```
 
 ### 资源目录结构
@@ -151,7 +144,7 @@ app/src/main/res/
   - 直接安装即可体验完整功能
 
 #### Tapro 支付终端应用
-- **Tapro应用APK**: [Tapro [standalone] - preview_check_v1.0.0.87(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_check_v1.0.0.87%28develop%29.apk)
+- **Tapro应用APK**: [Tapro [standalone] - preview_uat_v1.0.0.87(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_uat_v1.0.0.87%28develop%29.apk)
   - 版本: v1.0.0.87 (develop)
   - **重要**: 使用 App-to-App 模式必须安装此应用
   - 安装后需要将设备 SN 绑定到 SUNBAY 平台
@@ -301,7 +294,7 @@ sdk.dir=/path/to/your/Android/sdk
 
 1. **安装必要的APK文件**:
    - 下载并安装 [TaplinkDemo-debug-1.0.0.apk](app/debug/TaplinkDemo-debug-1.0.0.apk) - 演示应用
-   - 下载并安装 [Tapro [standalone] - preview_check_v1.0.0.60(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_check_v1.0.0.60%28develop%29.apk) - Tapro支付终端应用
+   - 下载并安装 [Tapro [standalone] - preview_uat_v1.0.0.87(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_uat_v1.0.0.87%28develop%29.apk) - Tapro支付终端应用
 
 2. **设备绑定**: 将您的设备 SN 绑定到 SUNBAY 平台（联系技术支持获取绑定方法）
 
@@ -422,17 +415,18 @@ class TaplinkDemoApplication : Application() {
 #### 配置步骤
 1. 使用USB线缆连接商户设备和支付终端
 2. 在连接设置中选择"Cable"模式
-3. 选择USB协议类型：
-   - **自动检测**（推荐）- SDK自动选择最佳协议
-   - **USB AOA** - Android Open Accessory 2.0
-   - **USB VSP** - Virtual Serial Port (CDC-ACM)
-   - **RS232** - 标准串行通信
+3. 选择Cable协议类型：
+   - **AUTO**（推荐）- SDK自动选择最佳协议
+   - **USB_AOA** - USB Android Open Accessory 2.0
+   - **USB_VSP** - USB Virtual Serial Port
+   - **RS232** - 标准RS232串行通信
 4. 点击"确认"保存配置并连接
 
-#### 支持的连接类型
-- **USB AOA 2.0** - 适用于支持AOA协议的Android设备
-- **USB VSP** - 适用于CDC-ACM虚拟串口设备
-- **RS232** - 适用于传统串行通信设备
+#### 支持的连接协议
+- **AUTO** - 自动检测最佳协议（默认推荐）
+- **USB_AOA** - Android Open Accessory 2.0协议
+- **USB_VSP** - Virtual Serial Port协议
+- **RS232** - 标准串行通信协议
 
 #### 故障排除
 - 检查USB线缆连接状态
@@ -484,17 +478,17 @@ class TaplinkDemoApplication : Application() {
 - 确保新模式的硬件和网络环境已准备就绪
 - 建议在无交易进行时切换连接模式
 
-## 开发指南
+### 开发指南
 
 ### 架构概述
 
-应用采用简单的基于 Activity 的架构：
+应用采用基于 Activity 的架构：
 
 - **Activity 层**：处理 UI 和用户交互
 - **Service 层**：封装 Taplink SDK 功能
 - **Repository 层**：管理内存中的交易数据
 - **Model 层**：定义数据结构
-- **Util 层**：提供工具类和错误处理
+- **Util 层**：提供基础工具类（连接配置、网络检测）
 
 ### 添加新的交易类型
 
@@ -528,41 +522,41 @@ fun executeYourNewType(
 - `themes.xml` - 主题样式
 - `strings.xml` - 文本资源
 
-### 错误处理和重试机制
+### 错误处理
 
-应用实现了智能的错误处理和重试机制：
+应用采用简单直接的错误处理策略：
 
-#### 错误分类
-- **临时性错误**：网络问题、系统繁忙等，可重试
-- **明确失败错误**：余额不足、PIN 错误等，需新 ID 重试
-- **配置错误**：签名错误、应用配置问题等，不可重试
+#### 错误处理方法
+- **直接显示SDK错误**：使用SDK提供的错误信息
+- **用户友好对话框**：使用标准AlertDialog显示错误信息
+- **简单重试机制**：通过"重试"按钮进行用户发起的重试
+- **Toast提示**：用于简单的状态提示
 
-#### 重试策略
-- **SameId 重试**：使用相同 transactionRequestId
-- **NewId 重试**：生成新的 transactionRequestId
-- **No 重试**：显示错误信息，需要手动干预
+#### 错误显示原则
+1. **直接SDK消息**：显示SDK错误消息而不修改
+2. **清晰标题**：使用明确的对话框标题（如"连接失败"、"支付错误"）
+3. **最少操作**：仅提供必要操作（确定、重试）
+4. **错误代码显示**：包含错误代码以便调试
 
-#### 实现重试逻辑
+#### 实现示例
 ```kotlin
-// 在 TransactionDetailActivity 中
-private fun handlePaymentError(errorCode: String, errorMessage: String) {
-    val retryStrategy = ErrorClassifier.getRetryStrategy(errorCode)
-    
-    when (retryStrategy) {
-        RetryStrategy.SAME_ID -> {
-            // 使用当前 transactionRequestId 重试
-            executeTransactionWithRetry(currentTransactionRequestId)
-        }
-        RetryStrategy.NEW_ID -> {
-            // 生成新的 transactionRequestId 重试
-            val newRequestId = generateTransactionRequestId()
-            executeTransactionWithRetry(newRequestId)
-        }
-        RetryStrategy.NO_RETRY -> {
-            // 显示错误，不提供重试选项
-            showErrorDialog(errorCode, errorMessage)
-        }
-    }
+// 简单错误显示
+private fun showError(title: String, message: String) {
+    AlertDialog.Builder(this)
+        .setTitle(title)
+        .setMessage(message)
+        .setPositiveButton("OK", null)
+        .show()
+}
+
+// 连接错误处理
+private fun showConnectionFailure(message: String) {
+    AlertDialog.Builder(this)
+        .setTitle("Connection Failed")
+        .setMessage(message)
+        .setPositiveButton("Retry") { _, _ -> attemptConnection() }
+        .setNegativeButton("Cancel", null)
+        .show()
 }
 ```
 
@@ -579,7 +573,7 @@ A:
 ### Q: 连接失败，错误代码 "C22"？
 A: 
 - 错误 C22 表示 Tapro 应用未安装
-- 下载并安装 [Tapro [standalone] - preview_check_v1.0.0.60(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_check_v1.0.0.60%28develop%29.apk)
+- 下载并安装 [Tapro [standalone] - preview_uat_v1.0.0.87(develop).apk](Tapro%20%5Bstandalone%5D%20-%20preview_uat_v1.0.0.87%28develop%29.apk)
 - 确保设备 SN 已绑定到 SUNBAY 平台
 - 确保两个应用使用兼容的证书签名
 
@@ -611,12 +605,12 @@ A:
 ```
 - 在 Android Studio 中同步 Gradle 文件
 
-### Q: 重试机制如何工作？
+### Q: 如何处理错误？
 A:
-- 应用会自动识别错误类型并选择合适的重试策略
-- 临时性错误（如网络问题）使用相同 transactionRequestId 重试
-- 明确失败错误（如余额不足）生成新 transactionRequestId 重试
-- 配置错误不会自动重试，需要手动修复
+- 应用直接显示SDK提供的错误信息
+- 使用AlertDialog和Toast进行错误提示
+- 连接失败时提供"重试"按钮
+- 错误信息包含错误代码便于调试
 
 ### Q: 如何处理附加金额？
 A:
@@ -654,32 +648,3 @@ A:
 - 确认路由器和网络设备工作正常
 - 检查网络延迟和丢包情况
 - 考虑使用有线连接提高稳定性
-
-## 版本历史
-
-### v1.0.0 (当前版本)
-- 初始版本发布
-- **多连接模式支持**：
-  - App-to-App 连接模式实现
-  - Cable 连接模式实现（USB AOA/VSP/RS232）
-  - LAN 连接模式实现（局域网TCP通信）
-- **完整交易功能**：
-  - 支持 Sale 和 Auth 交易
-  - 支持完整的后续交易操作（REFUND、VOID、POST_AUTH、INCREMENTAL_AUTH、TIP_ADJUST）
-  - 查询交易状态和批次结算功能
-- **高级功能**：
-  - 交易历史管理
-  - 智能重试机制
-  - 附加金额支持（附加费、小费、税费、返现、服务费）
-  - 错误处理和恢复机制
-- **网络功能**：
-  - 网络状态监控
-  - 设备可达性检测
-  - 连接参数验证
-  - 自动重连机制
-- 集成 Taplink SDK 1.0.1
-
-### 开发中的功能
-- Cloud 模式连接
-- 更多支付方式支持
-- 高级网络配置选项

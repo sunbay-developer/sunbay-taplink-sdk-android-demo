@@ -4,6 +4,11 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.regex.Pattern
 
 /**
@@ -70,6 +75,51 @@ object NetworkUtils {
     }
     
     /**
+     * Test network connectivity to specific host and port
+     * 
+     * @param host Target host IP address
+     * @param port Target port number
+     * @param timeoutMs Connection timeout in milliseconds
+     * @return true if connection successful, false otherwise
+     */
+    suspend fun testConnection(host: String, port: Int, timeoutMs: Int = 5000): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(host, port), timeoutMs)
+                    true
+                }
+            } catch (e: IOException) {
+                false
+            }
+        }
+    }
+    
+    /**
+     * Get local IP address information
+     * 
+     * @param context Android Context
+     * @return Local IP address string or null if not available
+     */
+    fun getLocalIpAddress(context: Context): String? {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return null
+            val linkProperties = connectivityManager.getLinkProperties(network) ?: return null
+            
+            for (linkAddress in linkProperties.linkAddresses) {
+                val address = linkAddress.address
+                if (!address.isLoopbackAddress && address.address.size == 4) {
+                    return address.hostAddress
+                }
+            }
+        }
+        
+        return null
+    }
+    
+    /**
      * Validate IP address format
      * 
      * @param ip IP address string
@@ -107,5 +157,26 @@ object NetworkUtils {
         } catch (e: NumberFormatException) {
             false
         }
+    }
+    
+    /**
+     * Check if IP address is in same subnet as local network
+     * 
+     * @param context Android Context
+     * @param targetIp Target IP address to check
+     * @return true if likely in same subnet, false otherwise
+     */
+    fun isInSameSubnet(context: Context, targetIp: String): Boolean {
+        val localIp = getLocalIpAddress(context) ?: return false
+        
+        // Simple subnet check - compare first 3 octets
+        val localParts = localIp.split(".")
+        val targetParts = targetIp.split(".")
+        
+        if (localParts.size != 4 || targetParts.size != 4) return false
+        
+        return localParts[0] == targetParts[0] && 
+               localParts[1] == targetParts[1] && 
+               localParts[2] == targetParts[2]
     }
 }
