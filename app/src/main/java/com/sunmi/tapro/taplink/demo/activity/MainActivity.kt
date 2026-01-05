@@ -49,20 +49,22 @@ class MainActivity : Activity() {
 
     // UI element references
     private lateinit var layoutTopBar: View
+    private lateinit var statusIndicator: View
     private lateinit var tvConnectionType: TextView
     private lateinit var tvConnectionStatus: TextView
     private lateinit var btnSettings: Button
     private lateinit var btnTransactionHistory: Button
-    private lateinit var btnAmount10: Button
-    private lateinit var btnAmount20: Button
-    private lateinit var btnAmount50: Button
-    private lateinit var btnAmount100: Button
+    private lateinit var btnAmount10: View
+    private lateinit var btnAmount20: View
+    private lateinit var btnAmount50: View
+    private lateinit var btnAmount100: View
     private lateinit var etCustomAmount: EditText
-    private lateinit var tvSelectedAmount: TextView
     private lateinit var btnSale: Button
     private lateinit var btnAuth: Button
     private lateinit var btnForcedAuth: Button
     private lateinit var tvPaymentStatus: TextView
+    private lateinit var cardPaymentStatus: View
+    private lateinit var progressPayment: View
 
     // Payment service instance
     private lateinit var paymentService: TaplinkPaymentService
@@ -102,6 +104,7 @@ class MainActivity : Activity() {
     private fun initViews() {
         // Top bar
         layoutTopBar = findViewById(R.id.layout_top_bar)
+        statusIndicator = findViewById(R.id.status_indicator)
         tvConnectionType = findViewById(R.id.tv_connection_type)
         tvConnectionStatus = findViewById(R.id.tv_connection_status)
         btnSettings = findViewById(R.id.btn_settings)
@@ -116,9 +119,6 @@ class MainActivity : Activity() {
         // Custom amount input
         etCustomAmount = findViewById(R.id.et_custom_amount)
 
-        // Currently selected amount display
-        tvSelectedAmount = findViewById(R.id.tv_selected_amount)
-
         // Transaction buttons
         btnSale = findViewById(R.id.btn_sale)
         btnAuth = findViewById(R.id.btn_auth)
@@ -126,9 +126,11 @@ class MainActivity : Activity() {
 
         // Payment status display
         tvPaymentStatus = findViewById(R.id.tv_payment_status)
+        cardPaymentStatus = findViewById(R.id.card_payment_status)
+        progressPayment = findViewById(R.id.progress_payment)
 
         // Initialize display
-        updateSelectedAmountDisplay()
+        updateAmountDisplay()
     }
 
     /**
@@ -138,22 +140,9 @@ class MainActivity : Activity() {
         // Get service instance
         paymentService = TaplinkPaymentService.getInstance()
         
-        // Get current connection mode
-        val currentMode = ConnectionPreferences.getConnectionMode(this)
-        val serviceMode = paymentService.getCurrentConnectionMode()
-        
-        // Re-initialize SDK if mode has changed
-        if (currentMode != serviceMode) {
-            val success = paymentService.initialize(
-                context = this,
-                appId = "", // Will be read from resources in initialize method
-                merchantId = "", // Will be read from resources in initialize method
-                secretKey = "" // Will be read from resources in initialize method
-            )
-            if (!success) {
-                showError("SDK Initialization Failed", "Failed to initialize SDK for $currentMode mode")
-            }
-        }
+        // Set current mode in service (SDK already initialized by Application)
+        // This ensures the service knows the current connection mode for auto-connect
+        paymentService.setCurrentMode(this)
         
         // Update transaction buttons state after service initialization
         updateTransactionButtonsState()
@@ -173,11 +162,11 @@ class MainActivity : Activity() {
             openTransactionHistory()
         }
 
-        // Preset amount buttons - accumulate amount
-        btnAmount10.setOnClickListener { addAmount(1.01) }
-        btnAmount20.setOnClickListener { addAmount(5.99) }
-        btnAmount50.setOnClickListener { addAmount(7.49) }
-        btnAmount100.setOnClickListener { addAmount(10.0) }
+        // Preset amount buttons - 每个商品添加自己的价格
+        btnAmount10.setOnClickListener { addAmount(3.50) }  // Coffee $3.50
+        btnAmount20.setOnClickListener { addAmount(8.99) }  // Sandwich $8.99
+        btnAmount50.setOnClickListener { addAmount(2.50) }  // Cola $2.50
+        btnAmount100.setOnClickListener { addAmount(6.50) } // Hot Dog $6.50
 
         // Custom amount input listener
         etCustomAmount.addTextChangedListener(object : TextWatcher {
@@ -239,12 +228,7 @@ class MainActivity : Activity() {
         val success = paymentService.attemptAutoConnect(object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 runOnUiThread {
-                    val statusText = if (taproVersion.isNotEmpty()) {
-                        "Connected (v$taproVersion)"
-                    } else {
-                        "Connected"
-                    }
-                    updateConnectionStatus(statusText, true)
+                    updateConnectionStatus("Connected", true)
                 }
             }
             
@@ -272,16 +256,11 @@ class MainActivity : Activity() {
      * Connect to payment service
      */
     private fun connectToPaymentService() {
-        // Temporarily commented out to avoid multiple connect() calls
-        paymentService.connect(object : ConnectionListener {
+        // Use attemptAutoConnect which now uses the new connectWithConfig method internally
+        val success = paymentService.attemptAutoConnect(object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 runOnUiThread {
-                    val statusText = if (taproVersion.isNotEmpty()) {
-                        "Connected (v$taproVersion)"
-                    } else {
-                        "Connected"
-                    }
-                    updateConnectionStatus(statusText, true)
+                    updateConnectionStatus("Connected", true)
                 }
             }
 
@@ -299,9 +278,11 @@ class MainActivity : Activity() {
             }
         })
         
-        // For testing: Assume connection is successful since Application handles it
-        runOnUiThread {
-            updateConnectionStatus("Connected (App-level)", true)
+        if (!success) {
+            // If auto-connect fails, show configuration required status
+            runOnUiThread {
+                updateConnectionStatus("Configuration Required", false)
+            }
         }
     }
     
@@ -319,7 +300,26 @@ class MainActivity : Activity() {
             ConnectionPreferences.ConnectionMode.LAN -> "LAN"
         }
         tvConnectionType.text = modeText
-        tvConnectionStatus.text = status
+        
+        // Update status indicator color based on connection state
+        val indicatorDrawable = when {
+            connected -> R.drawable.status_indicator_connected
+            status.contains("Connecting", ignoreCase = true) -> R.drawable.status_indicator_connecting
+            else -> R.drawable.status_indicator_disconnected
+        }
+        statusIndicator.setBackgroundResource(indicatorDrawable)
+        
+        // Show version code only when connected, otherwise show connection status
+        if (connected) {
+            val version = paymentService.getTaproVersion()
+            tvConnectionStatus.text = if (version != null && version.isNotEmpty()) {
+                "v$version"
+            } else {
+                "v1.0.0"
+            }
+        } else {
+            tvConnectionStatus.text = status
+        }
 
         // Update transaction button state based on connection status
         updateTransactionButtonsState()
@@ -378,13 +378,8 @@ class MainActivity : Activity() {
     private fun addAmount(amount: Double) {
         selectedAmount = selectedAmount.add(BigDecimal.valueOf(amount))
 
-        // Clear custom amount input field (mark as programmatically updated to avoid TextWatcher trigger)
-        isUpdatingCustomAmount = true
-        etCustomAmount.setText("")
-        isUpdatingCustomAmount = false
-
         // Update display
-        updateSelectedAmountDisplay()
+        updateAmountDisplay()
         updateTransactionButtonsState()
 
         Log.d(TAG, "Add amount: $amount, Total: $selectedAmount")
@@ -409,30 +404,41 @@ class MainActivity : Activity() {
             }
         }
 
-        // Update display
-        updateSelectedAmountDisplay()
+        // Update transaction buttons state
         updateTransactionButtonsState()
 
         Log.d(TAG, "Custom amount input: $selectedAmount")
     }
 
     /**
-     * Update selected amount display
+     * Update amount display in the input field
      */
-    private fun updateSelectedAmountDisplay() {
-        tvSelectedAmount.text = amountFormatter.format(selectedAmount)
+    private fun updateAmountDisplay() {
+        // Mark as programmatically updated to avoid TextWatcher trigger
+        isUpdatingCustomAmount = true
+        
+        if (selectedAmount > BigDecimal.ZERO) {
+            val amountText = selectedAmount.toString()
+            etCustomAmount.setText(amountText)
+            // Set cursor to the end of the text
+            etCustomAmount.setSelection(amountText.length)
+        } else {
+            etCustomAmount.setText("")
+        }
+        
+        isUpdatingCustomAmount = false
     }
 
     /**
      * Update transaction buttons state
      */
     private fun updateTransactionButtonsState() {
-        if (!::paymentService.isInitialized) {
-            btnSale.isEnabled = false
-            btnAuth.isEnabled = false
-            btnForcedAuth.isEnabled = false
-            return
-        }
+//        if (!::paymentService.isInitialized) {
+//            btnSale.isEnabled = false
+//            btnAuth.isEnabled = false
+//            btnForcedAuth.isEnabled = false
+//            return
+//        }
 
         val connected = paymentService.isConnected()
         val hasAmount = selectedAmount > BigDecimal.ZERO
@@ -591,15 +597,15 @@ class MainActivity : Activity() {
      * Start payment
      */
     private fun startPayment(transactionType: TransactionType) {
-        if (!paymentService.isConnected()) {
-            showToast("Not connected to payment terminal")
-            return
-        }
+//        if (!paymentService.isConnected()) {
+//            showToast("Not connected to payment terminal")
+//            return
+//        }
 
-        if (selectedAmount <= BigDecimal.ZERO) {
-            showToast("Please select payment amount")
-            return
-        }
+//        if (selectedAmount <= BigDecimal.ZERO) {
+//            showToast("Please select payment amount")
+//            return
+//        }
 
         // Generate order ID and transaction request ID
         val timestamp = System.currentTimeMillis()
@@ -731,7 +737,10 @@ class MainActivity : Activity() {
             }
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Skip") { _, _ ->
-                startSalePayment(null, null, null, null, null)
+                // Execute multiple sale payments using for loop
+                for (i in 1..3) {
+                    startSalePayment(null, null, null, null, null)
+                }
             }
             .show()
     }
@@ -852,9 +861,10 @@ class MainActivity : Activity() {
         // Update progress dialog (if still visible)
         paymentProgressDialog?.setMessage(message)
 
-        // Update status text (visible when user returns)
+        // Show modern payment status card
+        cardPaymentStatus.visibility = View.VISIBLE
+        progressPayment.visibility = View.VISIBLE
         tvPaymentStatus.text = message
-        tvPaymentStatus.visibility = View.VISIBLE
 
         Log.d(TAG, "Payment progress: $message")
 
@@ -1252,8 +1262,8 @@ class MainActivity : Activity() {
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
                 currentAlertDialog = null
-                // Hide status text
-                tvPaymentStatus.visibility = View.GONE
+                // Hide status card
+                cardPaymentStatus.visibility = View.GONE
             }
             .setOnDismissListener {
                 currentAlertDialog = null
@@ -1267,9 +1277,8 @@ class MainActivity : Activity() {
      */
     private fun resetAmountSelection() {
         selectedAmount = BigDecimal.ZERO
-        etCustomAmount.setText("")
-        tvPaymentStatus.visibility = View.GONE
-        updateSelectedAmountDisplay()
+        updateAmountDisplay()
+        cardPaymentStatus.visibility = View.GONE
         updateTransactionButtonsState()
     }
 
@@ -1342,14 +1351,8 @@ class MainActivity : Activity() {
             val isConnected = paymentService.isConnected()
             
             if (isConnected) {
-                // If connected, get version info and update status
-                val version = paymentService.getTaproVersion()
-                val statusText = if (version != null) {
-                    "Connected (v$version)"
-                } else {
-                    "Connected"
-                }
-                updateConnectionStatus(statusText, true)
+                // Connected - show version info
+                updateConnectionStatus("Connected", true)
             } else {
                 updateConnectionStatus("Not Connected", false)
             }

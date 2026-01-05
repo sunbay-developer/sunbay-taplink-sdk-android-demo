@@ -1,6 +1,8 @@
 package com.sunmi.tapro.taplink.demo.service
 
 import android.content.Context
+import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
+import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import java.math.BigDecimal
 
 /**
@@ -27,11 +29,12 @@ interface PaymentService {
     ): Boolean
 
     /**
-     * Connect to payment terminal
+     * Connect to payment terminal with ConnectionConfig
      *
+     * @param connectionConfig Connection configuration with mode and parameters
      * @param listener Connection status listener
      */
-    fun connect(listener: ConnectionListener)
+    fun connect(connectionConfig: ConnectionConfig, listener: ConnectionListener)
 
     /**
      * Disconnect
@@ -90,6 +93,7 @@ interface PaymentService {
         taxAmount: BigDecimal? = null,
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
+        staffInfo: StaffInfo? = null,
         callback: PaymentCallback
     )
 

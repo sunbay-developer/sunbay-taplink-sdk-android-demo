@@ -472,7 +472,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="error"
+                    android:text="Network connection failed"
                     android:textColor="#F44336"
                     android:textSize="14sp"
                     android:gravity="end" />

@@ -200,23 +200,23 @@ class TransactionDetailActivity : AppCompatActivity() {
         // For batch close transactions, display batchCloseInfo totalAmount; for others, display total amount (transAmount) if available, otherwise display base amount
         if (txn.type == TransactionType.BATCH_CLOSE && txn.batchCloseInfo != null) {
             // For batch close, show batch total amount
-            tvTotalAmount.text = String.format("¥%.2f", txn.batchCloseInfo.totalAmount)
+            tvTotalAmount.text = String.format("$%.2f", txn.batchCloseInfo.totalAmount)
             // Hide order amount for batch close
             layoutOrderAmount.visibility = View.GONE
         } else {
             // For regular transactions
             val displayTotalAmount = txn.totalAmount ?: txn.amount
-            tvTotalAmount.text = String.format("¥%.2f", displayTotalAmount)
+            tvTotalAmount.text = String.format("$%.2f", displayTotalAmount)
             
             // Show order amount separately
             layoutOrderAmount.visibility = View.VISIBLE
-            tvOrderAmount.text = String.format("¥%.2f", txn.amount)
+            tvOrderAmount.text = String.format("$%.2f", txn.amount)
         }
         
         // Display order base amount (orderAmount) separately if different from total
 //        if (txn.totalAmount != null && txn.totalAmount != txn.amount) {
 //            layoutOrderAmount.visibility = View.VISIBLE
-//            tvOrderAmount.text = String.format("¥%.2f", txn.amount)
+//            tvOrderAmount.text = String.format("$%.2f", txn.amount)
 //        } else {
 //            layoutOrderAmount.visibility = View.GONE
 //        }
@@ -229,35 +229,35 @@ class TransactionDetailActivity : AppCompatActivity() {
         if (txn.type != TransactionType.BATCH_CLOSE) {
             if (txn.surchargeAmount != null && txn.surchargeAmount > BigDecimal.ZERO) {
                 layoutSurchargeAmount.visibility = View.VISIBLE
-                tvSurchargeAmount.text = String.format("¥%.2f", txn.surchargeAmount)
+                tvSurchargeAmount.text = String.format("$%.2f", txn.surchargeAmount)
             } else {
                 layoutSurchargeAmount.visibility = View.GONE
             }
 
             if (txn.tipAmount != null && txn.tipAmount > BigDecimal.ZERO) {
                 layoutTipAmount.visibility = View.VISIBLE
-                tvTipAmount.text = String.format("¥%.2f", txn.tipAmount)
+                tvTipAmount.text = String.format("$%.2f", txn.tipAmount)
             } else {
                 layoutTipAmount.visibility = View.GONE
             }
 
             if (txn.taxAmount != null && txn.taxAmount > BigDecimal.ZERO) {
                 layoutTaxAmount.visibility = View.VISIBLE
-                tvTaxAmount.text = String.format("¥%.2f", txn.taxAmount)
+                tvTaxAmount.text = String.format("$%.2f", txn.taxAmount)
             } else {
                 layoutTaxAmount.visibility = View.GONE
             }
 
             if (txn.cashbackAmount != null && txn.cashbackAmount > BigDecimal.ZERO) {
                 layoutCashbackAmount.visibility = View.VISIBLE
-                tvCashbackAmount.text = String.format("¥%.2f", txn.cashbackAmount)
+                tvCashbackAmount.text = String.format("$%.2f", txn.cashbackAmount)
             } else {
                 layoutCashbackAmount.visibility = View.GONE
             }
 
             if (txn.serviceFee != null && txn.serviceFee > BigDecimal.ZERO) {
                 layoutServiceFee.visibility = View.VISIBLE
-                tvServiceFee.text = String.format("¥%.2f", txn.serviceFee)
+                tvServiceFee.text = String.format("$%.2f", txn.serviceFee)
             } else {
                 layoutServiceFee.visibility = View.GONE
             }
@@ -305,13 +305,13 @@ class TransactionDetailActivity : AppCompatActivity() {
             // Display batch close info if available
             txn.batchCloseInfo?.let { batchInfo ->
                 tvBatchTotalCount.text = batchInfo.totalCount.toString()
-                tvBatchTotalAmount.text = String.format("¥%.2f", batchInfo.totalAmount)
+                tvBatchTotalAmount.text = String.format("$%.2f", batchInfo.totalAmount)
                 tvBatchCloseTime.text = batchInfo.closeTime
                 
                 // Show total tip if > 0
                 if (batchInfo.totalTip > BigDecimal.ZERO) {
                     layoutBatchTotalTip.visibility = View.VISIBLE
-                    tvBatchTotalTip.text = String.format("¥%.2f", batchInfo.totalTip)
+                    tvBatchTotalTip.text = String.format("$%.2f", batchInfo.totalTip)
                 } else {
                     layoutBatchTotalTip.visibility = View.GONE
                 }
@@ -319,7 +319,7 @@ class TransactionDetailActivity : AppCompatActivity() {
                 // Show total surcharge if > 0
                 if (batchInfo.totalSurchargeAmount > BigDecimal.ZERO) {
                     layoutBatchTotalSurcharge.visibility = View.VISIBLE
-                    tvBatchTotalSurcharge.text = String.format("¥%.2f", batchInfo.totalSurchargeAmount)
+                    tvBatchTotalSurcharge.text = String.format("$%.2f", batchInfo.totalSurchargeAmount)
                 } else {
                     layoutBatchTotalSurcharge.visibility = View.GONE
                 }

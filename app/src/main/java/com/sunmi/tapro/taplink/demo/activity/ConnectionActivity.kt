@@ -18,6 +18,7 @@ import androidx.cardview.widget.CardView
 import androidx.lifecycle.lifecycleScope
 import com.sunmi.tapro.taplink.demo.R
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
+import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.NetworkUtils
@@ -71,7 +72,7 @@ class ConnectionActivity : AppCompatActivity() {
     private var selectedMode: ConnectionPreferences.ConnectionMode = ConnectionPreferences.ConnectionMode.APP_TO_APP
     
     // Payment service
-    private val paymentService = TaplinkPaymentService.getInstance()
+    private val paymentService: PaymentService = TaplinkPaymentService.getInstance()
     
     // Anti-duplicate click protection
     private var lastClickTime: Long = 0
@@ -525,29 +526,7 @@ class ConnectionActivity : AppCompatActivity() {
      */
     private fun reinitializeSDKAndConnect() {
         Log.d(TAG, "Starting connection with mode: $selectedMode")
-        
-        // Step 1: Disconnect current connection
-        updateConnectionProgress("Disconnecting...")
-        paymentService.disconnect()
-        
-        // Step 2: Re-initialize SDK for the new connection mode
-        updateConnectionProgress("Initializing SDK...")
-        val reinitSuccess = paymentService.initialize(
-            context = this,
-            appId = "", // Will be read from resources in initialize method
-            merchantId = "", // Will be read from resources in initialize method
-            secretKey = "" // Will be read from resources in initialize method
-        )
-        
-        if (!reinitSuccess) {
-            Log.e(TAG, "SDK re-initialization failed for mode: $selectedMode")
-            showConnectionResult(false, "SDK initialization failed for $selectedMode mode")
-            return
-        }
-        
-        Log.d(TAG, "SDK initialized successfully for mode: $selectedMode")
-        
-        // Step 3: Start connection process with pre-check
+
         when (selectedMode) {
             ConnectionPreferences.ConnectionMode.LAN -> {
                 val lanConfig = ConnectionPreferences.getLanConfig(this)
@@ -574,7 +553,7 @@ class ConnectionActivity : AppCompatActivity() {
                     
                     // Continue with SDK connection regardless of pre-check result
                     runOnUiThread {
-                        startSDKConnection()
+                        startSDKConnectionWithConfig()
                     }
                 }
                 return
@@ -588,17 +567,22 @@ class ConnectionActivity : AppCompatActivity() {
         }
         
         // For non-LAN modes, start connection immediately
-        startSDKConnection()
+        startSDKConnectionWithConfig()
     }
     
     /**
-     * Start SDK connection process
+     * Start SDK connection process with ConnectionConfig
      */
-    private fun startSDKConnection() {
+    private fun startSDKConnectionWithConfig() {
         Log.d(TAG, "Starting SDK connection for mode: $selectedMode")
         
+        // Create ConnectionConfig with ConnectionMode set
+        val connectionConfig = createConnectionConfigWithMode()
+        
+        Log.d(TAG, "Connecting with ConnectionConfig: $connectionConfig")
+        
         // Connect to payment terminal with new mode
-        paymentService.connect(object : ConnectionListener {
+        paymentService.connect(connectionConfig, object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 Log.d(TAG, "Connection successful - DeviceId: $deviceId, Version: $taproVersion")
                 runOnUiThread {
@@ -621,6 +605,65 @@ class ConnectionActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+    
+    /**
+     * Create ConnectionConfig with ConnectionMode set based on selected mode
+     */
+    private fun createConnectionConfigWithMode(): com.sunmi.tapro.taplink.sdk.config.ConnectionConfig {
+        // Import SDK ConnectionMode enum
+        val sdkConnectionMode = when (selectedMode) {
+            ConnectionPreferences.ConnectionMode.APP_TO_APP -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP
+            ConnectionPreferences.ConnectionMode.CABLE -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.CABLE
+            ConnectionPreferences.ConnectionMode.LAN -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.LAN
+        }
+        
+        // Create base ConnectionConfig with ConnectionMode
+        val connectionConfig = com.sunmi.tapro.taplink.sdk.config.ConnectionConfig()
+            .setConnectionMode(sdkConnectionMode)
+        
+        // Add mode-specific configuration
+        when (selectedMode) {
+            ConnectionPreferences.ConnectionMode.LAN -> {
+                val lanConfig = ConnectionPreferences.getLanConfig(this)
+                val ip = lanConfig.first
+                val port = lanConfig.second
+                
+                if (ip != null && ip.isNotEmpty()) {
+                    Log.d(TAG, "LAN config - IP: $ip, Port: $port")
+                    connectionConfig.setHost(ip).setPort(port)
+                } else {
+                    Log.d(TAG, "No LAN IP configured, using auto-connect")
+                }
+            }
+            
+            ConnectionPreferences.ConnectionMode.CABLE -> {
+                val protocol = ConnectionPreferences.getCableProtocol(this)
+                Log.d(TAG, "Cable config - Protocol: $protocol")
+                
+                when (protocol) {
+                    ConnectionPreferences.CableProtocol.AUTO -> {
+                        // Let SDK auto-detect, no additional config needed
+                    }
+                    ConnectionPreferences.CableProtocol.USB_AOA -> {
+                        connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_AOA)
+                    }
+                    ConnectionPreferences.CableProtocol.USB_VSP -> {
+                        connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_VSP)
+                    }
+                    ConnectionPreferences.CableProtocol.RS232 -> {
+                        connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232)
+                    }
+                }
+            }
+            
+            ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
+                // App-to-App mode requires no additional configuration
+                Log.d(TAG, "App-to-App mode - no additional configuration needed")
+            }
+        }
+        
+        return connectionConfig
     }
     
     /**

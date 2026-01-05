@@ -5,6 +5,7 @@ import android.util.Log
 import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.callback.ConnectionListener
 import com.sunmi.tapro.taplink.sdk.callback.PaymentCallback
+import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.config.TaplinkConfig
 import com.sunmi.tapro.taplink.sdk.enums.ConnectionMode
 import com.sunmi.tapro.taplink.sdk.enums.LogLevel
@@ -18,8 +19,6 @@ import java.math.BigDecimal
 
 /**
  * Taplink Demo Application Class
- * Cold start testing - automatically initialize SDK and execute SALE on app startup
- * This is for debugging and testing cold start functionality with loading
  */
 class TaplinkDemoApplication : Application() {
 
@@ -30,16 +29,17 @@ class TaplinkDemoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Log.d(TAG, "=== Application Cold Start Test Started ===")
-        Log.d(TAG, "Testing SDK initialization and SALE execution on cold start (Loading Mode)")
+        Log.d(TAG, "=== Application Started ===")
 
-        // Execute cold start test sequence: init -> connect -> sale (loading)
+        // Initialize SDK once at application level (without ConnectionMode)
         initializeTaplinkSDK()
-        startLazyLoadingConnection()
     }
 
     /**
-     * Initialize Taplink SDK
+     * Initialize Taplink SDK at application level
+     * 
+     * Only initializes SDK with basic configuration (no ConnectionMode)
+     * ConnectionMode will be set later during connect phase
      */
     private fun initializeTaplinkSDK() {
         try {
@@ -50,38 +50,19 @@ class TaplinkDemoApplication : Application() {
             val merchantId = getString(R.string.taplink_merchant_id)
             val secretKey = getString(R.string.taplink_secret_key)
 
-            // Get user's saved connection mode preference
-            val savedMode = com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.getConnectionMode(this)
-
-            // Map to SDK ConnectionMode
-            val sdkConnectionMode = when (savedMode) {
-                com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
-                    Log.d(TAG, "Using saved mode: App-to-App")
-                    ConnectionMode.APP_TO_APP
-                }
-                com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.CABLE -> {
-                    Log.d(TAG, "Using saved mode: Cable")
-                    ConnectionMode.CABLE
-                }
-                com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.LAN -> {
-                    Log.d(TAG, "Using saved mode: LAN")
-                    ConnectionMode.LAN
-                }
-            }
-
             // Log configuration parameters (mask sensitive data)
             Log.d(TAG, "=== SDK Init Request Parameters ===")
             Log.d(TAG, "App ID: $appId")
             Log.d(TAG, "Merchant ID: $merchantId")
             Log.d(TAG, "Secret Key: ${secretKey.take(4)}****${secretKey.takeLast(4)}")
-            Log.d(TAG, "Connection Mode: $sdkConnectionMode")
 
-            // Create SDK configuration
+            // Create SDK configuration WITHOUT ConnectionMode
+            // ConnectionMode will be set during connect phase via ConnectionConfig
             val config = TaplinkConfig(
                 appId = appId,
                 merchantId = merchantId,
                 secretKey = secretKey
-            ).setLogEnabled(true).setLogLevel(LogLevel.DEBUG).setConnectionMode(sdkConnectionMode)
+            ).setLogEnabled(true).setLogLevel(LogLevel.DEBUG)
 
             // Initialize SDK
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
@@ -102,13 +83,14 @@ class TaplinkDemoApplication : Application() {
     /**
      * Start loading connection - connect and execute sale when connected
      */
-    private fun startLazyLoadingConnection() {
+    private fun testConnectSale() {
         Log.d(TAG, "=== Starting Loading Connection ===")
 
         val taplinkApi = TaplinkSDK.getInstance()
+        val connectionConfig = ConnectionConfig().setConnectionMode(ConnectionMode.APP_TO_APP)
 
         Log.d(TAG, "Attempting connection...")
-        taplinkApi.connect(null, object : ConnectionListener {
+        taplinkApi.connect(connectionConfig, object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 Log.d(TAG, "=== Connection SUCCESS ===")
                 Log.d(TAG, "Device ID: $deviceId")
@@ -148,7 +130,7 @@ class TaplinkDemoApplication : Application() {
 
         val referenceOrderId = "LAZY_ORDER_${System.currentTimeMillis()}"
         val transactionRequestId = "LAZY_REQ_${System.currentTimeMillis()}"
-        val amount = BigDecimal("1")
+        val amount = BigDecimal("0")
         val currency = "USD"
 
         Log.d(TAG, "Order ID: $referenceOrderId")

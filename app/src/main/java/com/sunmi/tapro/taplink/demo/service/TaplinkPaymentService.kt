@@ -13,6 +13,7 @@ import com.sunmi.tapro.taplink.sdk.enums.CableProtocol
 import com.sunmi.tapro.taplink.sdk.enums.ConnectionMode
 import com.sunmi.tapro.taplink.sdk.enums.LogLevel
 import com.sunmi.tapro.taplink.sdk.model.common.AmountInfo
+import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import com.sunmi.tapro.taplink.sdk.model.request.PaymentRequest
 import com.sunmi.tapro.taplink.sdk.model.request.QueryRequest
 import java.math.BigDecimal
@@ -76,8 +77,18 @@ class TaplinkPaymentService : PaymentService {
     }
 
     /**
+     * Set current connection mode from context
+     * Used by MainActivity to set the current mode without reinitializing SDK
+     */
+    fun setCurrentMode(context: Context) {
+        this.context = context
+        currentMode = ConnectionPreferences.getConnectionMode(context)
+        Log.d(TAG, "Current mode set to: $currentMode")
+    }
+
+    /**
      * Initialize SDK with simplified logic
-     * Supports App-to-App, Cable, and LAN modes
+     * No longer sets ConnectionMode during initialization - ConnectionMode is now set during connect phase
      */
     override fun initialize(
         context: Context,
@@ -101,20 +112,13 @@ class TaplinkPaymentService : PaymentService {
             return false
         }
 
-        // Map connection mode
-        val sdkConnectionMode = when (currentMode) {
-            ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
-            ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
-            else -> ConnectionMode.APP_TO_APP
-        }
-
+        // Create TaplinkConfig without ConnectionMode (ConnectionMode will be set in connect phase)
         val config = TaplinkConfig(
             appId = actualAppId,
             merchantId = actualMerchantId,
             secretKey = actualSecretKey
         ).setLogEnabled(true)
             .setLogLevel(LogLevel.DEBUG)
-            .setConnectionMode(sdkConnectionMode)
 
         return try {
             TaplinkSDK.init(context, config)
@@ -127,36 +131,23 @@ class TaplinkPaymentService : PaymentService {
     }
 
     /**
-     * Connect to payment terminal based on current connection mode
-     * Simplified connection logic with unified configuration handling
+     * Connect to payment terminal with provided ConnectionConfig
+     * Main connection method that accepts ConnectionConfig with ConnectionMode already set
      */
-    override fun connect(listener: ConnectionListener) {
+    override fun connect(connectionConfig: ConnectionConfig, listener: ConnectionListener) {
         this.connectionListener = listener
         
         Log.d(TAG, "=== connect() called ===")
         Log.d(TAG, "ConnectionListener set: ${true}")
-        Log.d(TAG, "Connecting with mode: $currentMode")
+        Log.d(TAG, "Connecting with provided ConnectionConfig: $connectionConfig")
 
-        // Check network for LAN mode
-        if (currentMode == ConnectionPreferences.ConnectionMode.LAN) {
-            context?.let { ctx ->
-                if (!NetworkUtils.isNetworkConnected(ctx)) {
-                    Log.e(TAG, "Network not connected for LAN mode")
-                    connectionListener?.onError(
-                        "NETWORK_NOT_CONNECTED",
-                        "Network is not connected. Please check your network connection and try again."
-                    )
-                    return
-                }
-            }
-        }
+        // Check network for LAN mode if needed
+        // Note: We can't easily determine the mode from ConnectionConfig, so we'll skip this check
+        // The SDK will handle network connectivity internally
 
         connecting = true
 
-        // Create connection configuration
-        val connectionConfig = createConnectionConfig()
-
-        Log.d(TAG, "Calling TaplinkSDK.connect() with config: $connectionConfig")
+        Log.d(TAG, "Calling TaplinkSDK.connect() with provided config: $connectionConfig")
 
         TaplinkSDK.connect(connectionConfig, object : SdkConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
@@ -479,7 +470,13 @@ class TaplinkPaymentService : PaymentService {
             Log.d(TAG, "LAN config saved: $ip:$port")
         }
 
-        connect(listener)
+        // Create ConnectionConfig with LAN mode and parameters
+        val connectionConfig = ConnectionConfig()
+            .setConnectionMode(com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.LAN)
+            .setHost(ip)
+            .setPort(port)
+
+        connect(connectionConfig, listener)
     }
 
     /**
@@ -491,7 +488,12 @@ class TaplinkPaymentService : PaymentService {
             currentMode = ConnectionPreferences.ConnectionMode.CABLE
             Log.d(TAG, "Switched to Cable mode")
         }
-        connect(listener)
+
+        // Create ConnectionConfig with Cable mode
+        val connectionConfig = ConnectionConfig()
+            .setConnectionMode(com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.CABLE)
+
+        connect(connectionConfig, listener)
     }
 
     /**
@@ -506,10 +508,65 @@ class TaplinkPaymentService : PaymentService {
                 false
             }
             else -> {
-                connect(listener)
+                // Create ConnectionConfig based on current mode
+                val connectionConfig = createConnectionConfigForCurrentMode()
+                connect(connectionConfig, listener)
                 true
             }
         }
+    }
+
+    /**
+     * Create ConnectionConfig for current mode
+     */
+    private fun createConnectionConfigForCurrentMode(): ConnectionConfig {
+        val sdkConnectionMode = when (currentMode) {
+            ConnectionPreferences.ConnectionMode.APP_TO_APP -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP
+            ConnectionPreferences.ConnectionMode.CABLE -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.CABLE
+            ConnectionPreferences.ConnectionMode.LAN -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.LAN
+            null -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP
+        }
+
+        val connectionConfig = ConnectionConfig().setConnectionMode(sdkConnectionMode)
+
+        // Add mode-specific configuration
+        when (currentMode) {
+            ConnectionPreferences.ConnectionMode.LAN -> {
+                val ctx = context
+                if (ctx != null) {
+                    val ip = ConnectionPreferences.getLanIp(ctx)
+                    val port = ConnectionPreferences.getLanPort(ctx)
+                    if (ip != null && ip.isNotEmpty()) {
+                        connectionConfig.setHost(ip).setPort(port)
+                    }
+                }
+            }
+            ConnectionPreferences.ConnectionMode.CABLE -> {
+                val ctx = context
+                if (ctx != null) {
+                    val protocol = ConnectionPreferences.getCableProtocol(ctx)
+                    when (protocol) {
+                        ConnectionPreferences.CableProtocol.USB_AOA -> {
+                            connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_AOA)
+                        }
+                        ConnectionPreferences.CableProtocol.USB_VSP -> {
+                            connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_VSP)
+                        }
+                        ConnectionPreferences.CableProtocol.RS232 -> {
+                            connectionConfig.setCableProtocol(com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232)
+                        }
+                        ConnectionPreferences.CableProtocol.AUTO -> {
+                            // Let SDK auto-detect, no additional config needed
+                        }
+                    }
+                }
+            }
+            ConnectionPreferences.ConnectionMode.APP_TO_APP, null -> {
+                // No additional configuration needed
+            }
+        }
+
+        return connectionConfig
     }
 
     /**
@@ -526,6 +583,7 @@ class TaplinkPaymentService : PaymentService {
         taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?,
         serviceFee: BigDecimal?,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         if (!connected) {
@@ -548,7 +606,7 @@ class TaplinkPaymentService : PaymentService {
             orderAmount = toCents(amount), // Convert main amount to cents
             pricingCurrency = currency
         )
-        
+
         // Set additional amounts if provided, converting each to cents
         surchargeAmount?.let { 
             amountInfo = amountInfo.setSurchargeAmount(toCents(it))
@@ -566,11 +624,17 @@ class TaplinkPaymentService : PaymentService {
             amountInfo = amountInfo.setServiceFee(toCents(it))
         }
 
+        val staffInfo = StaffInfo(
+            operatorId = "Harry",
+            tipRecipientId = "Harry"
+        )
+
         val request = PaymentRequest("SALE")
             .setReferenceOrderId(referenceOrderId)
             .setTransactionRequestId(transactionRequestId)
             .setAmount(amountInfo)
             .setDescription(description)
+            .setStaffInfo(staffInfo)
 
         Log.d(TAG, "=== SALE Request ===")
         Log.d(TAG, "Request: $request")

@@ -1,0 +1,38 @@
+{
+  "appSign": "CD83E1C16205DA75EB81D88CA78BFF633362E887C807670C3F20B9769850C527",
+  "version": "1.0.7.6",
+  "timeStamp": "20260105023200827",
+  "action": "SALE",
+  "eventCode": "COMPLETED",
+  "eventMsg": "Transaction completed",
+  "bizData": {
+    "amount": {
+      "orderAmount": 100100,
+      "priceCurrency": "USD",
+      "transAmount": 100100
+    },
+    "authCode": "TAS394",
+    "batchNo": 1,
+    "cardInfo": {
+      "authenticationMethod": "SIGNATURE",
+      "cardNetworkType": "CREDIT",
+      "cardholderName": "UAT USA/TEST CARD 17      ",
+      "entryMode": "SWIPE",
+      "expiryDate": "2605",
+      "maskedPan": "651000******0810",
+      "paymentMethodId": "DISCOVER"
+    },
+    "code": "0",
+    "description": "Demo SALE Payment - $1,001.00",
+    "message": "Insufficient funds/over credit limit",
+    "referenceOrderId": "ORDER_1767598310566",
+    "traceId": "8ae6fb8aeea847e2a37796923266c4de",
+    "transactionId": "7126010431226042",
+    "transactionRequestId": "TXN_REQ_1767598310566_4929",
+    "transactionResultCode": "051",
+    "transactionResultMsg": "Insufficient funds/over credit limit",
+    "transactionStatus": "FAILED",
+    "transactionType": "SALE"
+  },
+  "traceId": "8ae6fb8aeea847e2a37796923266c4de"
+}
