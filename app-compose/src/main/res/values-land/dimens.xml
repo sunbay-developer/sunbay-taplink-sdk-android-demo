@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Landscape-optimized spacing -->
+    <dimen name="spacing_small">6dp</dimen>
+    <dimen name="spacing_medium">12dp</dimen>
+    <dimen name="spacing_large">18dp</dimen>
+
+    <!-- Landscape product card height (optional for future use) -->
+    <dimen name="product_card_height">100dp</dimen>
+
+    <!-- Landscape button height -->
+    <dimen name="button_height">56dp</dimen>
+</resources>

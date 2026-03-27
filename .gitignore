@@ -1,0 +1,41 @@
+*.iml
+.gradle
+.gradle/
+.idea/
+.cursor/
+.kiro/
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/taplinksdk/
+/md/
+/.kiro/
+/app-compose/build
+/lib_service/build
+
+# local secrets / signing files
+key
+*.jks
+*.keystore
+
+# build artifacts / binaries
+*.apk
+*.aab
+*.aar
+*.dm
+
+# generated metadata
+**/output-metadata.json
+
+# local unified secrets file
+local.secrets.properties

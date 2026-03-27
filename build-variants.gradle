@@ -1,0 +1,45 @@
+android {
+
+    flavorDimensions 'workMode', 'env'
+
+    productFlavors {
+        //开发环境
+        dev {
+            dimension 'env'
+            buildConfigField 'String', 'BASE_URL', '"https://posp.sunbay.dev/"'
+            buildConfigField 'String', 'APP_ID', '"appAhrZRIlRyD169"'
+        }
+        //测试环境
+        check {
+            dimension 'env'
+            buildConfigField 'String', 'BASE_URL', '"https://posp.sunbay-uat.us/"'
+            buildConfigField 'String', 'APP_ID', '"appdaq5AiL13BljB"'
+        }
+        //生产环境
+        prod {
+            dimension 'env'
+            buildConfigField 'String', 'BASE_URL', '"https://posp.sunbay.us/"'
+            buildConfigField 'String', 'APP_ID', '"smzgc9fjo8ueyzw9"'
+        }
+
+        //认证模式
+        certification {
+            dimension 'workMode'
+        }
+
+        //独立运行模式
+        standalone {
+            dimension 'workMode'
+        }
+    }
+
+    productFlavors.all { flavor ->
+        if (flavor.hasProperty('myApplicationIdSuffix') && isApplicationProject()) {
+            flavor.applicationIdSuffix = flavor.myApplicationIdSuffix
+        }
+    }
+}
+
+def isApplicationProject() {
+    return project.android.class.simpleName.startsWith('BaseAppModuleExtension')
+}
