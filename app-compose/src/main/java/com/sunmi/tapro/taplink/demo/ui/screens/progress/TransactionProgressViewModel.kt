@@ -303,6 +303,9 @@ class TransactionProgressViewModel(
         
         when (transaction.type) {
             TransactionType.SALE -> {
+                val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
+                    com.sunmi.tapro.taplink.demo.di.DependencyProvider.requireContext()
+                )
                 paymentService.executeSale(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
@@ -313,6 +316,7 @@ class TransactionProgressViewModel(
                     taxAmount = transaction.taxAmount,
                     cashbackAmount = transaction.cashbackAmount,
                     serviceFee = transaction.serviceFee,
+                    tipConfig = tipConfig,
                     callback = callback
                 )
             }

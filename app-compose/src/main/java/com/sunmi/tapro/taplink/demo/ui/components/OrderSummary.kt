@@ -224,7 +224,7 @@ fun OrderSummary(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Add Tip / Tax / Fees",
+                        text = "Tip / Tax / Fees",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )

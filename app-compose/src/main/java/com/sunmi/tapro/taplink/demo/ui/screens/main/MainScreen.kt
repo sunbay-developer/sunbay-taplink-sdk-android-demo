@@ -142,6 +142,7 @@ fun MainScreen(
                         }
                         ModernPaymentButton(
                             enabled = state.canProcessPayment,
+                            isLoading = state.isInitiatingPayment,
                             selectedOption = state.selectedPaymentOption,
                             onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
                             onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
@@ -203,6 +204,7 @@ fun MainScreen(
                     )
                     ModernPaymentButton(
                         enabled = state.canProcessPayment,
+                        isLoading = state.isInitiatingPayment,
                         selectedOption = state.selectedPaymentOption,
                         onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
                         onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
@@ -387,6 +389,7 @@ private fun EnhancedOrderSummary(
 @Composable
 private fun ModernPaymentButton(
     enabled: Boolean,
+    isLoading: Boolean,
     selectedOption: PaymentOption,
     onPay: () -> Unit,
     onSelectOption: (PaymentOption) -> Unit
@@ -409,22 +412,36 @@ private fun ModernPaymentButton(
                 // Main Pay button
                 Button(
                     onClick = onPay,
-                    enabled = enabled,
+                    enabled = enabled && !isLoading,
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp)
-                        .shadow(if (enabled) 4.dp else 0.dp, RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)),
+                        .shadow(if (enabled && !isLoading) 4.dp else 0.dp, RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     ),
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                 ) {
-                    Text(
-                        text = selectedOption.label,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Initiating...",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Text(
+                            text = selectedOption.label,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 // Dropdown toggle

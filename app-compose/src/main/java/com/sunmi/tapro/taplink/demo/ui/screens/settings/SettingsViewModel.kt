@@ -17,6 +17,7 @@ import com.sunmi.tapro.taplink.demo.util.EnvironmentDefaults
 import com.sunmi.tapro.taplink.demo.util.PrintReceiptMapping
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
+import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -98,6 +99,14 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCloudNotifyUrl -> updateCloudNotifyUrl(intent.notifyUrl)
             is SettingsIntent.UpdateCloudPushToTerminal -> updateCloudPushToTerminal(intent.enabled)
             is SettingsIntent.AddCloudOption -> addCloudOption(intent.field, intent.value)
+            is SettingsIntent.UpdateTipConfigEnabled -> updateTipConfigEnabled(intent.enabled)
+            is SettingsIntent.UpdateTipOnScreenTip -> updateTipOnScreenTip(intent.enabled)
+            is SettingsIntent.UpdateTipMode -> updateTipMode(intent.mode)
+            is SettingsIntent.UpdateTipWithTax -> updateTipWithTax(intent.enabled)
+            is SettingsIntent.UpdateTipSuggestionsEnabled -> updateTipSuggestionsEnabled(intent.enabled)
+            is SettingsIntent.UpdateTipFeeMode -> updateTipFeeMode(intent.mode)
+            is SettingsIntent.UpdateTipSuggestionValue -> updateTipSuggestionValue(intent.index, intent.value)
+            is SettingsIntent.SaveTipConfig -> saveTipConfig()
             is SettingsIntent.TestConnection -> testConnection()
             is SettingsIntent.ExitApplication -> exitApplication()
             is SettingsIntent.DismissMessage -> dismissMessage()
@@ -155,6 +164,9 @@ class SettingsViewModel(
                 val merchantIdOptions = CloudPreferences.getFieldOptions(context, CloudPreferences.CloudField.MERCHANT_ID)
                 val appIdOptions = CloudPreferences.getFieldOptions(context, CloudPreferences.CloudField.APP_ID)
                 val notifyUrlOptions = CloudPreferences.getNotifyUrlOptions(context)
+
+                // Load Tip Configuration
+                val tipConfig = TipConfigPreferences.getConfig(context)
                 
                 // Update state with loaded values
                 // For security: don't show existing secret key, only track its existence
@@ -191,6 +203,15 @@ class SettingsViewModel(
                         sdkSecretKey = "", // Don't load existing secret key for security
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
+                        tipConfigEnabled = tipConfig.enabled,
+                        tipOnScreenTip = tipConfig.onScreenTip,
+                        tipMode = tipConfig.tipMode,
+                        tipWithTax = tipConfig.tipWithTax,
+                        tipSuggestionsEnabled = tipConfig.suggestionsEnabled,
+                        tipFeeMode = tipConfig.feeMode,
+                        tipSuggestionValue1 = tipConfig.suggestionValue1,
+                        tipSuggestionValue2 = tipConfig.suggestionValue2,
+                        tipSuggestionValue3 = tipConfig.suggestionValue3,
                         isLoading = false
                     )
                 }
@@ -433,6 +454,125 @@ class SettingsViewModel(
                         cloudNotifyUrlOptions = CloudPreferences.getNotifyUrlOptions(context)
                     ) }
                 }
+            }
+        }
+    }
+
+    // ── Tip Configuration handlers ──────────────────────────────────────────────
+
+    /**
+     * Persist current tip config state to SharedPreferences immediately.
+     * Called after every tip config field change so the setting takes effect
+     * in real-time without requiring a separate "Save" action.
+     */
+    private fun persistTipConfig() {
+        val currentState = _state.value
+        val config = TipConfigPreferences.TipConfigData(
+            enabled = currentState.tipConfigEnabled,
+            onScreenTip = currentState.tipOnScreenTip,
+            tipMode = currentState.tipMode,
+            tipWithTax = currentState.tipWithTax,
+            suggestionsEnabled = currentState.tipSuggestionsEnabled,
+            feeMode = currentState.tipFeeMode,
+            suggestionValue1 = currentState.tipSuggestionValue1,
+            suggestionValue2 = currentState.tipSuggestionValue2,
+            suggestionValue3 = currentState.tipSuggestionValue3
+        )
+        val context = getApplication<Application>()
+        TipConfigPreferences.saveConfig(context, config)
+        android.util.Log.d(TAG, "TipConfig persisted: enabled=${config.enabled}, onScreenTip=${config.onScreenTip}, " +
+                "tipMode=${config.tipMode}, tipWithTax=${config.tipWithTax}, " +
+                "suggestions=${if (config.suggestionsEnabled) "${config.feeMode}:[${config.suggestionValue1},${config.suggestionValue2},${config.suggestionValue3}]" else "disabled"}")
+    }
+
+    private fun updateTipConfigEnabled(enabled: Boolean) {
+        _state.update { it.copy(tipConfigEnabled = enabled) }
+        persistTipConfig()
+    }
+
+    private fun updateTipOnScreenTip(enabled: Boolean) {
+        _state.update { it.copy(tipOnScreenTip = enabled) }
+        persistTipConfig()
+    }
+
+    private fun updateTipMode(mode: TipConfigPreferences.TipMode) {
+        _state.update { it.copy(tipMode = mode) }
+        persistTipConfig()
+    }
+
+    private fun updateTipWithTax(enabled: Boolean) {
+        _state.update { it.copy(tipWithTax = enabled) }
+        persistTipConfig()
+    }
+
+    private fun updateTipSuggestionsEnabled(enabled: Boolean) {
+        _state.update { it.copy(tipSuggestionsEnabled = enabled) }
+        persistTipConfig()
+    }
+
+    private fun updateTipFeeMode(mode: TipConfigPreferences.FeeMode) {
+        _state.update { it.copy(tipFeeMode = mode) }
+        persistTipConfig()
+    }
+
+    private fun updateTipSuggestionValue(index: Int, value: Int) {
+        _state.update {
+            when (index) {
+                0 -> it.copy(tipSuggestionValue1 = value)
+                1 -> it.copy(tipSuggestionValue2 = value)
+                2 -> it.copy(tipSuggestionValue3 = value)
+                else -> it
+            }
+        }
+        persistTipConfig()
+    }
+
+    /**
+     * Explicit save action for tip config.
+     * Validates suggestion values and shows confirmation message.
+     * All fields are already persisted on each change; this provides
+     * user feedback and an extra validation gate for suggestion values.
+     */
+    private fun saveTipConfig() {
+        viewModelScope.launch {
+            val currentState = _state.value
+            val config = TipConfigPreferences.TipConfigData(
+                enabled = currentState.tipConfigEnabled,
+                onScreenTip = currentState.tipOnScreenTip,
+                tipMode = currentState.tipMode,
+                tipWithTax = currentState.tipWithTax,
+                suggestionsEnabled = currentState.tipSuggestionsEnabled,
+                feeMode = currentState.tipFeeMode,
+                suggestionValue1 = currentState.tipSuggestionValue1,
+                suggestionValue2 = currentState.tipSuggestionValue2,
+                suggestionValue3 = currentState.tipSuggestionValue3
+            )
+
+            if (currentState.tipSuggestionsEnabled && !config.areSuggestionsValid()) {
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Invalid Tip Suggestions",
+                            content = "Suggestion values must be non-negative numbers.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+                return@launch
+            }
+
+            val context = getApplication<Application>()
+            TipConfigPreferences.saveConfig(context, config)
+            _state.update {
+                it.copy(
+                    message = Message(
+                        type = MessageType.SUCCESS,
+                        title = "Tip Config Saved",
+                        content = "Tip configuration has been saved and will be applied to SALE and POST_AUTH transactions.",
+                        actions = listOf(MessageAction.DISMISS)
+                    )
+                )
             }
         }
     }

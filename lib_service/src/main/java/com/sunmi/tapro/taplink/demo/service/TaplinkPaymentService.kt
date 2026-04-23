@@ -15,6 +15,7 @@ import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodId
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodInfo
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodSubId
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
+import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import com.sunmi.tapro.taplink.sdk.model.request.PaymentRequest
 import com.sunmi.tapro.taplink.sdk.model.request.QueryRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.AbortRequest
@@ -409,13 +410,21 @@ class TaplinkPaymentService : PaymentService {
         cashbackAmount: BigDecimal?,
         serviceFee: BigDecimal?,
         staffInfo: StaffInfo?,
+        tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
         // Convert String? to SDK types for Taplink SDK
         val sdkPaymentMethodId = paymentMethodId?.let { PaymentMethodId.valueOf(it) }
         val sdkSubPaymentMethodId = subPaymentMethodId?.let { PaymentMethodSubId.valueOf(it) }
         val sdkCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee).let {
+            if (tipConfig != null) it.setTipConfig(tipConfig) else it
+        }
+        if (tipConfig != null) {
+            Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=$tipConfig")
+        } else {
+            Log.d(TAG, "TIP_CONFIG [SALE]: tipConfig disabled, not included in request")
+        }
         val saleRequest = SaleRequest(
             referenceOrderId = referenceOrderId,
             transactionRequestId = transactionRequestId,
@@ -556,9 +565,17 @@ class TaplinkPaymentService : PaymentService {
         taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?,
         serviceFee: BigDecimal?,
+        tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee).let {
+            if (tipConfig != null) it.setTipConfig(tipConfig) else it
+        }
+        if (tipConfig != null) {
+            Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=$tipConfig")
+        } else {
+            Log.d(TAG, "TIP_CONFIG [POST_AUTH]: tipConfig disabled, not included in request")
+        }
         val postAuthRequest = PostAuthRequest(
             originalTransactionId = originalTransactionId,
             transactionRequestId = transactionRequestId,

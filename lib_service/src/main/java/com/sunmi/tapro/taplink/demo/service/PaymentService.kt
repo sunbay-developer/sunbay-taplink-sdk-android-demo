@@ -3,6 +3,7 @@ package com.sunmi.tapro.taplink.demo.service
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
+import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import java.math.BigDecimal
 
 /**
@@ -53,6 +54,7 @@ interface PaymentService {
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
+        tipConfig: TipConfig? = null,
         callback: PaymentCallback
     )
 
@@ -119,6 +121,7 @@ interface PaymentService {
         taxAmount: BigDecimal? = null,
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
+        tipConfig: TipConfig? = null,
         callback: PaymentCallback
     )
 

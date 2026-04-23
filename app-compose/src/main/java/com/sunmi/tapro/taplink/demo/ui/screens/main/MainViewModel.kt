@@ -451,10 +451,13 @@ class MainViewModel(
                 // Persist order items for this order (POS: show "what was ordered" in detail)
                 transactionRepository.saveOrderItems(referenceOrderId, _state.value.orderItems)
 
-                // Navigate to progress screen
-                _state.update { it.copy(navigationEvent = NavigationEvent.ToProgress(transactionRequestId)) }
-                
-                // Execute payment
+                // Show loading state on payment button
+                _state.update { it.copy(isInitiatingPayment = true) }
+
+                // Execute payment — navigation happens on first SDK callback
+                val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
+                    getApplication()
+                )
                 paymentService.executeSale(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
@@ -468,7 +471,8 @@ class MainViewModel(
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
-                    callback = createPaymentCallback(transactionRequestId)
+                    tipConfig = tipConfig,
+                    callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
                 
                 // Clear order after initiating payment
@@ -478,6 +482,7 @@ class MainViewModel(
                 android.util.Log.e(TAG, "Failed to process SALE", e)
                 _state.update {
                     it.copy(
+                        isInitiatingPayment = false,
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Payment Error",
@@ -538,17 +543,17 @@ class MainViewModel(
                 // Persist order items for this order (POS: show "what was ordered" in detail)
                 transactionRepository.saveOrderItems(referenceOrderId, _state.value.orderItems)
 
-                // Navigate to progress screen
-                _state.update { it.copy(navigationEvent = NavigationEvent.ToProgress(transactionRequestId)) }
-                
-                // Execute payment
+                // Show loading state on payment button
+                _state.update { it.copy(isInitiatingPayment = true) }
+
+                // Execute payment — navigation happens on first SDK callback
                 paymentService.executeAuth(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
                     amount = _state.value.totalAmount,
                     currency = CURRENCY,
                     description = "Auth - ${_state.value.orderItems.size} items",
-                    callback = createPaymentCallback(transactionRequestId)
+                    callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
                 
                 // Clear order after initiating payment
@@ -558,6 +563,7 @@ class MainViewModel(
                 android.util.Log.e(TAG, "Failed to process AUTH", e)
                 _state.update {
                     it.copy(
+                        isInitiatingPayment = false,
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Payment Error",
@@ -620,10 +626,10 @@ class MainViewModel(
                 // Persist order items for this order (POS: show "what was ordered" in detail)
                 transactionRepository.saveOrderItems(referenceOrderId, _state.value.orderItems)
 
-                // Navigate to progress screen
-                _state.update { it.copy(navigationEvent = NavigationEvent.ToProgress(transactionRequestId)) }
-                
-                // Execute payment
+                // Show loading state on payment button
+                _state.update { it.copy(isInitiatingPayment = true) }
+
+                // Execute payment — navigation happens on first SDK callback
                 paymentService.executeForcedAuth(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
@@ -632,7 +638,7 @@ class MainViewModel(
                     description = "Forced Auth - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
-                    callback = createPaymentCallback(transactionRequestId)
+                    callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
                 
                 // Clear order after initiating payment
@@ -642,6 +648,7 @@ class MainViewModel(
                 android.util.Log.e(TAG, "Failed to process FORCED_AUTH", e)
                 _state.update {
                     it.copy(
+                        isInitiatingPayment = false,
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Payment Error",
@@ -696,6 +703,42 @@ class MainViewModel(
         }
     }
     
+    /**
+     * Create a payment callback that navigates to the progress screen on the
+     * first callback (onProgress / onSuccess / onFailure) and resets the
+     * isInitiatingPayment loading state. Subsequent callbacks are forwarded
+     * to the underlying createPaymentCallback without triggering navigation again.
+     */
+    private fun createNavigatingPaymentCallback(transactionRequestId: String): PaymentCallback {
+        val inner = createPaymentCallback(transactionRequestId)
+        var navigated = false
+        val navigateOnce = {
+            if (!navigated) {
+                navigated = true
+                _state.update {
+                    it.copy(
+                        isInitiatingPayment = false,
+                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
+            }
+        }
+        return object : PaymentCallback {
+            override fun onSuccess(result: PaymentResult) {
+                navigateOnce()
+                inner.onSuccess(result)
+            }
+            override fun onFailure(code: String, message: String) {
+                navigateOnce()
+                inner.onFailure(code, message)
+            }
+            override fun onProgress(status: String, message: String) {
+                navigateOnce()
+                inner.onProgress(status, message)
+            }
+        }
+    }
+
     /**
      * Create payment callback
      * 

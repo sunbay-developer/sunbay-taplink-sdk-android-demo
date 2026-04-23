@@ -5,6 +5,7 @@ import com.sunmi.tapro.taplink.demo.model.Message
 import com.sunmi.tapro.taplink.demo.util.CloudPreferences
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.EnvironmentDefaults
+import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 
 /**
  * Print receipt option enumeration
@@ -62,6 +63,17 @@ data class SettingsState(
     val cloudMerchantIdOptions: List<CloudPreferences.LabeledOption> = emptyList(),
     val cloudAppIdOptions: List<CloudPreferences.LabeledOption> = emptyList(),
     val cloudNotifyUrlOptions: List<CloudPreferences.LabeledOption> = emptyList(),
+
+    // Tip Configuration (only for SALE and POST_AUTH)
+    val tipConfigEnabled: Boolean = false,
+    val tipOnScreenTip: Boolean = true,
+    val tipMode: TipConfigPreferences.TipMode = TipConfigPreferences.TipMode.ON_SALE,
+    val tipWithTax: Boolean = false,
+    val tipSuggestionsEnabled: Boolean = false,
+    val tipFeeMode: TipConfigPreferences.FeeMode = TipConfigPreferences.FeeMode.RATE,
+    val tipSuggestionValue1: Int = 15,
+    val tipSuggestionValue2: Int = 18,
+    val tipSuggestionValue3: Int = 20,
 
     // SDK Init Configuration (TaplinkSDK.init)
     val sdkEnvironment: SdkEnvironment = SdkEnvironment.UAT,

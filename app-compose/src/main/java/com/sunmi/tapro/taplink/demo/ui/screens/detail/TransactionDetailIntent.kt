@@ -33,10 +33,16 @@ sealed class TransactionDetailIntent {
      * Confirm operation with input amount
      * @param operationType The operation type
      * @param amount The amount for the operation (for REFUND, TIP_ADJUST, etc.)
+     * @param tipAmount Optional tip amount (for POST_AUTH)
+     * @param taxAmount Optional tax amount (for POST_AUTH)
+     * @param surchargeAmount Optional surcharge amount (for POST_AUTH)
      */
     data class ConfirmOperation(
         val operationType: TransactionType,
-        val amount: String
+        val amount: String,
+        val tipAmount: String? = null,
+        val taxAmount: String? = null,
+        val surchargeAmount: String? = null
     ) : TransactionDetailIntent()
     
     /**

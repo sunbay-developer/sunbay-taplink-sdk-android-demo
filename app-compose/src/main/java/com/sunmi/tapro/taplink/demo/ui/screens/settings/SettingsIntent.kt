@@ -2,6 +2,7 @@ package com.sunmi.tapro.taplink.demo.ui.screens.settings
 
 import com.sunmi.tapro.taplink.demo.model.ConnectionMode
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 
 /**
  * Sealed class representing all possible user intents/actions on the Settings Screen
@@ -34,6 +35,16 @@ sealed class SettingsIntent {
     data class UpdateCloudPushToTerminal(val enabled: Boolean) : SettingsIntent()
     /** Add a custom value to a cloud field's dropdown option list */
     data class AddCloudOption(val field: String, val value: String) : SettingsIntent()
+
+    // Tip Configuration (SALE and POST_AUTH only)
+    data class UpdateTipConfigEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTipOnScreenTip(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTipMode(val mode: TipConfigPreferences.TipMode) : SettingsIntent()
+    data class UpdateTipWithTax(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTipSuggestionsEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTipFeeMode(val mode: TipConfigPreferences.FeeMode) : SettingsIntent()
+    data class UpdateTipSuggestionValue(val index: Int, val value: Int) : SettingsIntent()
+    object SaveTipConfig : SettingsIntent()
     
     // Actions
     object TestConnection : SettingsIntent()

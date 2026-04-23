@@ -68,7 +68,7 @@ enum class TransactionType {
         POST_AUTH -> "Capture"
         REFUND -> "Refund"
         VOID -> "Void"
-        TIP_ADJUST -> "Add Tip"
+        TIP_ADJUST -> "Tip Adjust"
         QUERY -> "Query"
         BATCH_CLOSE -> "Batch Close"
     }

@@ -61,6 +61,7 @@ import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 
 // Settings page sections
 private enum class SettingsSection { CONFIGURATION, DIAGNOSTICS }
@@ -305,6 +306,10 @@ private fun UnifiedConfigurationSectionContent(
         onToggle = { transactionExpanded = !transactionExpanded }
     ) {
         PrintingSectionContent(state = state, onIntent = onIntent)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+        TipConfigSectionContent(state = state, onIntent = onIntent)
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -734,6 +739,246 @@ private fun PrintingSectionContent(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Tip Configuration section: enable/disable tipConfig for SALE and POST_AUTH transactions.
+ * Allows configuring on-screen tip, tip mode, tip with tax, and suggestion values.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TipConfigSectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Text(
+        text = "Tip Configuration",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Configure on-screen tip for SALE and POST_AUTH transactions. Only applies when tipAmount is not set.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    // Enable/Disable tipConfig
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Enable Tip Config", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Send tipConfig in SALE and POST_AUTH requests",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = state.tipConfigEnabled,
+            onCheckedChange = { onIntent(SettingsIntent.UpdateTipConfigEnabled(it)) }
+        )
+    }
+
+    AnimatedVisibility(
+        visible = state.tipConfigEnabled,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        Column {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // On-Screen Tip toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("On-Screen Tip", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Show tip prompt on terminal screen",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.tipOnScreenTip,
+                    onCheckedChange = { onIntent(SettingsIntent.UpdateTipOnScreenTip(it)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Tip Mode selection
+            Text(
+                text = "Tip Mode",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val selectedContainer = MaterialTheme.colorScheme.primary
+                val selectedContent = MaterialTheme.colorScheme.onPrimary
+                val normalContainer = MaterialTheme.colorScheme.surfaceVariant
+                val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
+                Button(
+                    onClick = { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.ON_SALE)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state.tipMode == TipConfigPreferences.TipMode.ON_SALE) selectedContainer else normalContainer,
+                        contentColor = if (state.tipMode == TipConfigPreferences.TipMode.ON_SALE) selectedContent else normalContent
+                    )
+                ) { Text("ON_SALE", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                Button(
+                    onClick = { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.AFTER_SALE)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state.tipMode == TipConfigPreferences.TipMode.AFTER_SALE) selectedContainer else normalContainer,
+                        contentColor = if (state.tipMode == TipConfigPreferences.TipMode.AFTER_SALE) selectedContent else normalContent
+                    )
+                ) { Text("AFTER_SALE", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Tip With Tax toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Tip With Tax", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Include tax in tip calculation",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.tipWithTax,
+                    onCheckedChange = { onIntent(SettingsIntent.UpdateTipWithTax(it)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Suggestions section
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Tip Suggestions", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Show predefined tip options on terminal",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.tipSuggestionsEnabled,
+                    onCheckedChange = { onIntent(SettingsIntent.UpdateTipSuggestionsEnabled(it)) }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = state.tipSuggestionsEnabled,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Fee Mode selection
+                    Text(
+                        text = "Fee Mode",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val selectedContainer = MaterialTheme.colorScheme.primary
+                        val selectedContent = MaterialTheme.colorScheme.onPrimary
+                        val normalContainer = MaterialTheme.colorScheme.surfaceVariant
+                        val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
+                        Button(
+                            onClick = { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.RATE)) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (state.tipFeeMode == TipConfigPreferences.FeeMode.RATE) selectedContainer else normalContainer,
+                                contentColor = if (state.tipFeeMode == TipConfigPreferences.FeeMode.RATE) selectedContent else normalContent
+                            )
+                        ) { Text("RATE (%)", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                        Button(
+                            onClick = { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.AMOUNT)) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (state.tipFeeMode == TipConfigPreferences.FeeMode.AMOUNT) selectedContainer else normalContainer,
+                                contentColor = if (state.tipFeeMode == TipConfigPreferences.FeeMode.AMOUNT) selectedContent else normalContent
+                            )
+                        ) { Text("AMOUNT ($)", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Three suggestion value fields
+                    val suffixText = if (state.tipFeeMode == TipConfigPreferences.FeeMode.RATE) "%" else "¢"
+                    val labels = listOf("Suggestion 1", "Suggestion 2", "Suggestion 3")
+                    val values = listOf(state.tipSuggestionValue1, state.tipSuggestionValue2, state.tipSuggestionValue3)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        values.forEachIndexed { index, value ->
+                            OutlinedTextField(
+                                value = if (value == 0) "" else value.toString(),
+                                onValueChange = { text ->
+                                    val parsed = text.filter { it.isDigit() }.toIntOrNull() ?: 0
+                                    onIntent(SettingsIntent.UpdateTipSuggestionValue(index, parsed))
+                                },
+                                label = { Text(labels[index], fontSize = 10.sp) },
+                                suffix = { Text(suffixText) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                        }
+                    }
+                }
+            }
+
         }
     }
 }

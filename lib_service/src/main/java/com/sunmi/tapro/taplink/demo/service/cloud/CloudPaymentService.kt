@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
+import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -129,6 +130,21 @@ class CloudPaymentService : PaymentService {
         subId?.let { addProperty("subId", it) }
     }
 
+    /** Build tipConfig JSON object from SDK TipConfig for cloud requests */
+    private fun buildTipConfigJson(tipConfig: TipConfig): JsonObject = JsonObject().apply {
+        addProperty("onScreenTip", tipConfig.onScreenTip)
+        addProperty("tipMode", tipConfig.tipMode.name)
+        addProperty("tipWithTax", tipConfig.tipWithTax)
+        tipConfig.suggestions?.let { suggestions ->
+            add("suggestions", JsonObject().apply {
+                addProperty("feeMode", suggestions.feeMode.name)
+                val valuesArray = com.google.gson.JsonArray()
+                suggestions.values.forEach { valuesArray.add(it) }
+                add("values", valuesArray)
+            })
+        }
+    }
+
     /** Print receipt mode for cloud transactions. Set from app layer when loading preferences. */
     private var printReceipt: String = "BOTH"
 
@@ -210,7 +226,7 @@ class CloudPaymentService : PaymentService {
         cardNetworkType: String?,
         tipAmount: BigDecimal?, taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
-        staffInfo: StaffInfo?, callback: PaymentCallback
+        staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
             addProperty("referenceOrderId", referenceOrderId)
@@ -225,7 +241,13 @@ class CloudPaymentService : PaymentService {
                 taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
                 cashbackAmount?.let { addProperty("cashbackAmount", AmountConverter.toCents(it)) }
                 serviceFee?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
+                tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
             })
+        }
+        if (tipConfig != null) {
+            Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
+        } else {
+            Log.d(TAG, "TIP_CONFIG [SALE]: tipConfig disabled, not included in request")
         }
         Log.d(TAG, "SDK_REQ [SALE]: $body")
         executeCloud("SALE", callback) { it.post(PATH_SALE, body) }
@@ -320,6 +342,7 @@ class CloudPaymentService : PaymentService {
         originalTransactionId: String, amount: BigDecimal, currency: String,
         description: String, tipAmount: BigDecimal?, taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
+        tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
@@ -333,7 +356,13 @@ class CloudPaymentService : PaymentService {
                 tipAmount?.let { addProperty("tipAmount", AmountConverter.toCents(it)) }
                 taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
                 serviceFee?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
+                tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
             })
+        }
+        if (tipConfig != null) {
+            Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
+        } else {
+            Log.d(TAG, "TIP_CONFIG [POST_AUTH]: tipConfig disabled, not included in request")
         }
         Log.d(TAG, "SDK_REQ [POST_AUTH]: $body")
         executeCloud("POST_AUTH", callback) { it.post(PATH_POST_AUTH, body) }

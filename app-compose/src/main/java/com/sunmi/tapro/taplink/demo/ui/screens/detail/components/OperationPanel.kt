@@ -50,6 +50,7 @@ fun OperationPanel(
     isQuerying: Boolean,
     isEnabled: Boolean,
     showQueryButton: Boolean = true,
+    labelOverrides: Map<TransactionType, String> = emptyMap(),
     onPerformOperation: (TransactionType) -> Unit,
     onQueryClick: () -> Unit,
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
@@ -79,7 +80,7 @@ fun OperationPanel(
                             enabled = isEnabled,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(availableOperations[0].displayName())
+                            Text(labelOverrides[availableOperations[0]] ?: availableOperations[0].displayName())
                         }
                     } else if (showQueryButton) {
                         OutlinedButton(
@@ -145,8 +146,9 @@ fun OperationPanel(
 //                    Spacer(modifier = Modifier.height(8.dp))
 
                     availableOperations.forEach { operationType ->
+                        val label = labelOverrides[operationType] ?: operationType.displayName()
                         OperationActionRow(
-                            label = operationType.displayName(),
+                            label = label,
                             onClick = {
                                 showActionsDialog = false
                                 onPerformOperation(operationType)

@@ -138,11 +138,14 @@ fun TransactionDetailScreen(
         OperationInputDialog(
             operationType = state.currentOperationType!!,
             onDismiss = { viewModel.handleIntent(TransactionDetailIntent.HideOperationDialog) },
-            onConfirm = { amount ->
+            onConfirm = { amount, tipAmount, taxAmount, surchargeAmount ->
                 viewModel.handleIntent(
                     TransactionDetailIntent.ConfirmOperation(
                         operationType = state.currentOperationType!!,
-                        amount = amount
+                        amount = amount,
+                        tipAmount = tipAmount,
+                        taxAmount = taxAmount,
+                        surchargeAmount = surchargeAmount
                     )
                 )
             }
@@ -284,6 +287,7 @@ private fun TransactionDetailContent(
                                     isQuerying = state.isQuerying,
                                     isEnabled = !state.isLoading && !state.isQuerying,
                                     showQueryButton = transaction.type != TransactionType.BATCH_CLOSE,
+                                    labelOverrides = buildTipLabelOverride(transaction),
                                     onPerformOperation = onPerformOperation,
                                     onQueryClick = onQueryTransaction,
                                     modifier = Modifier.fillMaxWidth()
@@ -331,6 +335,7 @@ private fun TransactionDetailContent(
                         isQuerying = state.isQuerying,
                         isEnabled = !state.isLoading && !state.isQuerying,
                         showQueryButton = transaction.type != TransactionType.BATCH_CLOSE,
+                        labelOverrides = buildTipLabelOverride(transaction),
                         onPerformOperation = onPerformOperation,
                         onQueryClick = onQueryTransaction,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -362,37 +367,56 @@ private fun TransactionDetailContent(
 }
 
 /**
+ * Build label override map for TIP_ADJUST button.
+ * Shows "Add Tip" when no tip exists, "Tip Adjust" when tip already present.
+ */
+private fun buildTipLabelOverride(transaction: com.sunmi.tapro.taplink.demo.model.Transaction): Map<TransactionType, String> {
+    val hasTip = transaction.tipAmount != null && transaction.tipAmount > java.math.BigDecimal.ZERO
+    return mapOf(TransactionType.TIP_ADJUST to if (hasTip) "Tip Adjust" else "Add Tip")
+}
+
+/**
  * Operation input dialog - POS style
  * For operations that require amount input (REFUND, TIP_ADJUST, etc.)
+ * POST_AUTH shows additional fields for tip, tax, and surcharge amounts.
  */
 @Composable
 private fun OperationInputDialog(
     operationType: TransactionType,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (amount: String, tipAmount: String?, taxAmount: String?, surchargeAmount: String?) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
+    var tipAmount by remember { mutableStateOf("") }
+    var taxAmount by remember { mutableStateOf("") }
+    var surchargeAmount by remember { mutableStateOf("") }
+    val isPostAuth = operationType == TransactionType.POST_AUTH
+    val amountRegex = remember { Regex("^\\d*\\.?\\d{0,2}$") }
 
     PosDialog(
         onDismissRequest = onDismiss,
         title = operationType.displayName(),
-        subtitle = "Enter the amount for this operation",
+        subtitle = if (isPostAuth) "Enter completion amount and optional additional amounts"
+                   else "Enter the amount for this operation",
         icon = Icons.Default.AttachMoney,
         iconTint = MaterialTheme.colorScheme.primary,
         iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
         confirmText = "Confirm",
-        onConfirm = { onConfirm(amount) },
+        onConfirm = {
+            onConfirm(
+                amount,
+                tipAmount.takeIf { isPostAuth && it.isNotBlank() },
+                taxAmount.takeIf { isPostAuth && it.isNotBlank() },
+                surchargeAmount.takeIf { isPostAuth && it.isNotBlank() }
+            )
+        },
         confirmEnabled = amount.isNotBlank(),
         dismissText = "Cancel",
         onDismiss = onDismiss
     ) {
         OutlinedTextField(
             value = amount,
-            onValueChange = { newValue ->
-                if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
-                    amount = newValue
-                }
-            },
+            onValueChange = { if (it.isEmpty() || it.matches(amountRegex)) amount = it },
             label = { Text("Amount") },
             prefix = { Text("$") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -400,5 +424,40 @@ private fun OperationInputDialog(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
+        if (isPostAuth) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = tipAmount,
+                onValueChange = { if (it.isEmpty() || it.matches(amountRegex)) tipAmount = it },
+                label = { Text("Tip Amount (Optional)") },
+                prefix = { Text("$") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = taxAmount,
+                onValueChange = { if (it.isEmpty() || it.matches(amountRegex)) taxAmount = it },
+                label = { Text("Tax Amount (Optional)") },
+                prefix = { Text("$") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = surchargeAmount,
+                onValueChange = { if (it.isEmpty() || it.matches(amountRegex)) surchargeAmount = it },
+                label = { Text("Surcharge Amount (Optional)") },
+                prefix = { Text("$") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            )
+        }
     }
 }

@@ -60,7 +60,7 @@ class TransactionDetailViewModel(
             is TransactionDetailIntent.PerformOperation -> performOperation(intent.operationType)
             is TransactionDetailIntent.ShowOperationDialog -> showOperationDialog(intent.operationType)
             is TransactionDetailIntent.HideOperationDialog -> hideOperationDialog()
-            is TransactionDetailIntent.ConfirmOperation -> confirmOperation(intent.operationType, intent.amount)
+            is TransactionDetailIntent.ConfirmOperation -> confirmOperation(intent.operationType, intent.amount, intent.tipAmount, intent.taxAmount, intent.surchargeAmount)
             is TransactionDetailIntent.NavigateBack -> navigateBack()
             is TransactionDetailIntent.DismissMessage -> dismissMessageHandler()
             is TransactionDetailIntent.ClearNavigationEvent -> clearNavigationEventHandler()
@@ -178,7 +178,13 @@ class TransactionDetailViewModel(
      * Confirm operation with input amount
      * Called when user confirms operation in dialog
      */
-    private fun confirmOperation(operationType: TransactionType, amountString: String) {
+    private fun confirmOperation(
+        operationType: TransactionType,
+        amountString: String,
+        tipAmountString: String? = null,
+        taxAmountString: String? = null,
+        surchargeAmountString: String? = null
+    ) {
         hideOperationDialog()
         
         // Parse amount
@@ -212,15 +218,26 @@ class TransactionDetailViewModel(
             }
             return
         }
+
+        // Parse optional additional amounts for POST_AUTH
+        val tipAmount = tipAmountString?.takeIf { it.isNotBlank() }?.let { BigDecimal(it) }
+        val taxAmount = taxAmountString?.takeIf { it.isNotBlank() }?.let { BigDecimal(it) }
+        val surchargeAmount = surchargeAmountString?.takeIf { it.isNotBlank() }?.let { BigDecimal(it) }
         
-        executeOperation(operationType, amount)
+        executeOperation(operationType, amount, tipAmount, taxAmount, surchargeAmount)
     }
     
     /**
      * Execute follow-up operation
      * Creates new transaction and calls payment service
      */
-    private fun executeOperation(operationType: TransactionType, amount: BigDecimal?) {
+    private fun executeOperation(
+        operationType: TransactionType,
+        amount: BigDecimal?,
+        tipAmount: BigDecimal? = null,
+        taxAmount: BigDecimal? = null,
+        surchargeAmount: BigDecimal? = null
+    ) {
         val originalTransaction = _state.value.transaction ?: return
         // Use display amount (order + tip etc.) so progress screen and APIs use correct total
         val originalDisplayAmount = originalTransaction.getDisplayAmount()
@@ -316,6 +333,9 @@ class TransactionDetailViewModel(
                         )
                     }
                     TransactionType.POST_AUTH -> {
+                        val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
+                            DependencyProvider.requireContext()
+                        )
                         paymentService.executePostAuth(
                             referenceOrderId = referenceOrderId,
                             transactionRequestId = transactionRequestId,
@@ -323,6 +343,10 @@ class TransactionDetailViewModel(
                             amount = amount ?: originalTransaction.amount,
                             currency = originalTransaction.currency,
                             description = "Post-authorization completion",
+                            tipAmount = tipAmount,
+                            taxAmount = taxAmount,
+                            serviceFee = surchargeAmount,
+                            tipConfig = tipConfig,
                             callback = callback
                         )
                     }

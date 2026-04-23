@@ -367,6 +367,7 @@ class TransactionDetailActivity : AppCompatActivity() {
 
         if (txn.canAdjustTip()) {
             tipAdjustButton.visibility = View.VISIBLE
+            tipAdjustButton.text = if (txn.tipAmount != null && txn.tipAmount > BigDecimal.ZERO) "TIP ADJUST" else "ADD TIP"
             hasOperations = true
         }
 
@@ -613,13 +614,15 @@ class TransactionDetailActivity : AppCompatActivity() {
         val tvCashbackAmount = dialogView.findViewById<TextView>(R.id.tv_cashback_amount)
         val tvServiceFee = dialogView.findViewById<TextView>(R.id.tv_service_fee)
 
-        // Hide cashback and service fee fields as they're not supported for POST_AUTH
+        // Hide order amount label and cashback (not supported for POST_AUTH)
         tvOrderAmount.visibility = View.GONE
         etCashbackAmount.visibility = View.GONE
         tvCashbackAmount.visibility = View.GONE
-        etServiceFee.visibility = View.GONE
-        tvServiceFee.visibility = View.GONE
-        
+
+        // Show surcharge field with updated label
+        tvServiceFee.text = "Surcharge"
+        etServiceFee.hint = "Enter surcharge"
+
         AlertDialog.Builder(this)
             .setTitle("Additional Amounts (Optional)")
             .setMessage("Completion Amount: ${String.format("%.2f", completionAmount)}")
@@ -627,12 +630,13 @@ class TransactionDetailActivity : AppCompatActivity() {
             .setPositiveButton("Proceed") { _, _ ->
                 val tipAmount = etTipAmount.text.toString().let { if (it.isBlank()) null else BigDecimal(it) }
                 val taxAmount = etTaxAmount.text.toString().let { if (it.isBlank()) null else BigDecimal(it) }
-                
-                executePostAuth(completionAmount, null, tipAmount, taxAmount, null, null)
+                val surchargeAmount = etServiceFee.text.toString().let { if (it.isBlank()) null else BigDecimal(it) }
+
+                executePostAuth(completionAmount, tipAmount, taxAmount, null, surchargeAmount)
             }
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Skip") { _, _ ->
-                executePostAuth(completionAmount, null, null, null, null, null)
+                executePostAuth(completionAmount)
             }
             .show()
     }
