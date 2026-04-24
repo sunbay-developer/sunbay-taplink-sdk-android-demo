@@ -364,6 +364,9 @@ class TransactionListViewModel(
      * 
      * Executes a batch close operation to settle all pending transactions.
      * Creates a new transaction record for the batch close operation.
+     *
+     * In App-to-App mode, stays on the list screen until the final result arrives,
+     * then navigates to the progress screen.
      */
     private fun batchClose() {
         viewModelScope.launch {
@@ -393,19 +396,28 @@ class TransactionListViewModel(
                 
                 // Add to repository
                 transactionRepository.addTransaction(transaction)
+
+                // Check connection mode
+                val isAppToApp = try {
+                    val context = getApplication<android.app.Application>()
+                    com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                        .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
+                } catch (e: Exception) { false }
                 
-                // Execute batch close
+                // Execute batch close — in App-to-App mode, callback triggers navigation on final result
                 paymentService.executeBatchClose(
                     transactionRequestId = transactionRequestId,
                     description = "Batch Close",
-                    callback = createBatchCloseCallback(transactionRequestId)
+                    callback = createNavigatingBatchCloseCallback(transactionRequestId, isAppToApp)
                 )
                 
-                // Navigate to progress screen
-                _state.update { 
-                    it.copy(
-                        navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
-                    ) 
+                // Non-App-to-App: navigate to progress screen immediately
+                if (!isAppToApp) {
+                    _state.update { 
+                        it.copy(
+                            navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
+                        ) 
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -430,6 +442,9 @@ class TransactionListViewModel(
      * 
      * Executes a standalone refund operation without referencing an original transaction.
      * Creates a new transaction record for the refund.
+     *
+     * In App-to-App mode, stays on the list screen until the final result arrives,
+     * then navigates to the progress screen.
      * 
      * @param amount Refund amount as string
      */
@@ -493,8 +508,16 @@ class TransactionListViewModel(
                 
                 // Add to repository
                 transactionRepository.addTransaction(transaction)
+
+                // Check connection mode
+                val isAppToApp = try {
+                    val context = getApplication<android.app.Application>()
+                    com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                        .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
+                } catch (e: Exception) { false }
                 
                 // Execute refund (unreferenced refund: both original IDs empty, referenceOrderId required)
+                // In App-to-App mode, callback triggers navigation on final result
                 paymentService.executeRefund(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
@@ -504,14 +527,16 @@ class TransactionListViewModel(
                     currency = CURRENCY,
                     description = "Standalone Refund",
                     reason = "Standalone refund",
-                    callback = createStandaloneRefundCallback(transactionRequestId)
+                    callback = createNavigatingStandaloneRefundCallback(transactionRequestId, isAppToApp)
                 )
                 
-                // Navigate to progress screen
-                _state.update { 
-                    it.copy(
-                        navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
-                    ) 
+                // Non-App-to-App: navigate to progress screen immediately
+                if (!isAppToApp) {
+                    _state.update { 
+                        it.copy(
+                            navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
+                        ) 
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -758,6 +783,47 @@ class TransactionListViewModel(
     }
     
     /**
+     * Create a batch close callback that navigates to the progress screen on final result
+     * when in App-to-App mode. Wraps the standard createBatchCloseCallback.
+     */
+    private fun createNavigatingBatchCloseCallback(
+        transactionRequestId: String,
+        isAppToApp: Boolean
+    ): PaymentCallback {
+        val inner = createBatchCloseCallback(transactionRequestId)
+        var navigated = false
+        val navigateOnce = {
+            if (!navigated) {
+                navigated = true
+                _state.update {
+                    it.copy(
+                        navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
+            }
+        }
+        return object : PaymentCallback {
+            override fun onSuccess(result: PaymentResult) {
+                if (isAppToApp) navigateOnce()
+                inner.onSuccess(result)
+            }
+            override fun onFailure(code: String, message: String) {
+                if (isAppToApp) navigateOnce()
+                inner.onFailure(code, message)
+            }
+            override fun onProgress(status: String, message: String) {
+                if (isAppToApp) {
+                    // App-to-App: skip progress updates entirely — do not write
+                    // intermediate messages to the repository, so the progress
+                    // screen won't flash stale progress on navigation.
+                    return
+                }
+                inner.onProgress(status, message)
+            }
+        }
+    }
+
+    /**
      * Create batch close callback
      * 
      * Creates a PaymentCallback for handling batch close results.
@@ -839,6 +905,47 @@ class TransactionListViewModel(
         }
     }
     
+    /**
+     * Create a standalone refund callback that navigates to the progress screen on final result
+     * when in App-to-App mode. Wraps the standard createStandaloneRefundCallback.
+     */
+    private fun createNavigatingStandaloneRefundCallback(
+        transactionRequestId: String,
+        isAppToApp: Boolean
+    ): PaymentCallback {
+        val inner = createStandaloneRefundCallback(transactionRequestId)
+        var navigated = false
+        val navigateOnce = {
+            if (!navigated) {
+                navigated = true
+                _state.update {
+                    it.copy(
+                        navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
+            }
+        }
+        return object : PaymentCallback {
+            override fun onSuccess(result: PaymentResult) {
+                if (isAppToApp) navigateOnce()
+                inner.onSuccess(result)
+            }
+            override fun onFailure(code: String, message: String) {
+                if (isAppToApp) navigateOnce()
+                inner.onFailure(code, message)
+            }
+            override fun onProgress(status: String, message: String) {
+                if (isAppToApp) {
+                    // App-to-App: skip progress updates entirely — do not write
+                    // intermediate messages to the repository, so the progress
+                    // screen won't flash stale progress on navigation.
+                    return
+                }
+                inner.onProgress(status, message)
+            }
+        }
+    }
+
     /**
      * Create standalone refund callback
      * 

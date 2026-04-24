@@ -229,7 +229,12 @@ class TransactionDetailViewModel(
     
     /**
      * Execute follow-up operation
-     * Creates new transaction and calls payment service
+     * Creates new transaction and calls payment service.
+     *
+     * In App-to-App mode the SDK launches the Tapro app for the full payment flow,
+     * so we stay on the detail screen (showing a loading indicator) until the final
+     * result (onSuccess / onFailure) comes back, then navigate to the progress screen.
+     * In other modes we navigate immediately after calling the SDK.
      */
     private fun executeOperation(
         operationType: TransactionType,
@@ -292,9 +297,17 @@ class TransactionDetailViewModel(
                 )
                 
                 transactionRepository.addTransaction(newTransaction)
-                
-                // Create payment callback
-                val callback = createPaymentCallback(transactionRequestId)
+
+                // App-to-App mode: wait for final result before navigating to progress screen.
+                // Other modes: navigate immediately so user sees real-time progress.
+                val isAppToApp = try {
+                    val context = DependencyProvider.requireContext()
+                    com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                        .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
+                } catch (e: Exception) { false }
+
+                // Create payment callback — in App-to-App mode it also triggers navigation on final result
+                val callback = createNavigatingPaymentCallback(transactionRequestId, isAppToApp)
                 
                 // Execute operation based on type
                 when (operationType) {
@@ -373,16 +386,19 @@ class TransactionDetailViewModel(
                                 )
                             )
                         }
+                        return@launch
                     }
                 }
                 
-                // Navigate to progress screen
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        message = null,
-                        navigationEvent = TransactionDetailNavigationEvent.ToProgress(transactionRequestId)
-                    )
+                // Non-App-to-App: navigate to progress screen immediately
+                if (!isAppToApp) {
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            message = null,
+                            navigationEvent = TransactionDetailNavigationEvent.ToProgress(transactionRequestId)
+                        )
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -401,6 +417,51 @@ class TransactionDetailViewModel(
         }
     }
     
+    /**
+     * Create a payment callback that, in App-to-App mode, navigates to the progress
+     * screen only when the final result (onSuccess / onFailure) arrives.
+     * In non-App-to-App mode the navigation is handled by the caller, so this
+     * simply delegates to createPaymentCallback.
+     */
+    private fun createNavigatingPaymentCallback(
+        transactionRequestId: String,
+        isAppToApp: Boolean
+    ): PaymentCallback {
+        val inner = createPaymentCallback(transactionRequestId)
+        var navigated = false
+        val navigateOnce = {
+            if (!navigated) {
+                navigated = true
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        message = null,
+                        navigationEvent = TransactionDetailNavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
+            }
+        }
+        return object : PaymentCallback {
+            override fun onSuccess(result: PaymentResult) {
+                if (isAppToApp) navigateOnce()
+                inner.onSuccess(result)
+            }
+            override fun onFailure(code: String, message: String) {
+                if (isAppToApp) navigateOnce()
+                inner.onFailure(code, message)
+            }
+            override fun onProgress(status: String, message: String) {
+                if (isAppToApp) {
+                    // App-to-App: skip progress updates entirely — do not write
+                    // intermediate messages to the repository, so the progress
+                    // screen won't flash stale progress on navigation.
+                    return
+                }
+                inner.onProgress(status, message)
+            }
+        }
+    }
+
     /**
      * Create payment callback for follow-up operations
      */

@@ -704,14 +704,28 @@ class MainViewModel(
     }
     
     /**
-     * Create a payment callback that navigates to the progress screen on the
-     * first callback (onProgress / onSuccess / onFailure) and resets the
-     * isInitiatingPayment loading state. Subsequent callbacks are forwarded
-     * to the underlying createPaymentCallback without triggering navigation again.
+     * Create a payment callback that navigates to the progress screen and resets
+     * the isInitiatingPayment loading state.
+     *
+     * Behaviour depends on connection mode:
+     * - **App-to-App**: The SDK call launches the Tapro app which handles the
+     *   entire payment flow. We stay on MainScreen (showing loading) until the
+     *   final result (onSuccess / onFailure) comes back, then navigate to the
+     *   progress screen to display the result. onProgress callbacks only update
+     *   the repository without triggering navigation.
+     * - **Other modes** (Cable / LAN / Cloud): Navigate on the first callback
+     *   (onProgress / onSuccess / onFailure) so the user sees real-time progress.
      */
     private fun createNavigatingPaymentCallback(transactionRequestId: String): PaymentCallback {
         val inner = createPaymentCallback(transactionRequestId)
         var navigated = false
+
+        val isAppToApp = try {
+            val context = getApplication<Application>()
+            com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
+        } catch (e: Exception) { false }
+
         val navigateOnce = {
             if (!navigated) {
                 navigated = true
@@ -733,6 +747,12 @@ class MainViewModel(
                 inner.onFailure(code, message)
             }
             override fun onProgress(status: String, message: String) {
+                if (isAppToApp) {
+                    // App-to-App: skip progress updates entirely — do not write
+                    // intermediate messages (e.g. "waiting for card") to the repository,
+                    // so the progress screen won't flash stale progress on navigation.
+                    return
+                }
                 navigateOnce()
                 inner.onProgress(status, message)
             }
