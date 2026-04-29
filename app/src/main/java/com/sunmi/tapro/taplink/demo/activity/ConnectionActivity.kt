@@ -70,6 +70,14 @@ class ConnectionActivity : AppCompatActivity() {
     // Cable-specific configuration inputs
     private lateinit var spinnerCableProtocol: Spinner
     
+    // Cloud-specific configuration inputs
+    private lateinit var cloudApiKeyInput: EditText
+    private lateinit var cloudBaseUrlInput: EditText
+    private lateinit var cloudTerminalSnInput: EditText
+    private lateinit var cloudMerchantIdInput: EditText
+    private lateinit var cloudAppIdInput: EditText
+    private lateinit var cloudNotifyUrlInput: EditText
+    
     // Print receipt configuration
     private lateinit var spinnerPrintReceipt: Spinner
     
@@ -174,6 +182,14 @@ class ConnectionActivity : AppCompatActivity() {
         // Cable configuration inputs
         spinnerCableProtocol = findViewById(R.id.spinner_cable_protocol)
         
+        // Cloud configuration inputs
+        cloudApiKeyInput = findViewById(R.id.et_cloud_api_key)
+        cloudBaseUrlInput = findViewById(R.id.et_cloud_base_url)
+        cloudTerminalSnInput = findViewById(R.id.et_cloud_terminal_sn)
+        cloudMerchantIdInput = findViewById(R.id.et_cloud_merchant_id)
+        cloudAppIdInput = findViewById(R.id.et_cloud_app_id)
+        cloudNotifyUrlInput = findViewById(R.id.et_cloud_notify_url)
+        
         // Print receipt configuration
         spinnerPrintReceipt = findViewById(R.id.spinner_print_receipt)
         
@@ -236,6 +252,11 @@ class ConnectionActivity : AppCompatActivity() {
                 showConfigArea(ConnectionPreferences.ConnectionMode.LAN)
                 loadLanConfig()
             }
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                cloudRadio.isChecked = true
+                showConfigArea(ConnectionPreferences.ConnectionMode.CLOUD)
+                loadCloudConfig()
+            }
         }
         
         Log.d(TAG, "Load current configuration - Connection mode: $currentMode")
@@ -255,6 +276,36 @@ class ConnectionActivity : AppCompatActivity() {
 //        switchTls.isChecked = false // LAN mode defaults to TLS disabled
         
         Log.d(TAG, "Load LAN configuration - IP: $ip, Port: $port")
+    }
+    
+    /**
+     * Load Cloud configuration from preferences
+     */
+    private fun loadCloudConfig() {
+        val config = ConnectionPreferences.getCloudConfig(this)
+        cloudApiKeyInput.setText(config.apiKey)
+        cloudBaseUrlInput.setText(config.baseUrl)
+        cloudTerminalSnInput.setText(config.terminalSn)
+        cloudMerchantIdInput.setText(config.merchantId)
+        cloudAppIdInput.setText(config.appId)
+        cloudNotifyUrlInput.setText(config.notifyUrl)
+        
+        Log.d(TAG, "Load Cloud configuration - BaseUrl: ${config.baseUrl}, TerminalSN: ${config.terminalSn}")
+    }
+    
+    /**
+     * Save Cloud configuration to preferences
+     */
+    private fun saveCloudConfig() {
+        ConnectionPreferences.saveCloudConfig(
+            this,
+            apiKey = cloudApiKeyInput.text.toString().trim(),
+            baseUrl = cloudBaseUrlInput.text.toString().trim(),
+            terminalSn = cloudTerminalSnInput.text.toString().trim(),
+            merchantId = cloudMerchantIdInput.text.toString().trim(),
+            appId = cloudAppIdInput.text.toString().trim(),
+            notifyUrl = cloudNotifyUrlInput.text.toString().trim()
+        )
     }
     
     /**
@@ -460,6 +511,11 @@ class ConnectionActivity : AppCompatActivity() {
                     showConfigArea(ConnectionPreferences.ConnectionMode.LAN)
                     loadLanConfig() // Reload LAN configuration
                 }
+                R.id.rb_cloud -> {
+                    selectedMode = ConnectionPreferences.ConnectionMode.CLOUD
+                    showConfigArea(ConnectionPreferences.ConnectionMode.CLOUD)
+                    loadCloudConfig()
+                }
             }
             
             // Hide error prompt
@@ -598,6 +654,9 @@ class ConnectionActivity : AppCompatActivity() {
             ConnectionPreferences.ConnectionMode.LAN -> {
                 layoutLanConfig.visibility = View.VISIBLE
             }
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                layoutCloudConfig.visibility = View.VISIBLE
+            }
         }
         
         Log.d(TAG, "Show configuration area: $mode")
@@ -723,6 +782,31 @@ class ConnectionActivity : AppCompatActivity() {
                 // Protocol selection is always valid, hardware compatibility is handled by SDK
                 return ValidationResult(true, "")
             }
+            
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                // Cloud mode requires API Key, Base URL, and Terminal SN
+                val apiKey = cloudApiKeyInput.text.toString().trim()
+                val baseUrl = cloudBaseUrlInput.text.toString().trim()
+                val terminalSn = cloudTerminalSnInput.text.toString().trim()
+                
+                if (TextUtils.isEmpty(apiKey)) {
+                    return ValidationResult(false, "Please enter API Key")
+                }
+                
+                if (TextUtils.isEmpty(baseUrl)) {
+                    return ValidationResult(false, "Please enter Base URL")
+                }
+                
+                if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+                    return ValidationResult(false, "Base URL must start with http:// or https://")
+                }
+                
+                if (TextUtils.isEmpty(terminalSn)) {
+                    return ValidationResult(false, "Please enter Terminal SN")
+                }
+                
+                return ValidationResult(true, "")
+            }
         }
     }
     
@@ -768,6 +852,11 @@ class ConnectionActivity : AppCompatActivity() {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
                 // No additional configuration needed for App-to-App mode
                 Log.d(TAG, "App-to-App mode - no additional configuration to save")
+            }
+            
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                saveCloudConfig()
+                Log.d(TAG, "Save Cloud configuration")
             }
         }
         

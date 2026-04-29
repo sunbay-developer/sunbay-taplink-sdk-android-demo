@@ -104,9 +104,9 @@
                         android:layout_height="wrap_content"
                         android:text="@string/connection_mode_cloud"
                         android:textSize="16sp"
-                        android:textColor="#999999"
+                        android:textColor="#333333"
                         android:padding="16dp"
-                        android:enabled="false" />
+                        android:enabled="true" />
 
                 </RadioGroup>
 
@@ -395,15 +395,14 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
-            app:cardBackgroundColor="#F8F9FA"
+            app:cardBackgroundColor="#F0F0FF"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp"
-                android:alpha="0.6">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -414,47 +413,131 @@
                     android:textColor="#333333"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Device ID Input -->
+                <!-- API Key Input -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/cloud_device_id_label"
+                    android:text="@string/cloud_api_key_label"
                     android:textSize="14sp"
                     android:textColor="#666666"
                     android:layout_marginBottom="8dp" />
 
                 <EditText
-                    android:id="@+id/et_cloud_device_id"
+                    android:id="@+id/et_cloud_api_key"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:hint="@string/cloud_device_id_hint"
+                    android:hint="@string/cloud_api_key_hint"
                     android:inputType="textNoSuggestions"
                     android:textSize="16sp"
                     android:padding="12dp"
-                    android:background="@android:color/white"
+                    android:background="@drawable/rounded_edittext"
                     android:layout_marginBottom="16dp"
-                    android:enabled="false" />
+                    android:enabled="true" />
 
-                <!-- API Endpoint Settings -->
+                <!-- Base URL Input -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/cloud_api_endpoint_label"
+                    android:text="@string/cloud_base_url_label"
                     android:textSize="14sp"
                     android:textColor="#666666"
                     android:layout_marginBottom="8dp" />
 
                 <EditText
-                    android:id="@+id/et_cloud_api_endpoint"
+                    android:id="@+id/et_cloud_base_url"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:hint="@string/cloud_api_endpoint_hint"
+                    android:hint="@string/cloud_base_url_hint"
                     android:inputType="textUri"
                     android:textSize="16sp"
                     android:padding="12dp"
-                    android:background="@android:color/white"
+                    android:background="@drawable/rounded_edittext"
                     android:layout_marginBottom="16dp"
-                    android:enabled="false" />
+                    android:enabled="true" />
+
+                <!-- Terminal SN Input -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cloud_terminal_sn_label"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/et_cloud_terminal_sn"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/cloud_terminal_sn_hint"
+                    android:inputType="textNoSuggestions"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:layout_marginBottom="16dp"
+                    android:enabled="true" />
+
+                <!-- Merchant ID Input (Optional) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cloud_merchant_id_label"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/et_cloud_merchant_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/cloud_merchant_id_hint"
+                    android:inputType="textNoSuggestions"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:layout_marginBottom="16dp"
+                    android:enabled="true" />
+
+                <!-- App ID Input (Optional) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cloud_app_id_label"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/et_cloud_app_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/cloud_app_id_hint"
+                    android:inputType="textNoSuggestions"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:layout_marginBottom="16dp"
+                    android:enabled="true" />
+
+                <!-- Notify URL Input -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cloud_notify_url_label"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/et_cloud_notify_url"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/cloud_notify_url_hint"
+                    android:inputType="textUri"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:layout_marginBottom="16dp"
+                    android:enabled="true" />
 
             </LinearLayout>
 

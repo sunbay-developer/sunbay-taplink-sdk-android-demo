@@ -7,6 +7,53 @@
 
     <!-- Header Card -->
 
+    <!-- Filter Chips -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/chip_all"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="All" android:textSize="13sp" android:layout_marginEnd="8dp"
+                android:minWidth="48dp" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:background="@color/colorPrimary" android:textColor="#FFFFFF" />
+
+            <Button android:id="@+id/chip_today"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Today" android:textSize="13sp" android:layout_marginEnd="8dp"
+                android:minWidth="48dp" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:textColor="@color/colorPrimary" />
+
+            <Button android:id="@+id/chip_success"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Success" android:textSize="13sp" android:layout_marginEnd="8dp"
+                android:minWidth="48dp" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:textColor="@color/colorPrimary" />
+
+            <Button android:id="@+id/chip_failed"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Failed" android:textSize="13sp" android:layout_marginEnd="8dp"
+                android:minWidth="48dp" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:textColor="@color/colorPrimary" />
+
+            <Button android:id="@+id/chip_pending"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Pending" android:textSize="13sp"
+                android:minWidth="48dp" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:textColor="@color/colorPrimary" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
     <!-- Transaction History List -->
     <ListView
         android:id="@+id/lv_transactions"

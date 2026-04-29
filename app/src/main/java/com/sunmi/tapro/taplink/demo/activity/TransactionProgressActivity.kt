@@ -2071,6 +2071,20 @@ class TransactionProgressActivity : AppCompatActivity() {
                             closeTime = bci.closeTime
                         )
                     },
+                    cardInfo = result.cardInfo?.let { ci ->
+                        com.sunmi.tapro.taplink.demo.model.CardInfo(
+                            maskedPan = ci.maskedPan,
+                            cardNetworkType = ci.cardNetworkType,
+                            paymentMethodId = ci.paymentMethodId,
+                            subPaymentMethodId = ci.subPaymentMethodId,
+                            entryMode = ci.entryMode,
+                            authenticationMethod = ci.authenticationMethod,
+                            cardholderName = ci.cardholderName,
+                            expiryDate = ci.expiryDate,
+                            issuerBank = ci.issuerBank,
+                            cardBrand = ci.cardBrand
+                        )
+                    },
                     errorCode = null,
                     errorMessage = null
                 )

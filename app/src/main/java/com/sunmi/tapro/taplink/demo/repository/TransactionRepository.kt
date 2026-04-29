@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.repository
 
 import com.sunmi.tapro.taplink.demo.model.BatchCloseInfo
+import com.sunmi.tapro.taplink.demo.model.CardInfo
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
@@ -114,6 +115,7 @@ object TransactionRepository {
      * @param cashbackAmount Cashback amount from SDK (optional)
      * @param batchNo Batch number (optional, for BATCH_CLOSE)
      * @param batchCloseInfo Batch close information (optional, for BATCH_CLOSE)
+     * @param cardInfo Card information from payment result (optional)
      * @return Returns true if update successful, false if record not found
      */
     fun updateTransactionWithAmounts(
@@ -130,7 +132,8 @@ object TransactionRepository {
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
         batchNo: Int? = null,
-        batchCloseInfo: BatchCloseInfo? = null
+        batchCloseInfo: BatchCloseInfo? = null,
+        cardInfo: CardInfo? = null
     ): Boolean {
         return updateTransaction(transactionRequestId) { transaction ->
             transaction.copy(
@@ -147,7 +150,8 @@ object TransactionRepository {
                 cashbackAmount = if (cashbackAmount != null) cashbackAmount else transaction.cashbackAmount,
                 serviceFee = if (serviceFee != null) serviceFee else transaction.serviceFee,
                 batchNo = batchNo ?: transaction.batchNo,
-                batchCloseInfo = batchCloseInfo ?: transaction.batchCloseInfo
+                batchCloseInfo = batchCloseInfo ?: transaction.batchCloseInfo,
+                cardInfo = cardInfo ?: transaction.cardInfo
             )
         }
     }

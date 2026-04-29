@@ -24,11 +24,23 @@ object ConnectionPreferences {
     private const val KEY_CABLE_PROTOCOL = "cable_protocol"
     private const val KEY_PRINT_RECEIPT = "print_receipt"
     
+    // Cloud config keys
+    private const val KEY_CLOUD_API_KEY = "cloud_api_key"
+    private const val KEY_CLOUD_BASE_URL = "cloud_base_url"
+    private const val KEY_CLOUD_TERMINAL_SN = "cloud_terminal_sn"
+    private const val KEY_CLOUD_MERCHANT_ID = "cloud_merchant_id"
+    private const val KEY_CLOUD_APP_ID = "cloud_app_id"
+    private const val KEY_CLOUD_NOTIFY_URL = "cloud_notify_url"
+    
     // Default values
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
     private const val DEFAULT_CABLE_PROTOCOL = "AUTO"
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
+    
+    // Default cloud values
+    private const val DEFAULT_CLOUD_BASE_URL = "https://open.sunbay.us"
+    private const val DEFAULT_CLOUD_NOTIFY_URL = "http://52.76.178.47:8880/api/notify"
     
     /**
      * Connection mode enumeration
@@ -36,7 +48,8 @@ object ConnectionPreferences {
     enum class ConnectionMode {
         APP_TO_APP,    // Same-device integration (default)
         CABLE,         // Cross-device via cable
-        LAN            // Local Area Network
+        LAN,           // Local Area Network
+        CLOUD          // Cloud API connection
     }
     
     /**
@@ -177,5 +190,49 @@ object ConnectionPreferences {
     fun getPrintReceipt(context: Context): String {
         val prefs = getPreferences(context)
         return prefs.getString(KEY_PRINT_RECEIPT, DEFAULT_PRINT_RECEIPT) ?: DEFAULT_PRINT_RECEIPT
+    }
+    
+    /**
+     * Save Cloud configuration
+     */
+    fun saveCloudConfig(context: Context, apiKey: String, baseUrl: String, terminalSn: String, merchantId: String = "", appId: String = "", notifyUrl: String = DEFAULT_CLOUD_NOTIFY_URL) {
+        getPreferences(context).edit {
+            putString(KEY_CLOUD_API_KEY, apiKey)
+            putString(KEY_CLOUD_BASE_URL, baseUrl)
+            putString(KEY_CLOUD_TERMINAL_SN, terminalSn)
+            putString(KEY_CLOUD_MERCHANT_ID, merchantId)
+            putString(KEY_CLOUD_APP_ID, appId)
+            putString(KEY_CLOUD_NOTIFY_URL, notifyUrl)
+        }
+    }
+    
+    /**
+     * Cloud configuration data class
+     */
+    data class CloudConfig(
+        val apiKey: String,
+        val baseUrl: String,
+        val terminalSn: String,
+        val merchantId: String = "",
+        val appId: String = "",
+        val notifyUrl: String = DEFAULT_CLOUD_NOTIFY_URL
+    )
+    
+    /**
+     * Get Cloud configuration
+     * 
+     * @param context Android Context
+     * @return CloudConfig with all cloud settings
+     */
+    fun getCloudConfig(context: Context): CloudConfig {
+        val prefs = getPreferences(context)
+        return CloudConfig(
+            apiKey = prefs.getString(KEY_CLOUD_API_KEY, "") ?: "",
+            baseUrl = prefs.getString(KEY_CLOUD_BASE_URL, DEFAULT_CLOUD_BASE_URL) ?: DEFAULT_CLOUD_BASE_URL,
+            terminalSn = prefs.getString(KEY_CLOUD_TERMINAL_SN, "") ?: "",
+            merchantId = prefs.getString(KEY_CLOUD_MERCHANT_ID, "") ?: "",
+            appId = prefs.getString(KEY_CLOUD_APP_ID, "") ?: "",
+            notifyUrl = prefs.getString(KEY_CLOUD_NOTIFY_URL, DEFAULT_CLOUD_NOTIFY_URL) ?: DEFAULT_CLOUD_NOTIFY_URL
+        )
     }
 }

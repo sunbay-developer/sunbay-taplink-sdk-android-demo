@@ -2,6 +2,8 @@ package com.sunmi.tapro.taplink.demo.activity
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -22,6 +24,7 @@ import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.util.Constants
+import java.util.Calendar
 
 
 /**
@@ -44,9 +47,15 @@ class TransactionListActivity : AppCompatActivity() {
     private lateinit var standaloneRefundButton: Button
     private lateinit var transactionsList: ListView
     private lateinit var emptyLayout: LinearLayout
+    private lateinit var chipAll: Button
+    private lateinit var chipToday: Button
+    private lateinit var chipSuccess: Button
+    private lateinit var chipFailed: Button
+    private lateinit var chipPending: Button
     
     private lateinit var adapter: TransactionAdapter
     private var transactions: List<Transaction> = emptyList()
+    private var currentFilter = TransactionFilter.ALL
     private lateinit var paymentService: TaplinkPaymentService
     
     // Current alert dialog reference for proper cleanup
@@ -80,6 +89,11 @@ class TransactionListActivity : AppCompatActivity() {
         standaloneRefundButton = findViewById(R.id.btn_standalone_refund)
         transactionsList = findViewById(R.id.lv_transactions)
         emptyLayout = findViewById(R.id.layout_empty)
+        chipAll = findViewById(R.id.chip_all)
+        chipToday = findViewById(R.id.chip_today)
+        chipSuccess = findViewById(R.id.chip_success)
+        chipFailed = findViewById(R.id.chip_failed)
+        chipPending = findViewById(R.id.chip_pending)
         
 
         // Initialize adapter
@@ -122,6 +136,14 @@ class TransactionListActivity : AppCompatActivity() {
             Log.d(TAG, "Transaction: ${transaction.transactionRequestId}, type: ${transaction.type}")
             openTransactionDetail(transaction)
         }
+
+        // Filter chip click listeners
+        chipAll.setOnClickListener { selectFilter(TransactionFilter.ALL) }
+        chipToday.setOnClickListener { selectFilter(TransactionFilter.TODAY) }
+        chipSuccess.setOnClickListener { selectFilter(TransactionFilter.SUCCESS) }
+        chipFailed.setOnClickListener { selectFilter(TransactionFilter.FAILED) }
+        chipPending.setOnClickListener { selectFilter(TransactionFilter.PENDING) }
+        updateChipStyles()
     }
 
     /**
@@ -129,15 +151,72 @@ class TransactionListActivity : AppCompatActivity() {
      */
     private fun loadTransactions() {
         transactions = TransactionRepository.getAllTransactions()
-        adapter.updateData(transactions)
-        updateEmptyState()
+        applyFilter()
+    }
+
+    /**
+     * Select a filter and refresh the list
+     */
+    private fun selectFilter(filter: TransactionFilter) {
+        currentFilter = filter
+        updateChipStyles()
+        applyFilter()
+    }
+
+    /**
+     * Apply current filter to transactions and update adapter
+     */
+    private fun applyFilter() {
+        val filtered = when (currentFilter) {
+            TransactionFilter.ALL -> transactions
+            TransactionFilter.TODAY -> {
+                val todayStart = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                transactions.filter { it.timestamp >= todayStart }
+            }
+            TransactionFilter.SUCCESS -> transactions.filter { it.status == TransactionStatus.SUCCESS }
+            TransactionFilter.FAILED -> transactions.filter { it.status == TransactionStatus.FAILED }
+            TransactionFilter.PENDING -> transactions.filter {
+                it.status == TransactionStatus.PENDING || it.status == TransactionStatus.PROCESSING
+            }
+        }
+        adapter.updateData(filtered)
+        updateEmptyState(filtered)
+    }
+
+    /**
+     * Update chip button styles to show selected state
+     */
+    private fun updateChipStyles() {
+        val chips = mapOf(
+            TransactionFilter.ALL to chipAll,
+            TransactionFilter.TODAY to chipToday,
+            TransactionFilter.SUCCESS to chipSuccess,
+            TransactionFilter.FAILED to chipFailed,
+            TransactionFilter.PENDING to chipPending
+        )
+        val primaryColor = resources.getColor(R.color.colorPrimary, null)
+        val unselectedColor = Color.parseColor("#E0E0E0")
+        for ((filter, chip) in chips) {
+            if (filter == currentFilter) {
+                chip.backgroundTintList = ColorStateList.valueOf(primaryColor)
+                chip.setTextColor(Color.WHITE)
+            } else {
+                chip.backgroundTintList = ColorStateList.valueOf(unselectedColor)
+                chip.setTextColor(primaryColor)
+            }
+        }
     }
 
     /**
      * Update empty state display
      */
-    private fun updateEmptyState() {
-        if (transactions.isEmpty()) {
+    private fun updateEmptyState(displayedTransactions: List<Transaction> = transactions) {
+        if (displayedTransactions.isEmpty()) {
             transactionsList.visibility = View.GONE
             emptyLayout.visibility = View.VISIBLE
         } else {
@@ -545,4 +624,8 @@ class TransactionListActivity : AppCompatActivity() {
             showToast("Error opening transaction detail: ${e.message}")
         }
     }
+}
+
+enum class TransactionFilter {
+    ALL, TODAY, SUCCESS, FAILED, PENDING
 }

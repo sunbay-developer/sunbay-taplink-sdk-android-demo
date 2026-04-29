@@ -25,6 +25,7 @@ import java.math.BigDecimal
  * @property serviceFee Service fee amount (optional)
  * @property batchNo Batch number (for BATCH_CLOSE transactions)
  * @property batchCloseInfo Batch close information (for BATCH_CLOSE transactions)
+ * @property cardInfo Card information from payment result (optional)
  */
 data class Transaction(
     val transactionRequestId: String,
@@ -45,7 +46,8 @@ data class Transaction(
     val cashbackAmount: BigDecimal? = null,
     val serviceFee: BigDecimal? = null,
     val batchNo: Int? = null,
-    val batchCloseInfo: BatchCloseInfo? = null
+    val batchCloseInfo: BatchCloseInfo? = null,
+    val cardInfo: CardInfo? = null
 ) {
     /**
      * Check if transaction is successful
@@ -189,4 +191,20 @@ data class BatchCloseInfo(
     val totalTax: BigDecimal,
     val cashDiscount: BigDecimal,
     val closeTime: String
+)
+
+/**
+ * Card information from payment result
+ */
+data class CardInfo(
+    val maskedPan: String? = null,
+    val cardNetworkType: String? = null,
+    val paymentMethodId: String? = null,
+    val subPaymentMethodId: String? = null,
+    val entryMode: String? = null,
+    val authenticationMethod: String? = null,
+    val cardholderName: String? = null,
+    val expiryDate: String? = null,
+    val issuerBank: String? = null,
+    val cardBrand: String? = null
 )

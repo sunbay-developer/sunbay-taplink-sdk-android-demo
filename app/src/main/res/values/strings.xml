@@ -76,6 +76,18 @@
     <string name="cloud_device_id_hint">Enter payment terminal device ID</string>
     <string name="cloud_api_endpoint_label">API Endpoint</string>
     <string name="cloud_api_endpoint_hint">https://api.sunbay.com</string>
+    <string name="cloud_api_key_label">API Key</string>
+    <string name="cloud_api_key_hint">Enter API key</string>
+    <string name="cloud_base_url_label">Base URL</string>
+    <string name="cloud_base_url_hint">https://open.sunbay.us</string>
+    <string name="cloud_terminal_sn_label">Terminal SN</string>
+    <string name="cloud_terminal_sn_hint">Enter terminal serial number</string>
+    <string name="cloud_merchant_id_label">Merchant ID (Optional)</string>
+    <string name="cloud_merchant_id_hint">Enter merchant ID</string>
+    <string name="cloud_app_id_label">App ID (Optional)</string>
+    <string name="cloud_app_id_hint">Enter app ID</string>
+    <string name="cloud_notify_url_label">Notify URL</string>
+    <string name="cloud_notify_url_hint">http://52.76.178.47:8880/api/notify</string>
     
     <!-- General -->
     <string name="mode_under_development">This mode is under development, coming soon</string>

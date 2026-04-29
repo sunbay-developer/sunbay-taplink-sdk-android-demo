@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.sunmi.tapro.taplink.demo.R
+import com.sunmi.tapro.taplink.demo.model.CardInfo
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
@@ -62,6 +63,13 @@ class TransactionDetailActivity : AppCompatActivity() {
     private lateinit var transactionTimeText: TextView
     private lateinit var authCodeLayout: LinearLayout
     private lateinit var authCodeText: TextView
+    private lateinit var cardInfoLayout: LinearLayout
+    private lateinit var tvMaskedPan: TextView
+    private lateinit var tvCardNetwork: TextView
+    private lateinit var tvEntryMode: TextView
+    private lateinit var tvCardholderName: TextView
+    private lateinit var tvCardBrand: TextView
+    private lateinit var tvAuthMethod: TextView
     private lateinit var errorLayout: LinearLayout
     private lateinit var errorCodeText: TextView
     private lateinit var errorMessageText: TextView
@@ -128,6 +136,13 @@ class TransactionDetailActivity : AppCompatActivity() {
         transactionTimeText = findViewById(R.id.tv_transaction_time)
         authCodeLayout = findViewById(R.id.layout_auth_code)
         authCodeText = findViewById(R.id.tv_auth_code)
+        cardInfoLayout = findViewById(R.id.layout_card_info)
+        tvMaskedPan = findViewById(R.id.tv_masked_pan)
+        tvCardNetwork = findViewById(R.id.tv_card_network)
+        tvEntryMode = findViewById(R.id.tv_entry_mode)
+        tvCardholderName = findViewById(R.id.tv_cardholder_name)
+        tvCardBrand = findViewById(R.id.tv_card_brand)
+        tvAuthMethod = findViewById(R.id.tv_auth_method)
         errorLayout = findViewById(R.id.layout_error)
         errorCodeText = findViewById(R.id.tv_error_code)
         errorMessageText = findViewById(R.id.tv_error_message)
@@ -287,6 +302,9 @@ class TransactionDetailActivity : AppCompatActivity() {
             authCodeLayout.visibility = View.GONE
         }
 
+        // Card information
+        displayCardInfo(txn.cardInfo)
+
         // Error information (only shown for failed transactions)
         if (txn.isFailed() && (!txn.errorCode.isNullOrEmpty() || !txn.errorMessage.isNullOrEmpty())) {
             errorLayout.visibility = View.VISIBLE
@@ -336,6 +354,51 @@ class TransactionDetailActivity : AppCompatActivity() {
         return txn.type == TransactionType.REFUND ||
                txn.type == TransactionType.VOID ||
                txn.type == TransactionType.POST_AUTH
+    }
+
+    /**
+     * Display card information section
+     */
+    private fun displayCardInfo(cardInfo: CardInfo?) {
+        if (cardInfo == null) {
+            cardInfoLayout.visibility = View.GONE
+            return
+        }
+
+        var hasAnyInfo = false
+
+        cardInfo.maskedPan?.let {
+            findViewById<View>(R.id.layout_masked_pan).visibility = View.VISIBLE
+            tvMaskedPan.text = it
+            hasAnyInfo = true
+        }
+        cardInfo.cardNetworkType?.let {
+            findViewById<View>(R.id.layout_card_network).visibility = View.VISIBLE
+            tvCardNetwork.text = it
+            hasAnyInfo = true
+        }
+        cardInfo.entryMode?.let {
+            findViewById<View>(R.id.layout_entry_mode).visibility = View.VISIBLE
+            tvEntryMode.text = it
+            hasAnyInfo = true
+        }
+        cardInfo.cardholderName?.let {
+            findViewById<View>(R.id.layout_cardholder_name).visibility = View.VISIBLE
+            tvCardholderName.text = it
+            hasAnyInfo = true
+        }
+        cardInfo.cardBrand?.let {
+            findViewById<View>(R.id.layout_card_brand).visibility = View.VISIBLE
+            tvCardBrand.text = it
+            hasAnyInfo = true
+        }
+        cardInfo.authenticationMethod?.let {
+            findViewById<View>(R.id.layout_auth_method).visibility = View.VISIBLE
+            tvAuthMethod.text = it
+            hasAnyInfo = true
+        }
+
+        cardInfoLayout.visibility = if (hasAnyInfo) View.VISIBLE else View.GONE
     }
 
     /**
@@ -922,7 +985,21 @@ class TransactionDetailActivity : AppCompatActivity() {
             tipAmount = result.amount?.tipAmount,
             taxAmount = result.amount?.taxAmount,
             cashbackAmount = result.amount?.cashbackAmount,
-            serviceFee = result.amount?.serviceFee
+            serviceFee = result.amount?.serviceFee,
+            cardInfo = result.cardInfo?.let { ci ->
+                com.sunmi.tapro.taplink.demo.model.CardInfo(
+                    maskedPan = ci.maskedPan,
+                    cardNetworkType = ci.cardNetworkType,
+                    paymentMethodId = ci.paymentMethodId,
+                    subPaymentMethodId = ci.subPaymentMethodId,
+                    entryMode = ci.entryMode,
+                    authenticationMethod = ci.authenticationMethod,
+                    cardholderName = ci.cardholderName,
+                    expiryDate = ci.expiryDate,
+                    issuerBank = ci.issuerBank,
+                    cardBrand = ci.cardBrand
+                )
+            }
         )
         
         // Reload transaction to reflect updates

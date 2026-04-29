@@ -16,6 +16,7 @@ import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodInfo
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodSubId
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
+import com.sunmi.tapro.taplink.sdk.enums.TipMode
 import com.sunmi.tapro.taplink.sdk.model.request.PaymentRequest
 import com.sunmi.tapro.taplink.sdk.model.request.QueryRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.AbortRequest
@@ -152,6 +153,33 @@ class TaplinkPaymentService : PaymentService {
     private fun getProgressMessage(event: SdkPaymentEvent, transactionType: String): String {
         return event.eventMsg.takeIf { it.isNotBlank() }
             ?: "$transactionType transaction processing..."
+    }
+
+    private fun shouldEmitTipProcessing(tipConfig: TipConfig?): Boolean {
+        return tipConfig?.onScreenTip == true && tipConfig.tipMode == TipMode.ON_SALE
+    }
+
+    private fun emitTipProcessing(callback: PaymentCallback) {
+        callback.onProgress(
+            SdkPaymentEvent.TipProcessing.eventCode,
+            SdkPaymentEvent.TipProcessing.eventMsg
+        )
+    }
+
+    private fun forwardProgress(
+        callback: PaymentCallback,
+        event: SdkPaymentEvent,
+        transactionType: String,
+        tipConfig: TipConfig? = null
+    ) {
+        if (shouldEmitTipProcessing(tipConfig) && event.eventCode == SdkPaymentEvent.Processing.eventCode) {
+            callback.onProgress(
+                SdkPaymentEvent.TipProcessing.eventCode,
+                SdkPaymentEvent.TipProcessing.eventMsg
+            )
+            return
+        }
+        callback.onProgress(event.eventCode, getProgressMessage(event, transactionType))
     }
 
     /** 统一打印发往 SDK 的请求对象 */
@@ -425,6 +453,9 @@ class TaplinkPaymentService : PaymentService {
         } else {
             Log.d(TAG, "TIP_CONFIG [SALE]: tipConfig disabled, not included in request")
         }
+        if (shouldEmitTipProcessing(tipConfig)) {
+            emitTipProcessing(callback)
+        }
         val saleRequest = SaleRequest(
             referenceOrderId = referenceOrderId,
             transactionRequestId = transactionRequestId,
@@ -438,7 +469,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().sale(saleRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("SALE", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "SALE")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "SALE", tipConfig) }
         })
     }
 
@@ -461,7 +492,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().auth(authRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("AUTH", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "AUTH")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "AUTH") }
         })
     }
 
@@ -486,7 +517,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().forcedAuth(forcedAuthRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("FORCED_AUTH", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "FORCED_AUTH")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "FORCED_AUTH") }
         })
     }
 
@@ -522,7 +553,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().refund(refundRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("REFUND", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "REFUND")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "REFUND") }
         })
     }
 
@@ -550,7 +581,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().void(voidRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("VOID", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "VOID")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "VOID") }
         })
     }
 
@@ -587,7 +618,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().postAuth(postAuthRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("POST_AUTH", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "POST_AUTH")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "POST_AUTH") }
         })
     }
 
@@ -611,7 +642,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().incrementalAuth(incrementalAuthRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("INCREMENT_AUTH", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "INCREMENT_AUTH")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "INCREMENT_AUTH") }
         })
     }
 
@@ -636,7 +667,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().tipAdjust(tipAdjustRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("TIP_ADJUST", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "TIP_ADJUST")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "TIP_ADJUST") }
         })
     }
 
@@ -646,7 +677,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().query(queryRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("QUERY", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "QUERY")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "QUERY") }
         })
     }
 
@@ -656,7 +687,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().query(queryRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("QUERY", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "QUERY")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "QUERY") }
         })
     }
 
@@ -670,7 +701,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().batchClose(batchCloseRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("BATCH_CLOSE", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "BATCH_CLOSE")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "BATCH_CLOSE") }
         })
     }
 
@@ -689,7 +720,7 @@ class TaplinkPaymentService : PaymentService {
         getClient().abort(abortRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("ABORT", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { callback.onProgress("PROCESSING", getProgressMessage(event, "ABORT")) }
+            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "ABORT") }
         })
     }
 
