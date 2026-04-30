@@ -20,8 +20,9 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
-import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
+import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.util.Constants
 import java.util.Calendar
@@ -56,7 +57,7 @@ class TransactionListActivity : AppCompatActivity() {
     private lateinit var adapter: TransactionAdapter
     private var transactions: List<Transaction> = emptyList()
     private var currentFilter = TransactionFilter.ALL
-    private lateinit var paymentService: TaplinkPaymentService
+    private lateinit var paymentService: PaymentService
     
     // Current alert dialog reference for proper cleanup
     private var currentAlertDialog: AlertDialog? = null
@@ -107,7 +108,7 @@ class TransactionListActivity : AppCompatActivity() {
      * Initialize payment service
      */
     private fun initPaymentService() {
-        paymentService = TaplinkPaymentService.getInstance()
+        paymentService = PaymentServiceProvider.get(this)
     }
 
     /**

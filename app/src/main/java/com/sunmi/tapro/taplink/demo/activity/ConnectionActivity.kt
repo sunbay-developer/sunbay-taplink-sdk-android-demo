@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.sunmi.tapro.taplink.demo.R
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
 import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.NetworkUtils
@@ -104,9 +105,6 @@ class ConnectionActivity : AppCompatActivity() {
     // Currently selected connection mode
     private var selectedMode: ConnectionPreferences.ConnectionMode = ConnectionPreferences.ConnectionMode.APP_TO_APP
     
-    // Payment service instance for connection management
-    private val paymentService: PaymentService = TaplinkPaymentService.getInstance()
-    
     // Anti-duplicate click protection mechanism
     private var lastClickTime: Long = 0
     
@@ -135,6 +133,10 @@ class ConnectionActivity : AppCompatActivity() {
         // Dismiss any current alert dialog to prevent window leaks
         currentAlertDialog?.dismiss()
         currentAlertDialog = null
+    }
+
+    private fun currentPaymentService(mode: ConnectionPreferences.ConnectionMode = selectedMode): PaymentService {
+        return PaymentServiceProvider.get(this, mode)
     }
     
     /**
@@ -902,6 +904,9 @@ class ConnectionActivity : AppCompatActivity() {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
                 updateConnectionProgress("Connecting to Tapro App...")
             }
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                updateConnectionProgress("Connecting via Cloud...")
+            }
         }
         
         // For non-LAN modes, start connection immediately
@@ -960,7 +965,7 @@ class ConnectionActivity : AppCompatActivity() {
         Log.d(TAG, "Connecting with ConnectionConfig: $connectionConfig")
         
         // Connect to payment terminal with new mode
-        paymentService.connect(connectionConfig, object : ConnectionListener {
+        currentPaymentService().connect(connectionConfig, object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 Log.d(TAG, "Connection successful - DeviceId: $deviceId, Version: $taproVersion")
                 runOnUiThread {
@@ -1007,6 +1012,7 @@ class ConnectionActivity : AppCompatActivity() {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP
             ConnectionPreferences.ConnectionMode.CABLE -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.CABLE
             ConnectionPreferences.ConnectionMode.LAN -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.LAN
+            ConnectionPreferences.ConnectionMode.CLOUD -> com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP
         }
     }
 
@@ -1025,6 +1031,10 @@ class ConnectionActivity : AppCompatActivity() {
             
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> {
                 configureAppToAppMode()
+            }
+
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                Log.d(TAG, "Cloud mode uses CloudPaymentService configuration")
             }
         }
     }
@@ -1228,7 +1238,7 @@ class ConnectionActivity : AppCompatActivity() {
                     
                     // Disconnect payment service
                     try {
-                        paymentService.disconnect()
+                        currentPaymentService().disconnect()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error disconnecting payment service", e)
                     }
@@ -1253,7 +1263,7 @@ class ConnectionActivity : AppCompatActivity() {
             Log.e(TAG, "Failed to show exit dialog", e)
             // Fallback: directly exit without confirmation
             try {
-                paymentService.disconnect()
+                currentPaymentService().disconnect()
             } catch (ex: Exception) {
                 Log.e(TAG, "Error disconnecting payment service", ex)
             }

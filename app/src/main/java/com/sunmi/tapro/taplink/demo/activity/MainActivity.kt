@@ -20,10 +20,11 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
-import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
+import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.Constants
 import com.sunmi.tapro.taplink.sdk.TaplinkSDK
@@ -72,7 +73,7 @@ class MainActivity : Activity() {
     private lateinit var progressPayment: View
 
     // Payment service instance for handling all payment operations
-    private lateinit var paymentService: TaplinkPaymentService
+    private lateinit var paymentService: PaymentService
 
     // Currently selected amount for transactions
     private var selectedAmount: BigDecimal = BigDecimal.ZERO
@@ -95,7 +96,7 @@ class MainActivity : Activity() {
         setupEventListeners()
         
         // Get payment service instance (SDK is already initialized by Application class)
-        paymentService = TaplinkPaymentService.getInstance()
+        paymentService = PaymentServiceProvider.get(this)
         
         // Set initial UI state before starting connection management
         updateAmountDisplay()
@@ -343,6 +344,8 @@ class MainActivity : Activity() {
      * 3. Let SDK handle connection state management internally
      */
     private fun startConnectionManagement() {
+        paymentService = PaymentServiceProvider.get(this)
+
         // Set global connection listener to monitor all connection events
         setupGlobalConnectionListener()
         
@@ -406,6 +409,7 @@ class MainActivity : Activity() {
         updateConnectionStatusDisplayConnecting()
         
         val savedMode = ConnectionPreferences.getConnectionMode(this)
+        paymentService = PaymentServiceProvider.get(this, savedMode)
         val connectionConfig = createConnectionConfig(savedMode)
         
         Log.d(TAG, "Attempting connection with mode: $savedMode")
@@ -498,6 +502,9 @@ class MainActivity : Activity() {
                     connectionConfig.setHost(ip).setPort(port)
                 }
             }
+            ConnectionPreferences.ConnectionMode.CLOUD -> {
+                connectionConfig.setConnectionMode(com.sunmi.tapro.taplink.sdk.enums.ConnectionMode.APP_TO_APP)
+            }
         }
         
         return connectionConfig
@@ -511,21 +518,27 @@ class MainActivity : Activity() {
      */
     private fun updateConnectionStatusDisplay() {
         // Get the real connection status from SDK
-        val isConnected = try {
-            TaplinkSDK.isConnected()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking SDK connection status", e)
-            false
+        val currentMode = ConnectionPreferences.getConnectionMode(this)
+        paymentService = PaymentServiceProvider.get(this, currentMode)
+        val isConnected = if (currentMode == ConnectionPreferences.ConnectionMode.CLOUD) {
+            paymentService.getConnectedDeviceId() != null
+        } else {
+            try {
+                TaplinkSDK.isConnected()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking SDK connection status", e)
+                false
+            }
         }
         
         Log.d(TAG, "Updating connection display based on SDK status: $isConnected")
         
         // Update connection mode display
-        val currentMode = ConnectionPreferences.getConnectionMode(this)
         val modeText = when (currentMode) {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> Constants.Messages.MODE_APP_TO_APP
             ConnectionPreferences.ConnectionMode.CABLE -> Constants.Messages.MODE_CABLE
             ConnectionPreferences.ConnectionMode.LAN -> Constants.Messages.MODE_LAN
+            ConnectionPreferences.ConnectionMode.CLOUD -> Constants.Messages.MODE_CLOUD
         }
         connectionTypeText.text = modeText
         
@@ -539,8 +552,13 @@ class MainActivity : Activity() {
         
         // Show version or status based on actual connection state
         connectionStatusText.text = if (isConnected) {
-            if (connectedTaproVersion != null && connectedTaproVersion!!.isNotEmpty()) {
-                "${Constants.Messages.VERSION_PREFIX}$connectedTaproVersion"
+            val currentVersion = if (currentMode == ConnectionPreferences.ConnectionMode.CLOUD) {
+                paymentService.getTaproVersion()
+            } else {
+                connectedTaproVersion
+            }
+            if (!currentVersion.isNullOrEmpty()) {
+                "${Constants.Messages.VERSION_PREFIX}$currentVersion"
             } else {
                 Constants.Messages.STATUS_CONNECTED
             }
@@ -565,6 +583,7 @@ class MainActivity : Activity() {
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> Constants.Messages.MODE_APP_TO_APP
             ConnectionPreferences.ConnectionMode.CABLE -> Constants.Messages.MODE_CABLE
             ConnectionPreferences.ConnectionMode.LAN -> Constants.Messages.MODE_LAN
+            ConnectionPreferences.ConnectionMode.CLOUD -> Constants.Messages.MODE_CLOUD
         }
         connectionTypeText.text = modeText
         
@@ -1438,7 +1457,13 @@ class MainActivity : Activity() {
         super.onResume()
 
         // Simple connection status check - let global listener handle updates
-        Log.d(TAG, "onResume - Current connection status: ${TaplinkSDK.isConnected()}")
+        val savedMode = ConnectionPreferences.getConnectionMode(this)
+        val connected = if (savedMode == ConnectionPreferences.ConnectionMode.CLOUD) {
+            PaymentServiceProvider.get(this, savedMode).getConnectedDeviceId() != null
+        } else {
+            TaplinkSDK.isConnected()
+        }
+        Log.d(TAG, "onResume - Current connection status: $connected")
     }
 
     override fun onPause() {

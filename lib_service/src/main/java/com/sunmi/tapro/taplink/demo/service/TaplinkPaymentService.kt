@@ -445,9 +445,7 @@ class TaplinkPaymentService : PaymentService {
         val sdkPaymentMethodId = paymentMethodId?.let { PaymentMethodId.valueOf(it) }
         val sdkSubPaymentMethodId = subPaymentMethodId?.let { PaymentMethodSubId.valueOf(it) }
         val sdkCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee).let {
-            if (tipConfig != null) it.setTipConfig(tipConfig) else it
-        }
+        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=$tipConfig")
         } else {
@@ -463,6 +461,7 @@ class TaplinkPaymentService : PaymentService {
             description = description,
             paymentMethod = buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
             cardNetworkType = sdkCardNetworkType,
+            tipConfig = tipConfig,
             printReceipt = printReceipt
         )
         logSdkRequest("SALE", saleRequest)
@@ -599,9 +598,7 @@ class TaplinkPaymentService : PaymentService {
         tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee).let {
-            if (tipConfig != null) it.setTipConfig(tipConfig) else it
-        }
+        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=$tipConfig")
         } else {
@@ -612,6 +609,7 @@ class TaplinkPaymentService : PaymentService {
             transactionRequestId = transactionRequestId,
             amount = amountInfo,
             description = description,
+            tipConfig = tipConfig,
             printReceipt = printReceipt
         )
         logSdkRequest("POST_AUTH", postAuthRequest)

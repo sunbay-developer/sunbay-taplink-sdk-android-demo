@@ -41,10 +41,8 @@ android {
 }
 
 dependencies {
-    // Taplink SDK - shared AAR from root directory
-//    api(files("../sunbay-taplink-sdk-android-1.0.7.19-release.aar"))
-    api("com.sunmi:sunbay-taplink-sdk-android:1.0.5.1-SNAPSHOT")
-//    api("com.sunmi:sunbay-taplink-sdk-android:1.0.5")
+    // Taplink SDK - use the published Maven build that includes top-level tipConfig support.
+    api("com.sunmi:sunbay-taplink-sdk-android:1.0.5.2-SNAPSHOT")
     // WebSocket client - required by Taplink SDK for LAN mode communication
     // AAR does not bundle transitive dependencies, so this must be declared explicitly
     api("org.java-websocket:Java-WebSocket:1.5.3")

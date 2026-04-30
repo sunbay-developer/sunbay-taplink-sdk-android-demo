@@ -17,9 +17,10 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
-import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
+import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
 import com.sunmi.tapro.taplink.demo.util.Constants
 
 import java.math.BigDecimal
@@ -94,7 +95,7 @@ class TransactionDetailActivity : AppCompatActivity() {
 
     // Data
     private var transaction: Transaction? = null
-    private lateinit var paymentService: TaplinkPaymentService
+    private lateinit var paymentService: PaymentService
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     
     // Current alert dialog reference for proper cleanup
@@ -172,7 +173,7 @@ class TransactionDetailActivity : AppCompatActivity() {
      * Initialize payment service
      */
     private fun initPaymentService() {
-        paymentService = TaplinkPaymentService.getInstance()
+        paymentService = PaymentServiceProvider.get(this)
     }
 
     /**

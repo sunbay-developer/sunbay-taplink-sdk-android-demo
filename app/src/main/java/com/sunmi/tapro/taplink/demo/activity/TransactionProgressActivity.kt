@@ -19,6 +19,8 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
+import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
 import com.sunmi.tapro.taplink.demo.util.Constants
 import com.sunmi.tapro.taplink.demo.util.DialogUtils
 import java.math.BigDecimal
@@ -158,6 +160,10 @@ class TransactionProgressActivity : AppCompatActivity() {
         fun setRetryTransactionListener(listener: RetryTransactionListener?) {
             currentInstance?.retryTransactionListener = listener
         }
+    }
+
+    private fun currentPaymentService(): PaymentService {
+        return PaymentServiceProvider.get(this)
     }
     
     // Transaction information display
@@ -686,7 +692,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         
         // Get PaymentService instance and execute abort
         try {
-            val paymentService = com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService.getInstance()
+            val paymentService = currentPaymentService()
             
             // Execute abort with current transaction request ID
             paymentService.executeAbort(
@@ -1673,7 +1679,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         updateProgress("QUERYING", "Checking transaction status...")
         
         try {
-            val paymentService = com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService.getInstance()
+            val paymentService = currentPaymentService()
             
             // Execute query with current transaction request ID
             paymentService.executeQuery(
@@ -1841,7 +1847,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         Log.d(TAG, "Starting payment transaction: ${transaction.type} for ${transaction.amount} ${transaction.currency}")
         
         try {
-            val paymentService = com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService.getInstance()
+            val paymentService = currentPaymentService()
             val callback = createPaymentCallback()
             
             when (transaction.type) {

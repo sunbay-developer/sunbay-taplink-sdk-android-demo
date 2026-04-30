@@ -176,6 +176,7 @@ object Constants {
         const val MODE_APP_TO_APP = "App-to-App"
         const val MODE_CABLE = "Cable"
         const val MODE_LAN = "LAN"
+        const val MODE_CLOUD = "Cloud"
         
         // Dialog titles
         const val TITLE_CONNECTION_LOST = "Connection Lost"

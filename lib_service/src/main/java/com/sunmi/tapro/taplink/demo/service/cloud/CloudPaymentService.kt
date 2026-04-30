@@ -241,8 +241,8 @@ class CloudPaymentService : PaymentService {
                 taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
                 cashbackAmount?.let { addProperty("cashbackAmount", AmountConverter.toCents(it)) }
                 serviceFee?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
-                tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
             })
+            tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
         }
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
@@ -356,8 +356,8 @@ class CloudPaymentService : PaymentService {
                 tipAmount?.let { addProperty("tipAmount", AmountConverter.toCents(it)) }
                 taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
                 serviceFee?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
-                tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
             })
+            tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
         }
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
