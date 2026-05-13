@@ -230,23 +230,6 @@ fun TransactionProgressScreen(
                                 )
                             }
                         }
-                        
-                        state.isCancelled() -> {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = "Cancelled",
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(80.dp)
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = state.getStatusDisplayText(),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = Color(0xFFFF9800),
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                 }
                 
@@ -544,12 +527,12 @@ fun TransactionProgressScreenFailedPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun TransactionProgressScreenCancelledPreview() {
+fun TransactionProgressScreenAbortedPreview() {
     TaplinkTheme {
         TransactionProgressScreenPreview(
             transactionType = "SALE",
             amount = BigDecimal("15.25"),
-            status = TransactionStatus.CANCELLED,
+            status = TransactionStatus.FAILED,
             canNavigateBack = true,
             canRetry = false,
             showViewDetailsButton = false
@@ -702,23 +685,6 @@ private fun TransactionProgressScreenPreview(
                                 modifier = Modifier.padding(horizontal = 32.dp)
                             )
                         }
-                    }
-                    
-                    previewState.isCancelled() -> {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = "Cancelled",
-                            tint = Color(0xFFFF9800),
-                            modifier = Modifier.size(80.dp)
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = previewState.getStatusDisplayText(),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color(0xFFFF9800),
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
                     }
                 }
             }

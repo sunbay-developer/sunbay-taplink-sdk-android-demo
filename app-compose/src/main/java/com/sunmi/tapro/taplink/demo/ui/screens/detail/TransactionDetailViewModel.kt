@@ -626,7 +626,7 @@ class TransactionDetailViewModel(
                                 "S", "SUCCESS" -> TransactionStatus.SUCCESS
                                 "F", "FAILED" -> TransactionStatus.FAILED
                                 "P", "PROCESSING" -> TransactionStatus.PROCESSING
-                                "C" -> TransactionStatus.CANCELLED
+                                "C" -> TransactionStatus.FAILED
                                 "I" -> TransactionStatus.PENDING
                                 else -> TransactionStatus.PENDING
                             }

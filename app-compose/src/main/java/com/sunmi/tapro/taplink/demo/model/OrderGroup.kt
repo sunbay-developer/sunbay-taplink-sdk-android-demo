@@ -53,7 +53,6 @@ data class OrderGroup(
      * Logic:
      * - Any PROCESSING → PROCESSING
      * - Any PENDING → PENDING
-     * - All CANCELLED → CANCELLED
      * - Check the latest transaction in the series:
      *   - If the latest is FAILED and no SUCCESS after it → FAILED
      *   - If there is any SUCCESS after a FAILED → SUCCESS
@@ -64,7 +63,6 @@ data class OrderGroup(
         return when {
             transactions.any { it.status == TransactionStatus.PROCESSING } -> TransactionStatus.PROCESSING
             transactions.any { it.status == TransactionStatus.PENDING } -> TransactionStatus.PENDING
-            transactions.all { it.status == TransactionStatus.CANCELLED } -> TransactionStatus.CANCELLED
             else -> {
                 // Transactions are sorted by timestamp descending (newest first).
                 // Only mark as FAILED when the most recent transaction in the series is FAILED

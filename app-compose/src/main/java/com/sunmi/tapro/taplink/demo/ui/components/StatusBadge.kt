@@ -79,12 +79,6 @@ fun StatusBadge(
             icon = Icons.Default.Refresh,
             text = "Processing"
         )
-        TransactionStatus.CANCELLED -> StatusConfig(
-            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            icon = Icons.Default.Close,
-            text = "Cancelled"
-        )
     }
 
     Row(

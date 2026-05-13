@@ -222,7 +222,6 @@ class TransactionListViewModel(
      * - SUCCESS: Show successful transactions
      * - FAILED: Show failed transactions
      * - PENDING: Show pending/processing transactions
-     * - CANCELLED: Show cancelled transactions
      * 
      * @param transactions List of transactions to filter
      * @param filter Filter type to apply
@@ -261,9 +260,6 @@ class TransactionListViewModel(
                 transactions.filter { 
                     it.status == TransactionStatus.PENDING || it.status == TransactionStatus.PROCESSING 
                 }
-            }
-            FilterType.CANCELLED -> {
-                transactions.filter { it.status == TransactionStatus.CANCELLED }
             }
         }
     }
@@ -765,15 +761,16 @@ class TransactionListViewModel(
             }
             
             override fun onFailure(code: String, message: String) {
-                android.util.Log.e(TAG, "Query failed: $queryId - $code: $message")
+                android.util.Log.e(TAG, "Query communication error: $queryId - $code: $message")
                 
+                // onFailure = communication/technical error — query could not reach terminal.
                 _state.update {
                     it.copy(
                         queryInProgress = false,
                         message = Message(
                             type = MessageType.ERROR,
-                            title = "Query Failed",
-                            content = "$code: $message",
+                            title = "Communication Error",
+                            content = "Unable to reach terminal: $code - $message",
                             actions = listOf(MessageAction.RETRY, MessageAction.DISMISS)
                         )
                     )
@@ -879,9 +876,9 @@ class TransactionListViewModel(
             }
             
             override fun onFailure(code: String, message: String) {
-                android.util.Log.e(TAG, "Batch close failed: $transactionRequestId - $code: $message")
+                android.util.Log.e(TAG, "Batch close communication error: $transactionRequestId - $code: $message")
                 
-                // Update transaction in repository
+                // onFailure = communication/technical error (connection lost, timeout, etc.)
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.FAILED,
@@ -1015,9 +1012,9 @@ class TransactionListViewModel(
             }
             
             override fun onFailure(code: String, message: String) {
-                android.util.Log.e(TAG, "Standalone refund failed: $transactionRequestId - $code: $message")
+                android.util.Log.e(TAG, "Refund communication error: $transactionRequestId - $code: $message")
                 
-                // Update transaction in repository
+                // onFailure = communication/technical error (connection lost, timeout, etc.)
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.FAILED,

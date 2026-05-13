@@ -27,8 +27,7 @@ enum class FilterType {
     TODAY,     // Today's transactions
     SUCCESS,   // Successful transactions
     FAILED,    // Failed transactions
-    PENDING,   // Pending transactions
-    CANCELLED  // Cancelled transactions
+    PENDING    // Pending transactions
 }
 
 /**
@@ -94,6 +93,5 @@ private fun getFilterLabel(filterType: FilterType): String {
         FilterType.SUCCESS -> "Success"
         FilterType.FAILED -> "Failed"
         FilterType.PENDING -> "Pending"
-        FilterType.CANCELLED -> "Cancelled"
     }
 }

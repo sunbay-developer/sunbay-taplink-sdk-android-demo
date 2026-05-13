@@ -771,7 +771,7 @@ class MainViewModel(
     private fun createPaymentCallback(transactionRequestId: String): PaymentCallback {
         return object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                android.util.Log.d(TAG, "Payment success: $transactionRequestId")
+                android.util.Log.d(TAG, "Payment callback result: $transactionRequestId, status=${result.transactionStatus}, code=${result.code}")
                 
                 // Cloud mode: transaction creation success != transaction complete.
                 // Only types pushed to terminal need polling. Types processed directly
@@ -789,15 +789,46 @@ class MainViewModel(
                                       txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.QUERY &&
                                       txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.BATCH_CLOSE
                     
-                    if (needsPolling) {
+                    if (result.isFailed()) {
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.FAILED,
+                            transactionId = result.transactionId ?: result.originalTransactionId,
+                            errorCode = result.transactionResultCode ?: result.code,
+                            errorMessage = result.transactionResultMsg ?: result.message ?: "Transaction failed"
+                        )
+                        return
+                    }
+
+                    if (needsPolling && !result.isTerminal()) {
                         android.util.Log.d(TAG, "Cloud mode: marking transaction as PROCESSING for polling")
                         transactionRepository.updateTransactionStatus(
                             transactionRequestId = transactionRequestId,
                             status = TransactionStatus.PROCESSING,
-                            transactionId = result.transactionId
+                            transactionId = result.transactionId ?: result.originalTransactionId
                         )
                         return
                     }
+                }
+
+                if (result.isFailed()) {
+                    transactionRepository.updateTransactionStatus(
+                        transactionRequestId = transactionRequestId,
+                        status = TransactionStatus.FAILED,
+                        transactionId = result.transactionId ?: result.originalTransactionId,
+                        errorCode = result.transactionResultCode ?: result.code,
+                        errorMessage = result.transactionResultMsg ?: result.message ?: "Transaction failed"
+                    )
+                    return
+                }
+
+                if (result.isProcessing()) {
+                    transactionRepository.updateTransactionStatus(
+                        transactionRequestId = transactionRequestId,
+                        status = TransactionStatus.PROCESSING,
+                        transactionId = result.transactionId ?: result.originalTransactionId
+                    )
+                    return
                 }
                 
                 // Convert SDK CardInfo to model CardInfo
@@ -820,11 +851,11 @@ class MainViewModel(
                 transactionRepository.updateTransactionWithAmounts(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.SUCCESS,
-                    transactionId = result.transactionId,
+                    transactionId = result.transactionId ?: result.originalTransactionId,
                     authCode = result.authCode,
                     orderAmount = result.amount?.orderAmount,
                     totalAmount = result.amount?.transAmount,
-                    tipAmount = result.amount?.tipAmount,
+                    tipAmount = result.amount?.tipAmount ?: result.tipAmount,
                     taxAmount = result.amount?.taxAmount,
                     cashbackAmount = result.amount?.cashbackAmount,
                     serviceFee = result.amount?.serviceFee,
@@ -834,9 +865,10 @@ class MainViewModel(
             }
             
             override fun onFailure(code: String, message: String) {
-                android.util.Log.e(TAG, "Payment failed: $transactionRequestId - $code: $message")
+                android.util.Log.e(TAG, "Communication error: $transactionRequestId - $code: $message")
                 
-                // Update transaction in repository
+                // onFailure = communication/technical error (connection lost, timeout, etc.)
+                // NOT a transaction decline — declines arrive via onSuccess with isFailed().
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.FAILED,

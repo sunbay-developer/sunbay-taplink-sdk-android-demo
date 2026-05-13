@@ -44,7 +44,7 @@ fun TransactionHeader(
     val backgroundColor = when (transaction.status) {
         TransactionStatus.SUCCESS -> MaterialTheme.colorScheme.tertiaryContainer
         TransactionStatus.FAILED -> MaterialTheme.colorScheme.errorContainer
-        TransactionStatus.PENDING, TransactionStatus.PROCESSING, TransactionStatus.CANCELLED ->
+        TransactionStatus.PENDING, TransactionStatus.PROCESSING ->
             MaterialTheme.colorScheme.primaryContainer
     }
 

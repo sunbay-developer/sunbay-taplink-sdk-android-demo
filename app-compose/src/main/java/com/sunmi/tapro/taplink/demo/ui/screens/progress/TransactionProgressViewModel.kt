@@ -135,8 +135,7 @@ class TransactionProgressViewModel(
      */
     private fun updateStateFromTransaction(transaction: Transaction) {
         val isComplete = transaction.status == TransactionStatus.SUCCESS ||
-                        transaction.status == TransactionStatus.FAILED ||
-                        transaction.status == TransactionStatus.CANCELLED
+                        transaction.status == TransactionStatus.FAILED
         
         // Cloud mode: when transaction enters PROCESSING, start polling for final status.
         // pollingJob == null ensures we only start once.
@@ -159,10 +158,10 @@ class TransactionProgressViewModel(
             }
         }
         
-        // Retry logic (POS style: success page has no retry, only failed/cancelled)
+        // Retry logic (POS style: success page has no retry, only failed)
         // - QUERY and BATCH_CLOSE cannot be retried
         // - SUCCESS: no retry button (payment succeeded)
-        // - FAILED/CANCELLED: show retry so user can try again
+        // - FAILED: show retry so user can try again
         val canRetry = when (transaction.type) {
             TransactionType.QUERY,
             TransactionType.BATCH_CLOSE -> false
@@ -204,11 +203,6 @@ class TransactionProgressViewModel(
                 // Error information is displayed directly in the UI
                 null
             }
-            TransactionStatus.CANCELLED -> {
-                // Don't show message popup for cancelled transactions
-                // Status is displayed directly in the UI
-                null
-            }
             else -> null
         }
     }
@@ -221,10 +215,9 @@ class TransactionProgressViewModel(
     private fun retryTransaction() {
         val transaction = currentTransaction ?: return
         
-        // Check if transaction is complete (success, failed, or cancelled)
+        // Check if transaction is complete (success or failed)
         val isComplete = transaction.status == TransactionStatus.SUCCESS ||
-                        transaction.status == TransactionStatus.FAILED ||
-                        transaction.status == TransactionStatus.CANCELLED
+                        transaction.status == TransactionStatus.FAILED
         
         if (!isComplete) {
             _state.update {
@@ -377,7 +370,7 @@ class TransactionProgressViewModel(
     private fun createPaymentCallback(transactionRequestId: String): PaymentCallback {
         return object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                Log.d(TAG, "Payment success: $transactionRequestId")
+                Log.d(TAG, "Payment callback result: $transactionRequestId, status=${result.transactionStatus}, code=${result.code}")
                 
                 // Reset retry manager on success
                 retryManager.reset()
@@ -401,18 +394,32 @@ class TransactionProgressViewModel(
                                   txnType == TransactionType.POST_AUTH ||
                                   txnType == TransactionType.INCREMENT_AUTH ||
                                   txnType == TransactionType.REFUND
-                if (isCloudMode && needsPolling) {
+
+                if (result.isFailed()) {
+                    transactionRepository.updateTransactionStatus(
+                        transactionRequestId = transactionRequestId,
+                        status = TransactionStatus.FAILED,
+                        transactionId = result.transactionId ?: result.originalTransactionId,
+                        errorCode = result.transactionResultCode ?: result.code,
+                        errorMessage = result.transactionResultMsg ?: result.message ?: "Transaction failed"
+                    )
+                    return
+                }
+
+                if (result.isProcessing() || (isCloudMode && needsPolling && !result.isTerminal())) {
                     Log.d(TAG, "Cloud mode: starting polling for final status: $transactionRequestId")
                     
                     // Keep transaction in PROCESSING status
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
                         status = TransactionStatus.PROCESSING,
-                        transactionId = result.transactionId
+                        transactionId = result.transactionId ?: result.originalTransactionId
                     )
                     
-                    // Start cloud polling
-                    startCloudPolling(transactionRequestId)
+                    if (isCloudMode && needsPolling) {
+                        // Start cloud polling only for cloud transactions that are still pending.
+                        startCloudPolling(transactionRequestId)
+                    }
                     return
                 }
                 
@@ -452,9 +459,10 @@ class TransactionProgressViewModel(
             }
             
             override fun onFailure(code: String, message: String) {
-                Log.e(TAG, "Payment failed: $transactionRequestId - $code: $message")
+                Log.e(TAG, "Communication error: $transactionRequestId - $code: $message")
                 
-                // Update transaction with failure result
+                // onFailure = communication/technical error (connection lost, timeout, etc.)
+                // NOT a transaction decline — declines arrive via onSuccess with isFailed().
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.FAILED,
@@ -652,10 +660,10 @@ class TransactionProgressViewModel(
 
         val callback = object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                // Mark the original transaction as cancelled
+                // Mark the original transaction as failed (aborted)
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transaction.transactionRequestId,
-                    status = TransactionStatus.CANCELLED,
+                    status = TransactionStatus.FAILED,
                     transactionId = result.originalTransactionId ?: transaction.transactionId
                 )
             }
@@ -869,7 +877,7 @@ class TransactionProgressViewModel(
         return when (status) {
             "S", "SUCCESS" -> TransactionStatus.SUCCESS
             "F", "FAILED" -> TransactionStatus.FAILED
-            "C" -> TransactionStatus.CANCELLED
+            "C" -> TransactionStatus.FAILED
             "P", "PROCESSING" -> TransactionStatus.PROCESSING
             "I" -> TransactionStatus.PENDING
             else -> TransactionStatus.PENDING
