@@ -28,15 +28,16 @@ object TaplinkSdkInitializer {
 
     fun init(context: Context, config: TaplinkSdkPreferences.SdkConfig): Boolean {
         return try {
+            val merchantId = config.merchantId.trim().ifBlank { null }
             Log.d(TAG, "=== Taplink SDK Initialization Started ===")
             Log.d(TAG, "=== SDK Init Request Parameters ===")
             Log.d(TAG, "App ID: ${config.appId}")
-            Log.d(TAG, "Merchant ID: ${config.merchantId}")
+            Log.d(TAG, "Merchant ID: ${config.merchantId ?: "(not provided)"}")
             Log.d(TAG, "Secret Key: ${maskSecret(config.secretKey)}")
 
             val taplinkConfig = TaplinkConfig(
                 appId = config.appId,
-                merchantId = config.merchantId,
+//                merchantId = config.merchantId,
                 secretKey = config.secretKey
             )
                 .setLogEnabled(true)

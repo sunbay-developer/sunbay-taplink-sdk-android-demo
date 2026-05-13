@@ -897,13 +897,35 @@ class TransactionProgressActivity : AppCompatActivity() {
             abortButton.visibility = View.GONE
             
             if (result != null) {
-                // We have a PaymentResult from onSuccess callback, always treat as success
-                // The SDK's onSuccess callback indicates transaction success regardless of code value
-                showSuccessResult(result)
-                retryButton.visibility = View.VISIBLE
-                retryButton.text = "Repeat Transaction"
-                queryButton.visibility = View.VISIBLE
-                Log.d(TAG, "Transaction successful - showing success result")
+                when {
+                    result.isSuccess() -> {
+                        showSuccessResult(result)
+                        retryButton.visibility = View.VISIBLE
+                        retryButton.text = "Repeat Transaction"
+                        queryButton.visibility = View.VISIBLE
+                        Log.d(TAG, "Transaction approved - showing success result")
+                    }
+                    result.isProcessing() -> {
+                        showProcessingResult(result)
+                        retryButton.visibility = View.GONE
+                        queryButton.visibility = View.VISIBLE
+                        Log.d(TAG, "Transaction still processing - waiting for query confirmation")
+                    }
+                    result.isFailed() -> {
+                        showTransactionFailureResult(result)
+                        retryButton.visibility = View.VISIBLE
+                        retryButton.text = "Retry"
+                        queryButton.visibility = View.VISIBLE
+                        Log.d(TAG, "Transaction not approved - showing failure result")
+                    }
+                    else -> {
+                        showTransactionFailureResult(result)
+                        retryButton.visibility = View.VISIBLE
+                        retryButton.text = "Retry"
+                        queryButton.visibility = View.VISIBLE
+                        Log.d(TAG, "Transaction not approved - showing failure result")
+                    }
+                }
             } else {
                 // No PaymentResult, use error code and message
                 showRequestFailureResult(errorCode ?: "UNKNOWN", errorMessage ?: "Unknown error occurred")
@@ -1009,6 +1031,16 @@ class TransactionProgressActivity : AppCompatActivity() {
         createFormattedResultDetails(result)
     }
 
+    private fun showProcessingResult(result: PaymentResult) {
+        resultIcon.setImageResource(R.drawable.ic_check_circle)
+        resultIcon.setColorFilter(resources.getColor(R.color.colorPrimary, null))
+
+        resultText.text = "Processing"
+        resultText.setTextColor(resources.getColor(R.color.colorPrimary, null))
+
+        createFormattedResultDetails(result)
+    }
+
     /**
      * Show transaction failure result (code=0 but transactionStatus != SUCCESS)
      * This handles cases where the request was successful but the transaction failed
@@ -1022,7 +1054,6 @@ class TransactionProgressActivity : AppCompatActivity() {
         val resultTitle = when (result.transactionStatus?.uppercase()) {
             "FAILED" -> "Transaction Failed"
             "DECLINED" -> "Transaction Declined"
-            "CANCELLED" -> "Transaction Cancelled"
             "TIMEOUT" -> "Transaction Timeout"
             else -> "Transaction Failed"
         }
@@ -1767,9 +1798,6 @@ class TransactionProgressActivity : AppCompatActivity() {
                 errorCode.contains("DECLINED", ignoreCase = true) -> {
                     append("The transaction was declined. This is a normal result and no further action is needed.")
                 }
-                errorCode.contains("CANCELLED", ignoreCase = true) -> {
-                    append("The transaction was cancelled. This may have been done by the user or the system.")
-                }
                 else -> {
                     append("Please try again or contact support if the issue persists.")
                 }
@@ -1777,8 +1805,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         }
         
         // Show error result directly for non-retryable errors
-        if (errorCode.contains("DECLINED", ignoreCase = true) || 
-            errorCode.contains("CANCELLED", ignoreCase = true)) {
+        if (errorCode.contains("DECLINED", ignoreCase = true)) {
             showResult(null, errorCode, errorMessage)
         } else {
             // Show error dialog with query option for other errors
@@ -2012,10 +2039,10 @@ class TransactionProgressActivity : AppCompatActivity() {
             }
             
             override fun onFailure(code: String, message: String) {
-                Log.d(TAG, "Payment callback - Failure: $code - $message")
+                Log.d(TAG, "Payment callback - Communication error: $code - $message")
                 
-                // Use showPaymentError for better error handling and display
-                // This provides more detailed error information to the user
+                // onFailure = communication/technical error (connection lost, timeout, etc.)
+                // NOT a transaction decline — declines arrive via onSuccess with isFailed().
                 showPaymentError(code, message, null, null, null)
             }
             
@@ -2051,61 +2078,70 @@ class TransactionProgressActivity : AppCompatActivity() {
     private fun updateTransactionStatus(result: PaymentResult?, errorCode: String?, errorMessage: String?) {
         try {
             if (result != null) {
-                // Success case - update with success status and result data
+                val mappedStatus = when {
+                    result.isSuccess() -> com.sunmi.tapro.taplink.demo.model.TransactionStatus.SUCCESS
+                    result.isProcessing() -> com.sunmi.tapro.taplink.demo.model.TransactionStatus.PROCESSING
+                    else -> com.sunmi.tapro.taplink.demo.model.TransactionStatus.FAILED
+                }
+
                 // TIP_ADJUST response has tipAmount at top level (not nested in amount object),
                 // so use result.tipAmount as fallback when amount.tipAmount is null.
-                com.sunmi.tapro.taplink.demo.repository.TransactionRepository.updateTransactionWithAmounts(
-                    transactionRequestId = transaction.transactionRequestId,
-                    status = com.sunmi.tapro.taplink.demo.model.TransactionStatus.SUCCESS,
-                    transactionId = result.transactionId ?: result.originalTransactionId,
-                    authCode = result.authCode,
-                    orderAmount = result.amount?.orderAmount,
-                    totalAmount = result.amount?.transAmount,
-                    tipAmount = result.amount?.tipAmount ?: result.tipAmount,
-                    taxAmount = result.amount?.taxAmount,
-                    cashbackAmount = result.amount?.cashbackAmount,
-                    serviceFee = result.amount?.serviceFee,
-                    batchNo = result.batchNo,
-                    batchCloseInfo = result.batchCloseInfo?.let { bci ->
-                        com.sunmi.tapro.taplink.demo.model.BatchCloseInfo(
-                            totalCount = bci.totalCount,
-                            totalAmount = bci.totalAmount,
-                            totalTip = bci.totalTip,
-                            totalTax = bci.totalTax,
+                if (mappedStatus == com.sunmi.tapro.taplink.demo.model.TransactionStatus.SUCCESS ||
+                    mappedStatus == com.sunmi.tapro.taplink.demo.model.TransactionStatus.PROCESSING) {
+                    com.sunmi.tapro.taplink.demo.repository.TransactionRepository.updateTransactionWithAmounts(
+                        transactionRequestId = transaction.transactionRequestId,
+                        status = mappedStatus,
+                        transactionId = result.transactionId ?: result.originalTransactionId,
+                        authCode = result.authCode,
+                        orderAmount = result.amount?.orderAmount,
+                        totalAmount = result.amount?.transAmount,
+                        tipAmount = result.amount?.tipAmount ?: result.tipAmount,
+                        taxAmount = result.amount?.taxAmount,
+                        cashbackAmount = result.amount?.cashbackAmount,
+                        serviceFee = result.amount?.serviceFee,
+                        batchNo = result.batchNo,
+                        batchCloseInfo = result.batchCloseInfo?.let { bci ->
+                            com.sunmi.tapro.taplink.demo.model.BatchCloseInfo(
+                                totalCount = bci.totalCount,
+                                totalAmount = bci.totalAmount,
+                                totalTip = bci.totalTip,
+                                totalTax = bci.totalTax,
 //                            totalSurchargeAmount = bci.totalSurchargeAmount,
-                            cashDiscount = bci.cashDiscount,
-                            closeTime = bci.closeTime
-                        )
-                    },
-                    cardInfo = result.cardInfo?.let { ci ->
-                        com.sunmi.tapro.taplink.demo.model.CardInfo(
-                            maskedPan = ci.maskedPan,
-                            cardNetworkType = ci.cardNetworkType,
-                            paymentMethodId = ci.paymentMethodId,
-                            subPaymentMethodId = ci.subPaymentMethodId,
-                            entryMode = ci.entryMode,
-                            authenticationMethod = ci.authenticationMethod,
-                            cardholderName = ci.cardholderName,
-                            expiryDate = ci.expiryDate,
-                            issuerBank = ci.issuerBank,
-                            cardBrand = ci.cardBrand
-                        )
-                    },
-                    errorCode = null,
-                    errorMessage = null
-                )
+                                cashDiscount = bci.cashDiscount,
+                                closeTime = bci.closeTime
+                            )
+                        },
+                        cardInfo = result.cardInfo?.let { ci ->
+                            com.sunmi.tapro.taplink.demo.model.CardInfo(
+                                maskedPan = ci.maskedPan,
+                                cardNetworkType = ci.cardNetworkType,
+                                paymentMethodId = ci.paymentMethodId,
+                                subPaymentMethodId = ci.subPaymentMethodId,
+                                entryMode = ci.entryMode,
+                                authenticationMethod = ci.authenticationMethod,
+                                cardholderName = ci.cardholderName,
+                                expiryDate = ci.expiryDate,
+                                issuerBank = ci.issuerBank,
+                                cardBrand = ci.cardBrand
+                            )
+                        },
+                        errorCode = null,
+                        errorMessage = null
+                    )
+                } else {
+                    com.sunmi.tapro.taplink.demo.repository.TransactionRepository.updateTransactionStatus(
+                        transactionRequestId = transaction.transactionRequestId,
+                        status = mappedStatus,
+                        transactionId = result.transactionId ?: result.originalTransactionId,
+                        errorCode = result.transactionResultCode ?: result.code,
+                        errorMessage = result.transactionResultMsg ?: result.message
+                    )
+                }
                 
-                Log.d(TAG, "Transaction updated with success status: ${result.transactionId}")
+                Log.d(TAG, "Transaction updated with mapped status: $mappedStatus, transactionId=${result.transactionId}")
             } else {
                 // Failure case - update with failed status and error information
-                val finalStatus = when {
-                    errorCode?.contains("ABORT", ignoreCase = true) == true -> 
-                        com.sunmi.tapro.taplink.demo.model.TransactionStatus.CANCELLED
-                    errorCode?.contains("CANCEL", ignoreCase = true) == true -> 
-                        com.sunmi.tapro.taplink.demo.model.TransactionStatus.CANCELLED
-                    else -> 
-                        com.sunmi.tapro.taplink.demo.model.TransactionStatus.FAILED
-                }
+                val finalStatus = com.sunmi.tapro.taplink.demo.model.TransactionStatus.FAILED
                 
                 com.sunmi.tapro.taplink.demo.repository.TransactionRepository.updateTransactionStatus(
                     transactionRequestId = transaction.transactionRequestId,

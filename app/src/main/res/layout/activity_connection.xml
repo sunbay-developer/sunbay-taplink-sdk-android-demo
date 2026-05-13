@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/scroll_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/white">
@@ -116,7 +115,6 @@
 
         <!-- Environment Selection Section (Hidden by default, Independent) -->
         <androidx.cardview.widget.CardView
-            android:id="@+id/layout_environment_config"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
@@ -160,7 +158,6 @@
                     android:layout_marginBottom="8dp" />
 
                 <Spinner
-                    android:id="@+id/spinner_environment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
@@ -168,7 +165,6 @@
                     android:background="@drawable/rounded_edittext" />
 
                 <TextView
-                    android:id="@+id/tv_environment_info"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Current Environment: UAT\nApp ID: test_smt6ejh5l532428a\nMerchant ID: M1254947005\nDebug Mode: false"
@@ -673,7 +669,6 @@
                 android:layout_marginTop="24dp">
 
                 <TextView
-                    android:id="@+id/tv_current_environment"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Environment: UAT"

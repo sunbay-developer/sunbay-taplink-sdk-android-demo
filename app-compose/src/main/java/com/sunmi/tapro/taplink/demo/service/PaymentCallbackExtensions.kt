@@ -13,8 +13,8 @@ import com.sunmi.tapro.taplink.demo.util.ErrorHandler
 /**
  * Create a PaymentCallback that converts errors to Message objects
  * 
- * @param onSuccess Callback for successful payment
- * @param onFailure Callback for payment failure with Message object
+ * @param onSuccess Callback for terminal-processed results (inspect PaymentResult status)
+ * @param onFailure Callback for communication/technical errors with Message object
  * @param onProgress Optional callback for payment progress updates
  * @return PaymentCallback instance
  */
@@ -29,7 +29,8 @@ fun createMessageAwareCallback(
         }
 
         override fun onFailure(code: String, message: String) {
-            // Convert error to Message using ErrorHandler
+            // onFailure = communication/technical error (connection lost, timeout, etc.)
+            // NOT a transaction decline — declines arrive via onSuccess with isFailed().
             val errorMessage = ErrorHandler.handlePaymentError(code, message)
             onFailure(errorMessage)
         }

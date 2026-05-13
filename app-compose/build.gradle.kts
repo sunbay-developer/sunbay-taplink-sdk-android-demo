@@ -110,8 +110,8 @@ dependencies {
     //    implementation("com.sunmi:sunbay-taplink-sdk-android:1.0.7.14-SNAPSHOT")
     
     // JSON processing
-    implementation("com.google.code.gson:gson:2.13.1")
-    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+//    implementation("com.google.code.gson:gson:2.13.1")
+//    implementation("org.java-websocket:Java-WebSocket:1.5.3")
     
     // Android core libraries
     implementation(libs.androidx.core.ktx)

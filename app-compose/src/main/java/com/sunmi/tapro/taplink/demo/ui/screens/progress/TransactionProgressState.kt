@@ -56,14 +56,9 @@ data class TransactionProgressState(
     fun isFailed(): Boolean = status == TransactionStatus.FAILED
     
     /**
-     * Check if transaction is cancelled
-     */
-    fun isCancelled(): Boolean = status == TransactionStatus.CANCELLED
-    
-    /**
      * Check if transaction is complete (success or failed)
      */
-    fun isComplete(): Boolean = isSuccess() || isFailed() || isCancelled()
+    fun isComplete(): Boolean = isSuccess() || isFailed()
     
     /**
      * Get status display text
@@ -79,7 +74,6 @@ data class TransactionProgressState(
             TransactionStatus.PROCESSING -> "Processing..."
             TransactionStatus.SUCCESS -> "Transaction Successful"
             TransactionStatus.FAILED -> "Transaction Failed"
-            TransactionStatus.CANCELLED -> "Transaction Cancelled"
         }
     }
     
@@ -91,7 +85,6 @@ data class TransactionProgressState(
             TransactionStatus.PENDING, TransactionStatus.PROCESSING -> StatusColor.PROCESSING
             TransactionStatus.SUCCESS -> StatusColor.SUCCESS
             TransactionStatus.FAILED -> StatusColor.ERROR
-            TransactionStatus.CANCELLED -> StatusColor.WARNING
         }
     }
 }

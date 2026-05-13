@@ -1056,7 +1056,7 @@ private fun SdkSectionContent(
         label = { Text("Merchant ID") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        supportingText = { Text("Required") },
+        supportingText = { Text("Optional — validated only when provided") },
         shape = MaterialTheme.shapes.medium
     )
     Spacer(modifier = Modifier.height(8.dp))
@@ -1427,7 +1427,7 @@ fun SdkCredentialsCard(
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(value = appId, onValueChange = onAppIdChange, label = { Text("App ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true, supportingText = { Text("Required") })
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = merchantId, onValueChange = onMerchantIdChange, label = { Text("Merchant ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true, supportingText = { Text("Required") })
+            OutlinedTextField(value = merchantId, onValueChange = onMerchantIdChange, label = { Text("Merchant ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true, supportingText = { Text("Optional — validated only when provided") })
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = secretKey, onValueChange = onSecretKeyChange, label = { Text("Secret Key") }, placeholder = { if (hasExistingSecretKey && secretKey.isEmpty()) Text("••••••••") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), supportingText = { Text(if (hasExistingSecretKey && secretKey.isEmpty()) "Existing key hidden." else "Can be empty for some environments") })
             Spacer(modifier = Modifier.height(12.dp))

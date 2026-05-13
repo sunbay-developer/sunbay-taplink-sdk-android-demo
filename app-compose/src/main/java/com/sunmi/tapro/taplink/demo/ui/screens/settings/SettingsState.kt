@@ -154,9 +154,9 @@ data class SettingsState(
     /**
      * Basic validation for Taplink SDK credentials.
      *
-     * Note: secretKey is allowed to be empty in some environments.
+     * Note: secretKey is allowed to be empty in some environments and merchantId is optional.
      */
     fun isSdkConfigValid(): Boolean {
-        return sdkAppId.isNotBlank() && sdkMerchantId.isNotBlank()
+        return sdkAppId.isNotBlank()
     }
 }

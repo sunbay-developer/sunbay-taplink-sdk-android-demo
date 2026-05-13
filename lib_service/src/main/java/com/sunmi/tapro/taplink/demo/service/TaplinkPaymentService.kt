@@ -32,6 +32,7 @@ import com.sunmi.tapro.taplink.sdk.model.request.transaction.VoidRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.settlement.BatchCloseRequest
 import java.math.BigDecimal
 import java.math.RoundingMode
+import com.google.gson.GsonBuilder
 import com.sunmi.tapro.taplink.sdk.callback.ConnectionListener as SdkConnectionListener
 import com.sunmi.tapro.taplink.sdk.callback.PaymentCallback as SdkPaymentCallback
 import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
@@ -182,34 +183,32 @@ class TaplinkPaymentService : PaymentService {
         callback.onProgress(event.eventCode, getProgressMessage(event, transactionType))
     }
 
-    /** 统一打印发往 SDK 的请求对象 */
+    private val gson by lazy {
+        GsonBuilder().setPrettyPrinting().serializeNulls().create()
+    }
+
+    /** Convert any object to JSON string for logging */
+    private fun toJson(obj: Any): String {
+        return try {
+            gson.toJson(obj)
+        } catch (e: Exception) {
+            obj.toString()
+        }
+    }
+
+    /** Log SDK request as JSON */
     private fun logSdkRequest(action: String, req: Any) {
-        Log.d(TAG, "SDK_REQ [$action]: $req")
+        Log.d(TAG, "SDK_REQ [$action]: ${toJson(req)}")
     }
 
-    /** 统一打印 SDK 返回的成功结果对象 */
+    /** Log SDK success result as JSON */
     private fun logSdkResult(result: Any) {
-        Log.d(TAG, "SDK_RESULT: $result")
+        Log.d(TAG, "SDK_RESULT: ${toJson(result)}")
     }
 
-    /** 统一打印 SDK 返回的失败/错误对象，输出具体参数便于排查 */
+    /** Log SDK failure/error as JSON */
     private fun logSdkFailure(action: String, error: SdkPaymentError) {
-        val parts = mutableListOf<String>()
-        parts.add("code=${error.code}")
-        parts.add("message=${error.message}")
-        for (prop in listOf("suggestion", "traceId", "referenceOrderId", "transactionId", "transactionRequestId", "canRetryWithSameId")) {
-            runCatching {
-                val getterName = "get" + prop.replaceFirstChar { it.uppercaseChar() }
-                val getter = error.javaClass.getMethod(getterName)
-                val value = getter.invoke(error)
-                parts.add("$prop=$value")
-            }
-        }
-        runCatching {
-            val detail = error.javaClass.getMethod("getDetail").invoke(error)
-            if (detail != null) parts.add("detail=$detail")
-        }
-        Log.e(TAG, "SDK_FAILURE [$action]: ${parts.joinToString(", ")}")
+        Log.e(TAG, "SDK_FAILURE [$action]: ${toJson(error)}")
     }
 
     override fun connect(connectionConfig: ConnectionConfig, listener: ConnectionListener) {
@@ -357,7 +356,7 @@ class TaplinkPaymentService : PaymentService {
             transactionId = sdkResult.transactionId,
             referenceOrderId = sdkResult.referenceOrderId,
             transactionRequestId = sdkResult.transactionRequestId,
-            transactionStatus = "SUCCESS",
+            transactionStatus = sdkResult.transactionStatus,
             transactionType = sdkResult.transactionType,
             amount = sdkResult.amount?.let { amt ->
                 TransactionAmount(

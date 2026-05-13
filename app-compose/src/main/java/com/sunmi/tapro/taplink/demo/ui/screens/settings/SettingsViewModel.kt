@@ -170,13 +170,11 @@ class SettingsViewModel(
                 
                 // Update state with loaded values
                 // For security: don't show existing secret key, only track its existence
-                val sdkEnvironment = when {
-                    sdkConfig.appId == EnvironmentDefaults.Uat.SDK_APP_ID &&
-                        sdkConfig.merchantId == EnvironmentDefaults.Uat.SDK_MERCHANT_ID -> SdkEnvironment.UAT
-                    sdkConfig.appId == EnvironmentDefaults.Prod.SDK_APP_ID &&
-                        sdkConfig.merchantId == EnvironmentDefaults.Prod.SDK_MERCHANT_ID -> SdkEnvironment.PROD
-                    else -> SdkEnvironment.UAT
-                }
+                    val sdkEnvironment = when (sdkConfig.appId) {
+                        EnvironmentDefaults.Uat.SDK_APP_ID -> SdkEnvironment.UAT
+                        EnvironmentDefaults.Prod.SDK_APP_ID -> SdkEnvironment.PROD
+                        else -> SdkEnvironment.UAT
+                    }
                 _state.update {
                     it.copy(
                         selectedMode = mode,
@@ -599,13 +597,13 @@ class SettingsViewModel(
                 existingConfig.secretKey
             }
 
-            if (appId.isBlank() || merchantId.isBlank()) {
+            if (appId.isBlank()) {
                 _state.update {
                     it.copy(
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Invalid SDK Configuration",
-                            content = "App ID and Merchant ID are required.",
+                            content = "App ID is required. Merchant ID is optional and will be validated only when provided.",
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )

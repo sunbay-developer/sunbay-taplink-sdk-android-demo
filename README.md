@@ -240,6 +240,8 @@ sequenceDiagram
     SDK->>TAPRO: Process payment
     TAPRO-->>SDK: Progress events + final result
     SDK-->>SVC: onProgress / onSuccess / onFailure
+    Note right of SDK: onSuccess = terminal processed result (check isSuccess/isFailed)
+    Note right of SDK: onFailure = communication error only
     SVC-->>UI: Render progress and final outcome
 ```
 

@@ -33,8 +33,8 @@ android {
         applicationId = "com.sunmi.tapro.taplink.demo"
         minSdk = Integer.parseInt(libs.versions.minSdk.get())
         targetSdk = Integer.parseInt(libs.versions.compileSdk.get())
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -71,8 +71,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss").format(Date())
-            val newApkName = "TaplinkDemo-${variant.name}-${variant.versionName}-${timestamp}.apk"
+            val newApkName = "TaplinkDemo-${variant.name}-${variant.versionName}.apk"
             output.outputFileName = newApkName
         }
     }
@@ -84,8 +83,8 @@ dependencies {
     //    implementation("com.sunmi:sunbay-taplink-sdk-android:1.0.7.13-SNAPSHOT")
     
     // JSON processing
-    implementation("com.google.code.gson:gson:2.13.1")
-    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+//    implementation("com.google.code.gson:gson:2.13.1")
+//    implementation("org.java-websocket:Java-WebSocket:1.5.3")
     // Android core libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
