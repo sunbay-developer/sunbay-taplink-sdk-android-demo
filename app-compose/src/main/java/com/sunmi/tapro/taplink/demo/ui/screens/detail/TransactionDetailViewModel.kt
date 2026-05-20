@@ -483,46 +483,64 @@ class TransactionDetailViewModel(
                                       txn?.type != TransactionType.TIP_ADJUST &&
                                       txn?.type != TransactionType.QUERY &&
                                       txn?.type != TransactionType.BATCH_CLOSE
-                    
-                    if (isCloudMode && needsPolling) {
-                        transactionRepository.updateTransactionStatus(
-                            transactionRequestId = transactionRequestId,
-                            status = TransactionStatus.PROCESSING,
-                            transactionId = result.transactionId
-                        )
-                        return@launch
+
+                    when {
+                        result.isFailed() -> {
+                            transactionRepository.updateTransactionStatus(
+                                transactionRequestId = transactionRequestId,
+                                status = TransactionStatus.FAILED,
+                                transactionId = result.transactionId ?: result.originalTransactionId,
+                                errorCode = result.transactionResultCode ?: result.code,
+                                errorMessage = result.transactionResultMsg ?: result.message
+                            )
+                        }
+                        result.isProcessing() || (isCloudMode && needsPolling && !result.isTerminal()) -> {
+                            transactionRepository.updateTransactionStatus(
+                                transactionRequestId = transactionRequestId,
+                                status = TransactionStatus.PROCESSING,
+                                transactionId = result.transactionId ?: result.originalTransactionId
+                            )
+                        }
+                        result.isSuccess() -> {
+                            val cardInfo = result.cardInfo?.let { sdkCard ->
+                                com.sunmi.tapro.taplink.demo.model.CardInfo(
+                                    maskedPan = sdkCard.maskedPan,
+                                    cardNetworkType = sdkCard.cardNetworkType,
+                                    paymentMethodId = sdkCard.paymentMethodId,
+                                    subPaymentMethodId = sdkCard.subPaymentMethodId,
+                                    entryMode = sdkCard.entryMode,
+                                    authenticationMethod = sdkCard.authenticationMethod,
+                                    cardholderName = sdkCard.cardholderName,
+                                    expiryDate = sdkCard.expiryDate,
+                                    issuerBank = sdkCard.issuerBank,
+                                    cardBrand = sdkCard.cardBrand
+                                )
+                            }
+                            transactionRepository.updateTransactionWithAmounts(
+                                transactionRequestId = transactionRequestId,
+                                status = TransactionStatus.SUCCESS,
+                                transactionId = result.transactionId,
+                                authCode = result.authCode,
+                                orderAmount = result.amount?.orderAmount,
+                                totalAmount = result.amount?.transAmount,
+                                tipAmount = result.amount?.tipAmount,
+                                taxAmount = result.amount?.taxAmount,
+                                cashbackAmount = result.amount?.cashbackAmount,
+                                serviceFee = result.amount?.serviceFee,
+                                completeTime = result.completeTime,
+                                cardInfo = cardInfo
+                            )
+                        }
+                        else -> {
+                            transactionRepository.updateTransactionStatus(
+                                transactionRequestId = transactionRequestId,
+                                status = TransactionStatus.FAILED,
+                                transactionId = result.transactionId ?: result.originalTransactionId,
+                                errorCode = result.transactionResultCode ?: result.code,
+                                errorMessage = result.transactionResultMsg ?: result.message ?: "Unknown transaction status"
+                            )
+                        }
                     }
-                    
-                    // Non-cloud mode: update transaction with success result directly
-                    val cardInfo = result.cardInfo?.let { sdkCard ->
-                        com.sunmi.tapro.taplink.demo.model.CardInfo(
-                            maskedPan = sdkCard.maskedPan,
-                            cardNetworkType = sdkCard.cardNetworkType,
-                            paymentMethodId = sdkCard.paymentMethodId,
-                            subPaymentMethodId = sdkCard.subPaymentMethodId,
-                            entryMode = sdkCard.entryMode,
-                            authenticationMethod = sdkCard.authenticationMethod,
-                            cardholderName = sdkCard.cardholderName,
-                            expiryDate = sdkCard.expiryDate,
-                            issuerBank = sdkCard.issuerBank,
-                            cardBrand = sdkCard.cardBrand
-                        )
-                    }
-                    
-                    transactionRepository.updateTransactionWithAmounts(
-                        transactionRequestId = transactionRequestId,
-                        status = TransactionStatus.SUCCESS,
-                        transactionId = result.transactionId,
-                        authCode = result.authCode,
-                        orderAmount = result.amount?.orderAmount,
-                        totalAmount = result.amount?.transAmount,
-                        tipAmount = result.amount?.tipAmount,
-                        taxAmount = result.amount?.taxAmount,
-                        cashbackAmount = result.amount?.cashbackAmount,
-                        serviceFee = result.amount?.serviceFee,
-                        completeTime = result.completeTime,
-                        cardInfo = cardInfo
-                    )
                 }
             }
             
@@ -606,6 +624,23 @@ class TransactionDetailViewModel(
                 val callback = object : PaymentCallback {
                     override fun onSuccess(result: PaymentResult) {
                         viewModelScope.launch {
+                            // If the query itself was rejected (e.g. API not permitted),
+                            // do NOT update the original transaction status
+                            if (result.isFailed() && result.transactionId == null) {
+                                _state.update {
+                                    it.copy(
+                                        isQuerying = false,
+                                        message = Message(
+                                            type = MessageType.ERROR,
+                                            title = "Query Failed",
+                                            content = "${result.code}: ${result.transactionResultMsg ?: result.message}",
+                                            actions = listOf(MessageAction.DISMISS)
+                                        )
+                                    )
+                                }
+                                return@launch
+                            }
+
                             // Update transaction with query result
                             val cardInfo = result.cardInfo?.let { sdkCard ->
                                 com.sunmi.tapro.taplink.demo.model.CardInfo(

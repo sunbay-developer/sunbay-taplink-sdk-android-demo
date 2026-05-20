@@ -37,7 +37,7 @@ object TaplinkSdkInitializer {
 
             val taplinkConfig = TaplinkConfig(
                 appId = config.appId,
-//                merchantId = config.merchantId,
+                merchantId = config.merchantId,
                 secretKey = config.secretKey
             )
                 .setLogEnabled(true)
