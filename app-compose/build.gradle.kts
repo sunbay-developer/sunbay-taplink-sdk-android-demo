@@ -34,7 +34,7 @@ android {
         applicationId = "com.sunmi.taplink.demo"
         minSdk = Integer.parseInt(libs.versions.minSdk.get())
         targetSdk = Integer.parseInt(libs.versions.compileSdk.get())
-        versionCode = 6
+        versionCode = 8
         versionName = "1.0.1.${versionCode}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

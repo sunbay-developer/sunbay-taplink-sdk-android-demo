@@ -400,7 +400,7 @@ class TransactionListViewModel(
                         .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
                 } catch (e: Exception) { false }
                 
-                // Execute batch close â€” in App-to-App mode, callback triggers navigation on final result
+                // Execute batch close â€?in App-to-App mode, callback triggers navigation on final result
                 paymentService.executeBatchClose(
                     transactionRequestId = transactionRequestId,
                     description = "Batch Close",
@@ -671,7 +671,7 @@ class TransactionListViewModel(
                                 message = Message(
                                     type = MessageType.ERROR,
                                     title = "Query Failed",
-                                    content = "${result.code}: ${result.transactionResultMsg ?: result.message}",
+                                    content = "${result.code}: ${result.message}",
                                     actions = listOf(MessageAction.DISMISS)
                                 )
                             )
@@ -787,7 +787,7 @@ class TransactionListViewModel(
                                 message = Message(
                                     type = MessageType.ERROR,
                                     title = "Query Failed",
-                                    content = "${result.code}: ${result.transactionResultMsg ?: result.message ?: "Unknown status"}",
+                                    content = "${result.code}: ${result.message ?: "Unknown status"}",
                                     actions = listOf(MessageAction.DISMISS)
                                 )
                             )
@@ -799,7 +799,7 @@ class TransactionListViewModel(
             override fun onFailure(code: String, message: String) {
                 android.util.Log.e(TAG, "Query communication error: $queryId - $code: $message")
                 
-                // onFailure = communication/technical error â€” query could not reach terminal.
+                // onFailure = communication/technical error â€?query could not reach terminal.
                 _state.update {
                     it.copy(
                         queryInProgress = false,
@@ -846,7 +846,7 @@ class TransactionListViewModel(
             }
             override fun onProgress(status: String, message: String) {
                 if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely â€” do not write
+                    // App-to-App: skip progress updates entirely â€?do not write
                     // intermediate messages to the repository, so the progress
                     // screen won't flash stale progress on navigation.
                     return
@@ -875,7 +875,7 @@ class TransactionListViewModel(
                             transactionRequestId = transactionRequestId,
                             status = TransactionStatus.FAILED,
                             errorCode = result.transactionResultCode ?: result.code,
-                            errorMessage = result.transactionResultMsg ?: result.message
+                            errorMessage = result.message
                         )
                     }
                     result.isProcessing() -> {
@@ -929,7 +929,7 @@ class TransactionListViewModel(
                             transactionRequestId = transactionRequestId,
                             status = TransactionStatus.FAILED,
                             errorCode = result.transactionResultCode ?: result.code,
-                            errorMessage = result.transactionResultMsg ?: result.message ?: "Unknown transaction status"
+                            errorMessage = result.message ?: "Unknown transaction status"
                         )
                     }
                 }
@@ -994,7 +994,7 @@ class TransactionListViewModel(
             }
             override fun onProgress(status: String, message: String) {
                 if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely â€” do not write
+                    // App-to-App: skip progress updates entirely â€?do not write
                     // intermediate messages to the repository, so the progress
                     // screen won't flash stale progress on navigation.
                     return
@@ -1033,7 +1033,7 @@ class TransactionListViewModel(
                             status = TransactionStatus.FAILED,
                             transactionId = result.transactionId ?: result.originalTransactionId,
                             errorCode = result.transactionResultCode ?: result.code,
-                            errorMessage = result.transactionResultMsg ?: result.message
+                            errorMessage = result.message
                         )
                     }
                     result.isProcessing() || (isCloudMode && !result.isTerminal()) -> {
@@ -1082,7 +1082,7 @@ class TransactionListViewModel(
                             status = TransactionStatus.FAILED,
                             transactionId = result.transactionId ?: result.originalTransactionId,
                             errorCode = result.transactionResultCode ?: result.code,
-                            errorMessage = result.transactionResultMsg ?: result.message ?: "Unknown transaction status"
+                            errorMessage = result.message ?: "Unknown transaction status"
                         )
                     }
                 }

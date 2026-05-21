@@ -795,7 +795,7 @@ class MainViewModel(
                             status = TransactionStatus.FAILED,
                             transactionId = result.transactionId ?: result.originalTransactionId,
                             errorCode = result.transactionResultCode ?: result.code,
-                            errorMessage = result.transactionResultMsg ?: result.message ?: "Transaction failed"
+                            errorMessage = result.message
                         )
                         return
                     }
@@ -817,7 +817,7 @@ class MainViewModel(
                         status = TransactionStatus.FAILED,
                         transactionId = result.transactionId ?: result.originalTransactionId,
                         errorCode = result.transactionResultCode ?: result.code,
-                        errorMessage = result.transactionResultMsg ?: result.message ?: "Transaction failed"
+                        errorMessage = result.message
                     )
                     return
                 }

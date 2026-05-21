@@ -491,7 +491,7 @@ class TransactionDetailViewModel(
                                 status = TransactionStatus.FAILED,
                                 transactionId = result.transactionId ?: result.originalTransactionId,
                                 errorCode = result.transactionResultCode ?: result.code,
-                                errorMessage = result.transactionResultMsg ?: result.message
+                                errorMessage = result.message
                             )
                         }
                         result.isProcessing() || (isCloudMode && needsPolling && !result.isTerminal()) -> {
@@ -537,7 +537,7 @@ class TransactionDetailViewModel(
                                 status = TransactionStatus.FAILED,
                                 transactionId = result.transactionId ?: result.originalTransactionId,
                                 errorCode = result.transactionResultCode ?: result.code,
-                                errorMessage = result.transactionResultMsg ?: result.message ?: "Unknown transaction status"
+                                errorMessage = result.message ?: "Unknown transaction status"
                             )
                         }
                     }
@@ -633,7 +633,7 @@ class TransactionDetailViewModel(
                                         message = Message(
                                             type = MessageType.ERROR,
                                             title = "Query Failed",
-                                            content = "${result.code}: ${result.transactionResultMsg ?: result.message}",
+                                            content = "${result.code}: ${result.message}",
                                             actions = listOf(MessageAction.DISMISS)
                                         )
                                     )

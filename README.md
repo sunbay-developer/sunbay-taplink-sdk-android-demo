@@ -259,6 +259,25 @@ sequenceDiagram
 
 This design allows both UI apps to reuse the same payment workflow logic.
 
+## Error Handling
+
+When `result.isFailed()`, inspect `result.code` and `result.message` for detailed error analysis:
+
+```kotlin
+override fun onSuccess(result: PaymentResult) {
+    when {
+        result.isSuccess() -> handleSuccess(result)
+        result.isFailed() -> {
+            // result.code    → SDK standard error code (e.g. "307", "310")
+            // result.message → Detailed error from Tapro (e.g. "K004: Insufficient funds (051)")
+            Log.e(TAG, "Failed: code=${result.code}, message=${result.message}")
+        }
+    }
+}
+```
+
+> `onFailure` is only called for communication/technical errors (connection lost, send failed, etc.), not for transaction declines.
+
 ## Troubleshooting
 
 - Gradle sync fails:

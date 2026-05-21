@@ -1313,7 +1313,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         }
         
         // Show transaction result message (this is the important part for transaction failures)
-        detailMessageText.text = result.transactionResultMsg ?: result.message ?: "--"
+        detailMessageText.text = result.message ?: "--"
     }
     
     /**
@@ -2134,7 +2134,7 @@ class TransactionProgressActivity : AppCompatActivity() {
                         status = mappedStatus,
                         transactionId = result.transactionId ?: result.originalTransactionId,
                         errorCode = result.transactionResultCode ?: result.code,
-                        errorMessage = result.transactionResultMsg ?: result.message
+                        errorMessage = result.message
                     )
                 }
                 
