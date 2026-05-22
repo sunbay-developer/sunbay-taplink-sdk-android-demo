@@ -47,6 +47,7 @@ android {
         buildConfigField("String", "PROD_SDK_APP_ID", "\"${secret("PROD_SDK_APP_ID")}\"")
         buildConfigField("String", "PROD_SDK_MERCHANT_ID", "\"${secret("PROD_SDK_MERCHANT_ID")}\"")
         buildConfigField("String", "PROD_SDK_AUTH_KEY", "\"${secret("PROD_SDK_AUTH_KEY")}\"")
+        buildConfigField("String", "PROD_CLOUD_TERMINAL_SN", "\"${secret("PROD_CLOUD_TERMINAL_SN")}\"")
 
         buildConfigField("String", "UAT_CLOUD_BASE_URL", "\"${secret("UAT_CLOUD_BASE_URL", "https://open.sunbay-uat.us")}\"")
         buildConfigField("String", "UAT_CLOUD_API_KEY", "\"${secret("UAT_CLOUD_API_KEY")}\"")
@@ -54,6 +55,7 @@ android {
         buildConfigField("String", "UAT_SDK_APP_ID", "\"${secret("UAT_SDK_APP_ID")}\"")
         buildConfigField("String", "UAT_SDK_MERCHANT_ID", "\"${secret("UAT_SDK_MERCHANT_ID")}\"")
         buildConfigField("String", "UAT_SDK_AUTH_KEY", "\"${secret("UAT_SDK_AUTH_KEY")}\"")
+        buildConfigField("String", "UAT_CLOUD_TERMINAL_SN", "\"${secret("UAT_CLOUD_TERMINAL_SN")}\"")
     }
 
     buildTypes {

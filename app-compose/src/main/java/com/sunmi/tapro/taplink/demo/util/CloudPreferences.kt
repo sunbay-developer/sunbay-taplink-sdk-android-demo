@@ -73,7 +73,8 @@ object CloudPreferences {
         val presetBaseUrl = DEFAULT_BASE_URL
         val presetApiKey = EnvironmentDefaults.Prod.CLOUD_API_KEY
         val presetMerchantId = EnvironmentDefaults.Prod.SDK_MERCHANT_ID
-        val presetTerminalSn = ""
+        // Terminal SN preset: use secrets file value if provided, otherwise empty
+        val presetTerminalSn = EnvironmentDefaults.Prod.CLOUD_TERMINAL_SN
         val presetAppId = EnvironmentDefaults.Prod.CLOUD_APP_ID
 
         return CloudConfig(

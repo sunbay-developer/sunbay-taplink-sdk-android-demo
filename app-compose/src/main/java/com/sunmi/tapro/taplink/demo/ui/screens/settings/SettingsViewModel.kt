@@ -336,6 +336,16 @@ class SettingsViewModel(
         } else {
             EnvironmentDefaults.Prod.CLOUD_BASE_URL
         }
+        val cloudMerchantId = if (environment == SdkEnvironment.UAT) {
+            EnvironmentDefaults.Uat.SDK_MERCHANT_ID
+        } else {
+            EnvironmentDefaults.Prod.SDK_MERCHANT_ID
+        }
+        val cloudTerminalSn = if (environment == SdkEnvironment.UAT) {
+            EnvironmentDefaults.Uat.CLOUD_TERMINAL_SN
+        } else {
+            EnvironmentDefaults.Prod.CLOUD_TERMINAL_SN
+        }
         _state.update {
             it.copy(
                 sdkEnvironment = environment,
@@ -345,7 +355,9 @@ class SettingsViewModel(
                 sdkSecretKeyChanged = true,
                 cloudAppId = cloudAppId,
                 cloudApiKey = cloudApiKey,
-                cloudBaseUrl = cloudBaseUrl
+                cloudBaseUrl = cloudBaseUrl,
+                cloudMerchantId = cloudMerchantId,
+                cloudTerminalSn = cloudTerminalSn
             )
         }
 
