@@ -45,6 +45,7 @@ data class Transaction(
     val taxAmount: BigDecimal? = null,
     val cashbackAmount: BigDecimal? = null,
     val serviceFee: BigDecimal? = null,
+    val surchargeAmount: BigDecimal? = null,
     val batchNo: Int? = null,
     val batchCloseInfo: BatchCloseInfo? = null,
     val cardInfo: CardInfo? = null
