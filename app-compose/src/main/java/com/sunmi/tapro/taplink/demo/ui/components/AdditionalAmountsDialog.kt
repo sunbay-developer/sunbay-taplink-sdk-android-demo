@@ -27,6 +27,7 @@ fun AdditionalAmountsDialog(
     var tip by remember { mutableStateOf("") }
     var tax by remember { mutableStateOf("") }
     var serviceFee by remember { mutableStateOf("") }
+    var surcharge by remember { mutableStateOf("") }
 
     PosDialog(
         onDismissRequest = onDismiss,
@@ -41,6 +42,7 @@ fun AdditionalAmountsDialog(
             tip.toBigDecimalOrNull()?.let { if (it > BigDecimal.ZERO) amounts["Tip"] = it }
             tax.toBigDecimalOrNull()?.let { if (it > BigDecimal.ZERO) amounts["Tax"] = it }
             serviceFee.toBigDecimalOrNull()?.let { if (it > BigDecimal.ZERO) amounts["Service Fee"] = it }
+            surcharge.toBigDecimalOrNull()?.let { if (it > BigDecimal.ZERO) amounts["Surcharge"] = it }
             onConfirm(amounts)
         },
         dismissText = "Cancel",
@@ -51,6 +53,8 @@ fun AdditionalAmountsDialog(
         AmountInputField(value = tax, onValueChange = { tax = it }, label = "Tax")
         Spacer(modifier = Modifier.height(12.dp))
         AmountInputField(value = serviceFee, onValueChange = { serviceFee = it }, label = "Service Fee")
+        Spacer(modifier = Modifier.height(12.dp))
+        AmountInputField(value = surcharge, onValueChange = { surcharge = it }, label = "Surcharge")
     }
 }
 

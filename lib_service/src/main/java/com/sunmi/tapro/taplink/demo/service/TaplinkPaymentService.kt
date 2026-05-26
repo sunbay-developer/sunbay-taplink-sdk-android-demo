@@ -113,7 +113,8 @@ class TaplinkPaymentService : PaymentService {
         tipAmount: BigDecimal? = null,
         taxAmount: BigDecimal? = null,
         cashbackAmount: BigDecimal? = null,
-        serviceFee: BigDecimal? = null
+        serviceFee: BigDecimal? = null,
+        surchargeAmount: BigDecimal? = null
     ): AmountInfo {
         fun toCents(dollarAmount: BigDecimal): BigDecimal {
             return (dollarAmount * BigDecimal(CENTS_TO_DOLLARS_MULTIPLIER)).setScale(0, RoundingMode.HALF_UP)
@@ -126,6 +127,8 @@ class TaplinkPaymentService : PaymentService {
         taxAmount?.let { amountInfo = amountInfo.setTaxAmount(toCents(it)) }
         cashbackAmount?.let { amountInfo = amountInfo.setCashbackAmount(toCents(it)) }
         serviceFee?.let { amountInfo = amountInfo.setServiceFee(toCents(it)) }
+        surchargeAmount?.let { amountInfo = amountInfo.setSurchargeAmount(toCents(it)) }
+
         return amountInfo
     }
 
@@ -436,6 +439,7 @@ class TaplinkPaymentService : PaymentService {
         taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?,
         serviceFee: BigDecimal?,
+        surchargeAmount: BigDecimal?,
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
         callback: PaymentCallback
@@ -444,7 +448,7 @@ class TaplinkPaymentService : PaymentService {
         val sdkPaymentMethodId = paymentMethodId?.let { PaymentMethodId.valueOf(it) }
         val sdkSubPaymentMethodId = subPaymentMethodId?.let { PaymentMethodSubId.valueOf(it) }
         val sdkCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount)
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=$tipConfig")
         } else {

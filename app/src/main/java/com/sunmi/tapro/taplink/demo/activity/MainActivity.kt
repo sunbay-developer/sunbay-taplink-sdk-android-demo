@@ -748,12 +748,13 @@ class MainActivity : Activity() {
         tipAmount: Double?,
         taxAmount: Double?,
         cashbackAmount: Double?,
-        serviceFee: Double?
+        serviceFee: Double?,
+        surchargeAmount: Double?
     ) {
         if (!validatePaymentConditions()) return
 
         val transactionData = createTransactionData()
-        val transaction = createSaleTransaction(transactionData, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        val transaction = createSaleTransaction(transactionData, tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount)
         
         TransactionRepository.addTransaction(transaction)
         
@@ -812,7 +813,8 @@ class MainActivity : Activity() {
         tipAmount: Double?,
         taxAmount: Double?,
         cashbackAmount: Double?,
-        serviceFee: Double?
+        serviceFee: Double?,
+        surchargeAmount: Double?
     ): Transaction {
         return Transaction(
             transactionRequestId = data.transactionRequestId,
@@ -826,7 +828,8 @@ class MainActivity : Activity() {
             tipAmount = tipAmount?.let { BigDecimal.valueOf(it) },
             taxAmount = taxAmount?.let { BigDecimal.valueOf(it) },
             cashbackAmount = cashbackAmount?.let { BigDecimal.valueOf(it) },
-            serviceFee = serviceFee?.let { BigDecimal.valueOf(it) }
+            serviceFee = serviceFee?.let { BigDecimal.valueOf(it) },
+            surchargeAmount = surchargeAmount?.let { BigDecimal.valueOf(it) }
         )
     }
 
@@ -943,6 +946,7 @@ class MainActivity : Activity() {
         val taxAmountInput = dialogView.findViewById<EditText>(R.id.et_tax_amount)
         val cashbackAmountInput = dialogView.findViewById<EditText>(R.id.et_cashback_amount)
         val serviceFeeInput = dialogView.findViewById<EditText>(R.id.et_service_fee)
+        val surchargeAmountInput = dialogView.findViewById<EditText>(R.id.et_surcharge_amount)
 
         // Set base amount
         val baseAmountText = dialogView.findViewById<TextView>(R.id.tv_base_amount)
@@ -967,21 +971,22 @@ class MainActivity : Activity() {
                     val taxAmount = taxAmountInput.text.toString().toDoubleOrNull()
                     val cashbackAmount = cashbackAmountInput.text.toString().toDoubleOrNull()
                     val serviceFee = serviceFeeInput.text.toString().toDoubleOrNull()
+                    val surchargeAmount = surchargeAmountInput.text.toString().toDoubleOrNull()
 
-                    startSalePayment(tipAmount, taxAmount, cashbackAmount, serviceFee)
+                    startSalePayment(tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount)
                 }
                 .setNegativeButton(Constants.Messages.BUTTON_CANCEL, null)
                 .setNeutralButton(Constants.Messages.BUTTON_SKIP) { _, _ ->
                     // Execute multiple sale payments using for loop
                     for (i in 1..Constants.MULTIPLE_SALE_PAYMENT_COUNT) {
-                        startSalePayment(null, null, null, null)
+                        startSalePayment(null, null, null, null, null)
                     }
                 }
                 .show()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show additional amounts dialog", e)
             // Fallback: proceed with default values
-            startSalePayment(null, null, null, null)
+            startSalePayment(null, null, null, null, null)
         }
     }
 

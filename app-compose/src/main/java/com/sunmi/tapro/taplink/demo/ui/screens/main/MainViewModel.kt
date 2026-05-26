@@ -443,7 +443,8 @@ class MainViewModel(
                     timestamp = System.currentTimeMillis(),
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
-                    serviceFee = _state.value.additionalAmounts["Service Fee"]
+                    serviceFee = _state.value.additionalAmounts["Service Fee"],
+                    surchargeAmount = _state.value.additionalAmounts["Surcharge"]
                 )
                 
                 // Add to repository
@@ -471,6 +472,7 @@ class MainViewModel(
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
+                    surchargeAmount = _state.value.additionalAmounts["Surcharge"],
                     tipConfig = tipConfig,
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )

@@ -53,6 +53,7 @@ interface PaymentService {
         taxAmount: BigDecimal? = null,
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
+        surchargeAmount: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
         callback: PaymentCallback

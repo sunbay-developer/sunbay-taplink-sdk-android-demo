@@ -74,6 +74,7 @@ class TransactionProgressActivity : AppCompatActivity() {
                 transaction.taxAmount?.let { putExtra("tax_amount", it.toString()) }
                 transaction.cashbackAmount?.let { putExtra("cashback_amount", it.toString()) }
                 transaction.serviceFee?.let { putExtra("service_fee", it.toString()) }
+                transaction.surchargeAmount?.let { putExtra("surcharge_amount", it.toString()) }
             }
         }
         
@@ -301,6 +302,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         val taxAmount = intent.getStringExtra("tax_amount")?.let { BigDecimal(it) }
         val cashbackAmount = intent.getStringExtra("cashback_amount")?.let { BigDecimal(it) }
         val serviceFee = intent.getStringExtra("service_fee")?.let { BigDecimal(it) }
+        val surchargeAmount = intent.getStringExtra("surcharge_amount")?.let { BigDecimal(it) }
         
         transaction = Transaction(
             transactionRequestId = requestId,
@@ -313,7 +315,8 @@ class TransactionProgressActivity : AppCompatActivity() {
             tipAmount = tipAmount,
             taxAmount = taxAmount,
             cashbackAmount = cashbackAmount,
-            serviceFee = serviceFee
+            serviceFee = serviceFee,
+            surchargeAmount = surchargeAmount
         )
         
         Log.d(TAG, "Transaction data extracted: $transaction")
@@ -484,12 +487,18 @@ class TransactionProgressActivity : AppCompatActivity() {
                 addAdditionalAmountRow("Service Fee", amount, transaction.currency)
             }
             
+            transaction.surchargeAmount?.let { amount ->
+                Log.d(TAG, "Adding surcharge amount: $amount")
+                addAdditionalAmountRow("Surcharge", amount, transaction.currency)
+            }
+            
             // Add total additional amount if there are multiple additional amounts
             val additionalAmountCount = listOfNotNull(
                 transaction.tipAmount,
                 transaction.taxAmount,
                 transaction.cashbackAmount,
-                transaction.serviceFee
+                transaction.serviceFee,
+                transaction.surchargeAmount
             ).size
             
             if (additionalAmountCount > 1) {
@@ -1885,7 +1894,7 @@ class TransactionProgressActivity : AppCompatActivity() {
                         amount = transaction.amount,
                         currency = transaction.currency,
                         description = "Sale transaction from TransactionProgressActivity",
-//                        surchargeAmount = transaction.surchargeAmount,
+                        surchargeAmount = transaction.surchargeAmount,
                         tipAmount = transaction.tipAmount,
                         taxAmount = transaction.taxAmount,
                         cashbackAmount = transaction.cashbackAmount,

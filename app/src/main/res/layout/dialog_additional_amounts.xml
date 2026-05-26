@@ -135,4 +135,28 @@
         android:textColor="@color/gray_dark"
         android:gravity="center_vertical" />
 
+    <TextView
+        android:id="@+id/tv_surcharge_amount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Surcharge"
+        android:textSize="14sp"
+        android:textColor="@color/gray_dark"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="6dp"
+        android:textStyle="normal" />
+
+    <EditText
+        android:id="@+id/et_surcharge_amount"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="Enter surcharge"
+        android:inputType="numberDecimal"
+        android:background="@drawable/rounded_edittext"
+        android:paddingHorizontal="16dp"
+        android:textSize="16sp"
+
+        android:textColor="@color/gray_dark"
+        android:gravity="center_vertical" />
+
 </LinearLayout>
