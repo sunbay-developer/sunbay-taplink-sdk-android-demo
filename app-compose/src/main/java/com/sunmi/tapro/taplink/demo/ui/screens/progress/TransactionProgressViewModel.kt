@@ -139,7 +139,7 @@ class TransactionProgressViewModel(
         
         // Cloud mode: when transaction enters PROCESSING, start polling for final status.
         // pollingJob == null ensures we only start once.
-        // QUERY, BATCH_CLOSE, and TIP_ADJUST return final results directly â€?no polling needed.
+        // QUERY, BATCH_CLOSE, and TIP_ADJUST return final results directly ï¿½?no polling needed.
         // All other types (SALE, AUTH, FORCED_AUTH, POST_AUTH, INCREMENTAL_AUTH, VOID, REFUND) need polling.
         if (transaction.status == TransactionStatus.PROCESSING && pollingJob == null) {
             val needsPolling = transaction.type != TransactionType.QUERY &&
@@ -377,9 +377,9 @@ class TransactionProgressViewModel(
                 
                 // Cloud mode: transaction creation success != transaction complete.
                 // Transactions pushed to terminal need polling:
-                //   SALE, AUTH, FORCED_AUTH, POST_AUTH, INCREMENTAL_AUTH, REFUND â€?always need polling.
+                //   SALE, AUTH, FORCED_AUTH, POST_AUTH, INCREMENTAL_AUTH, REFUND ï¿½?always need polling.
                 // Direct cloud-processed (no polling):
-                //   VOID, TIP_ADJUST, QUERY, BATCH_CLOSE â€?API success is final.
+                //   VOID, TIP_ADJUST, QUERY, BATCH_CLOSE ï¿½?API success is final.
                 val isCloudMode = try {
                     val context = DependencyProvider.requireContext()
                     ConnectionPreferences.getConnectionMode(context) == ConnectionPreferences.ConnectionMode.CLOUD
@@ -462,7 +462,7 @@ class TransactionProgressViewModel(
                 Log.e(TAG, "Communication error: $transactionRequestId - $code: $message")
                 
                 // onFailure = communication/technical error (connection lost, timeout, etc.)
-                // NOT a transaction decline â€?declines arrive via onSuccess with isFailed().
+                // NOT a transaction decline ï¿½?declines arrive via onSuccess with isFailed().
                 transactionRepository.updateTransactionStatus(
                     transactionRequestId = transactionRequestId,
                     status = TransactionStatus.FAILED,

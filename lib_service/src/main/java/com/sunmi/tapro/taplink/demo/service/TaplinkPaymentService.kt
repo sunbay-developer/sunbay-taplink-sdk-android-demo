@@ -397,6 +397,7 @@ class TaplinkPaymentService : PaymentService {
             transactionResultMsg = sdkResult.transactionResultMsg,
             description = sdkResult.description,
             attach = sdkResult.attach,
+            receiptJson = sdkResult.receiptJson,
             tipAmount = toDollars(sdkResult.tipAmount),
             totalAuthorizedAmount = toDollars(sdkResult.totalAuthorizedAmount),
             merchantRefundNo = sdkResult.merchantRefundNo,

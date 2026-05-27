@@ -44,6 +44,7 @@ object CloudResponseMapper {
             transactionResultMsg = data?.str("transactionResultMsg"),
             description = data?.str("description"),
             attach = data?.str("attach"),
+            receiptJson = null, // Cloud mode does not return receiptJson
             batchCloseInfo = data?.mapBatchCloseInfo(),
             tipAmount = data?.cents("tipAmount"),
             totalAuthorizedAmount = data?.cents("totalAuthorizedAmount"),

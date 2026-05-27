@@ -213,6 +213,7 @@ data class PaymentResult(
     val transactionResultMsg: String?,
     val description: String?,
     val attach: String?,
+    val receiptJson: String?,
     val batchCloseInfo: BatchCloseInfo?,
     val tipAmount: BigDecimal?,
     val totalAuthorizedAmount: BigDecimal?,

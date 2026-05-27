@@ -34,8 +34,8 @@ android {
         applicationId = "com.sunmi.taplink.demo"
         minSdk = Integer.parseInt(libs.versions.minSdk.get())
         targetSdk = Integer.parseInt(libs.versions.compileSdk.get())
-        versionCode = 8
-        versionName = "1.0.1.${versionCode}"
+        versionCode = 9
+        versionName = "1.0.${versionCode}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -110,6 +110,9 @@ dependencies {
     implementation(project(":lib_service"))
     // Payment service (includes Taplink SDK)
     //    implementation("com.sunmi:sunbay-taplink-sdk-android:1.0.7.14-SNAPSHOT")
+    
+    // Sunmi PrinterX SDK (available for integrators who need receipt self-printing)
+    // implementation(libs.printerx)
     
     // JSON processing
 //    implementation("com.google.code.gson:gson:2.13.1")

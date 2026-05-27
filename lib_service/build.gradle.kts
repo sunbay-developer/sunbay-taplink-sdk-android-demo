@@ -42,15 +42,8 @@ android {
 
 dependencies {
     // Taplink SDK - use the published Maven build that includes top-level tipConfig support.
-//    api("com.sunmi:sunbay-taplink-sdk-android:1.0.3")
-    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6.9-SNAPSHOT")
-    // WebSocket client - required by Taplink SDK for LAN mode communication
-    // AAR does not bundle transitive dependencies, so this must be declared explicitly
-//    api("org.java-websocket:Java-WebSocket:1.5.3")
-
-    // USB serial (VSP cable path) — SDK uses UsbSerialProber; not bundled in AAR. Requires jitpack.io in settings.
-//    api("com.github.mik3y:usb-serial-for-android:3.9.0")
-//    implementation("com.sunmi:sunbay-taplink-sdk-android:1.0.1")
+//    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6")
+    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6.15-SNAPSHOT")
 
     // OkHttp - HTTP client (for Cloud mode API calls)
     implementation(libs.okhttp.v4120)
