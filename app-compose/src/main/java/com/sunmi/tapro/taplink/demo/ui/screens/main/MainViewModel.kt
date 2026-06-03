@@ -749,12 +749,9 @@ class MainViewModel(
                 inner.onFailure(code, message)
             }
             override fun onProgress(status: String, message: String) {
-                if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely — do not write
-                    // intermediate messages (e.g. "waiting for card") to the repository,
-                    // so the progress screen won't flash stale progress on navigation.
-                    return
-                }
+                // Always navigate to progress screen and forward progress updates.
+                // In Headless mode, POS needs to show real-time transaction progress.
+                // In Custom mode, progress events are less frequent but navigation is still correct.
                 navigateOnce()
                 inner.onProgress(status, message)
             }
