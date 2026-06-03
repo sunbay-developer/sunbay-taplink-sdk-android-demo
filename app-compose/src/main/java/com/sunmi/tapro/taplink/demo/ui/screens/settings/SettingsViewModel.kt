@@ -17,6 +17,7 @@ import com.sunmi.tapro.taplink.demo.util.EnvironmentDefaults
 import com.sunmi.tapro.taplink.demo.util.PrintReceiptMapping
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
+import com.sunmi.tapro.taplink.demo.util.TaxConfigPreferences
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -107,6 +108,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateTipFeeMode -> updateTipFeeMode(intent.mode)
             is SettingsIntent.UpdateTipSuggestionValue -> updateTipSuggestionValue(intent.index, intent.value)
             is SettingsIntent.SaveTipConfig -> saveTipConfig()
+            is SettingsIntent.UpdateTaxConfigEnabled -> updateTaxConfigEnabled(intent.enabled)
+            is SettingsIntent.UpdateTaxRate -> updateTaxRate(intent.rate)
             is SettingsIntent.TestConnection -> testConnection()
             is SettingsIntent.ExitApplication -> exitApplication()
             is SettingsIntent.DismissMessage -> dismissMessage()
@@ -167,6 +170,9 @@ class SettingsViewModel(
 
                 // Load Tip Configuration
                 val tipConfig = TipConfigPreferences.getConfig(context)
+
+                // Load Tax Configuration
+                val taxConfig = TaxConfigPreferences.getConfig(context)
                 
                 // Update state with loaded values
                 // For security: don't show existing secret key, only track its existence
@@ -210,6 +216,8 @@ class SettingsViewModel(
                         tipSuggestionValue1 = tipConfig.suggestionValue1,
                         tipSuggestionValue2 = tipConfig.suggestionValue2,
                         tipSuggestionValue3 = tipConfig.suggestionValue3,
+                        taxConfigEnabled = taxConfig.enabled,
+                        taxRate = taxConfig.taxRate,
                         isLoading = false
                     )
                 }
@@ -585,6 +593,30 @@ class SettingsViewModel(
                 )
             }
         }
+    }
+
+    // ── Tax Configuration handlers ──────────────────────────────────────────────
+
+    private fun persistTaxConfig() {
+        val context = getApplication<Application>()
+        val currentState = _state.value
+        TaxConfigPreferences.saveConfig(
+            context,
+            TaxConfigPreferences.TaxConfigData(
+                enabled = currentState.taxConfigEnabled,
+                taxRate = currentState.taxRate
+            )
+        )
+    }
+
+    private fun updateTaxConfigEnabled(enabled: Boolean) {
+        _state.update { it.copy(taxConfigEnabled = enabled) }
+        persistTaxConfig()
+    }
+
+    private fun updateTaxRate(rate: Int) {
+        _state.update { it.copy(taxRate = rate) }
+        persistTaxConfig()
     }
 
     /**

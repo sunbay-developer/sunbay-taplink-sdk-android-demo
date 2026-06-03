@@ -64,6 +64,11 @@ data class SettingsState(
     val cloudAppIdOptions: List<CloudPreferences.LabeledOption> = emptyList(),
     val cloudNotifyUrlOptions: List<CloudPreferences.LabeledOption> = emptyList(),
 
+    // Tax Configuration
+    val taxConfigEnabled: Boolean = false,
+    /** Tax rate as integer percentage (e.g. 8 = 8%) */
+    val taxRate: Int = 0,
+
     // Tip Configuration (only for SALE and POST_AUTH)
     val tipConfigEnabled: Boolean = false,
     val tipOnScreenTip: Boolean = true,

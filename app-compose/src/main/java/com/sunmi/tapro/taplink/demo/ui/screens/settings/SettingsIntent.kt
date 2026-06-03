@@ -45,6 +45,10 @@ sealed class SettingsIntent {
     data class UpdateTipFeeMode(val mode: TipConfigPreferences.FeeMode) : SettingsIntent()
     data class UpdateTipSuggestionValue(val index: Int, val value: Int) : SettingsIntent()
     object SaveTipConfig : SettingsIntent()
+
+    // Tax Configuration
+    data class UpdateTaxConfigEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTaxRate(val rate: Int) : SettingsIntent()
     
     // Actions
     object TestConnection : SettingsIntent()

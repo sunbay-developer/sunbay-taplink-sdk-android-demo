@@ -278,7 +278,7 @@ class MainViewModel(
     }
     
     private fun setAdditionalAmounts(amounts: Map<String, BigDecimal>) {
-        _state.update { it.copy(additionalAmounts = amounts, showAdditionalAmountsDialog = false) }
+        _state.update { it.copy(manualAdditionalAmounts = amounts, showAdditionalAmountsDialog = false) }
         calculateTotal()
     }
     
@@ -685,21 +685,40 @@ class MainViewModel(
     }
     
     /**
-     * Calculate total amount
-     * 
-     * Calculates the total amount including items subtotal and additional amounts.
+     * Calculate total amount.
+     *
+     * Uses [manualAdditionalAmounts] as the source of truth for user-set amounts.
+     * If tax config is enabled and the user has not manually set "Tax", automatically
+     * computes tax from the items subtotal and injects it into the displayed
+     * [additionalAmounts]. The [manualAdditionalAmounts] is never modified here.
+     *
      * Payment buttons are always enabled regardless of amount or connection status.
      */
     private fun calculateTotal() {
+        val context = getApplication<Application>()
+        val taxConfig = com.sunmi.tapro.taplink.demo.util.TaxConfigPreferences.getConfig(context)
+
         val itemsSubtotal = _state.value.getItemsSubtotal()
-        val additionalTotal = _state.value.additionalAmounts.values.fold(BigDecimal.ZERO) { acc, amount ->
+        val manual = _state.value.manualAdditionalAmounts
+
+        // Auto-inject tax only when enabled, rate > 0, and user has not set Tax manually
+        val effectiveAdditional = if (taxConfig.enabled && taxConfig.taxRate > 0 && !manual.containsKey("Tax")) {
+            val autoTax = itemsSubtotal
+                .multiply(java.math.BigDecimal(taxConfig.taxRate))
+                .divide(java.math.BigDecimal(100), 2, java.math.RoundingMode.HALF_UP)
+            manual + ("Tax" to autoTax)
+        } else {
+            manual
+        }
+
+        val additionalTotal = effectiveAdditional.values.fold(java.math.BigDecimal.ZERO) { acc, amount ->
             acc.add(amount)
         }
-        val total = itemsSubtotal.add(additionalTotal)
-        
+
         _state.update {
             it.copy(
-                totalAmount = total,
+                totalAmount = itemsSubtotal.add(additionalTotal),
+                additionalAmounts = effectiveAdditional,
                 canProcessPayment = true
             )
         }
@@ -903,6 +922,7 @@ class MainViewModel(
             it.copy(
                 orderItems = emptyList(),
                 additionalAmounts = emptyMap(),
+                manualAdditionalAmounts = emptyMap(),
                 totalAmount = BigDecimal.ZERO,
                 canProcessPayment = true
             )
