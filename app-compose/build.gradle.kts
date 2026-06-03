@@ -157,5 +157,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit.v112)
     androidTestImplementation(libs.androidx.espresso.core.v330)
+
+    implementation("com.google.code.gson:gson:2.13.1")
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+    implementation("com.github.mik3y:usb-serial-for-android:3.9.0")
 }
 
