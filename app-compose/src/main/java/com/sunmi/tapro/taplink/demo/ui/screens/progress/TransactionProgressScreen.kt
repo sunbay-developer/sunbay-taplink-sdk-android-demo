@@ -233,6 +233,10 @@ fun TransactionProgressScreen(
                     }
                 }
                 
+                // 仅在读卡阶段展示“切换手输”，避免在其他阶段误触发控制指令。
+                val canSwitchToManualEntry = state.isPending() &&
+                    state.progressStatus.equals("WAITING_CARD", ignoreCase = true)
+
                 // Lower section: Action buttons (horizontal in landscape)
                 Column(
                     modifier = Modifier
@@ -265,6 +269,17 @@ fun TransactionProgressScreen(
                                         text = "Abort Transaction",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            if (canSwitchToManualEntry) {
+                                OutlinedButton(
+                                    onClick = { viewModel.handleIntent(TransactionProgressIntent.SwitchToManualEntry) },
+                                    modifier = Modifier.height(56.dp)
+                                ) {
+                                    Text(
+                                        text = "Switch to Manual Entry",
+                                        style = MaterialTheme.typography.titleMedium
                                     )
                                 }
                             }
@@ -359,6 +374,19 @@ fun TransactionProgressScreen(
                                         text = "Abort Transaction",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            if (canSwitchToManualEntry) {
+                                OutlinedButton(
+                                    onClick = { viewModel.handleIntent(TransactionProgressIntent.SwitchToManualEntry) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                ) {
+                                    Text(
+                                        text = "Switch to Manual Entry",
+                                        style = MaterialTheme.typography.titleMedium
                                     )
                                 }
                             }

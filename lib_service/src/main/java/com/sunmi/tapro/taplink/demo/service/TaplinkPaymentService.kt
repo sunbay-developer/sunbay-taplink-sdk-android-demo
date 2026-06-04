@@ -726,6 +726,42 @@ class TaplinkPaymentService : PaymentService {
         })
     }
 
+    /**
+     * Headless 控制指令：请求切换到手输卡号。
+     *
+     * 说明：
+     * 1. 这里只负责把控制指令透传给 SDK；
+     * 2. 是否允许切换由 Tapro 根据当前交易阶段（必须 WAITING_CARD）做最终判定。
+     */
+    override fun executeSwitchToManualEntry(
+        originalTransactionRequestId: String?,
+        callback: PaymentCallback
+    ) {
+        val fallbackRequestId = "SWITCH_MANUAL_${System.currentTimeMillis()}"
+        val request = PaymentRequest.builder()
+            .setAction("SWITCH_TO_MANUAL_ENTRY")
+            .setTransactionRequestId(fallbackRequestId)
+            .apply {
+                // 透传原交易 requestId，让 Tapro 做在途交易一致性校验。
+                originalTransactionRequestId?.takeIf { it.isNotBlank() }?.let {
+                    setOriginalTransactionRequestId(it)
+                }
+            }
+            .build()
+        logSdkRequest("SWITCH_TO_MANUAL_ENTRY", request)
+
+        // 使用通用 execute 发送控制指令，兼容旧版 AAR 暂未暴露专用 API 的场景。
+        TaplinkSDK.execute(request, object : SdkPaymentCallback {
+            override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
+            override fun onFailure(error: SdkPaymentError) {
+                handlePaymentFailure("SWITCH_TO_MANUAL_ENTRY", error, callback)
+            }
+            override fun onProgress(event: SdkPaymentEvent) {
+                forwardProgress(callback, event, "SWITCH_TO_MANUAL_ENTRY")
+            }
+        })
+    }
+
 //    override fun executeAbort(
 //        originalTransactionId: String?,
 //        originalTransactionRequestId: String?,

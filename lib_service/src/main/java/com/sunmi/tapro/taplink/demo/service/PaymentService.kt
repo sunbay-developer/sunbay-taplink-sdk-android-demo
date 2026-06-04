@@ -168,6 +168,19 @@ interface PaymentService {
         description: String?,
         callback: PaymentCallback
     )
+
+    /**
+     * Headless 控制指令：将当前在途交易切换为手输卡号流程。
+     *
+     * 仅在终端返回 WAITING_CARD 阶段时允许触发，其他阶段由服务端拒绝。
+     *
+     * @param originalTransactionRequestId 目标交易请求 ID（可选，作为幂等与一致性校验）
+     * @param callback 回调结果
+     */
+    fun executeSwitchToManualEntry(
+        originalTransactionRequestId: String?,
+        callback: PaymentCallback
+    )
 }
 
 /**

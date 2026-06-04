@@ -184,6 +184,7 @@ class TransactionProgressActivity : AppCompatActivity() {
     
     // Operation buttons
     private lateinit var abortButton: Button
+    private lateinit var switchManualButton: Button
     private lateinit var retryButton: Button
     private lateinit var queryButton: Button
     
@@ -361,6 +362,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         
         // Button views
         abortButton = findViewById(R.id.btn_abort)
+        switchManualButton = findViewById(R.id.btn_switch_manual)
         retryButton = findViewById(R.id.btn_retry)
         queryButton = findViewById(R.id.btn_query)
         
@@ -618,6 +620,7 @@ class TransactionProgressActivity : AppCompatActivity() {
         }
         
         abortButton.visibility = if (shouldShowAbort) View.VISIBLE else View.GONE
+        switchManualButton.visibility = View.GONE
         
         // Hide retry and query buttons initially
         retryButton.visibility = View.GONE
@@ -630,6 +633,10 @@ class TransactionProgressActivity : AppCompatActivity() {
     private fun setupEventListeners() {
         abortButton.setOnClickListener {
             handleAbortButtonClick()
+        }
+
+        switchManualButton.setOnClickListener {
+            handleSwitchManualButtonClick()
         }
         
         retryButton.setOnClickListener {
@@ -690,6 +697,54 @@ class TransactionProgressActivity : AppCompatActivity() {
         if (!isAbortSupportedForTransactionType(transaction.type)) {
             Log.w(TAG, "Abort not supported for transaction type: ${transaction.type}")
             return
+        }
+
+        /**
+         * 处理“切换手输卡号”按钮点击。
+         *
+         * 仅当当前进度是 WAITING_CARD 时才会真正下发控制指令；
+         * 其余阶段直接忽略并记录日志，避免误触发。
+         */
+        private fun handleSwitchManualButtonClick() {
+            val currentStatus = progressStatusText.text?.toString().orEmpty().uppercase()
+            if (currentStatus != "WAITING_CARD") {
+                Log.w(TAG, "Switch manual ignored: currentStatus=$currentStatus")
+                return
+            }
+
+            Log.d(TAG, "Switch manual button clicked for transaction: ${transaction.transactionRequestId}")
+            switchManualButton.isEnabled = false
+            switchManualButton.text = "Switching..."
+            updateProgress("SWITCHING_MANUAL_ENTRY", "Requesting manual card entry...")
+
+            try {
+                currentPaymentService().executeSwitchToManualEntry(
+                    originalTransactionRequestId = transaction.transactionRequestId,
+                    callback = object : PaymentCallback {
+                        override fun onSuccess(result: PaymentResult) {
+                            Log.i(TAG, "Switch to manual entry request accepted")
+                        }
+
+                        override fun onFailure(code: String, message: String) {
+                            Log.w(TAG, "Switch to manual entry failed: $code, $message")
+                            runOnUiThread {
+                                switchManualButton.isEnabled = true
+                                switchManualButton.text = "Switch to Manual Entry"
+                                updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: $message")
+                            }
+                        }
+
+                        override fun onProgress(status: String, message: String) {
+                            updateProgress(status, message)
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to execute switch manual entry", e)
+                switchManualButton.isEnabled = true
+                switchManualButton.text = "Switch to Manual Entry"
+                updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: ${e.message}")
+            }
         }
         
         // Disable abort button immediately to prevent multiple clicks
@@ -818,6 +873,9 @@ class TransactionProgressActivity : AppCompatActivity() {
                 // Fallback to default messages based on status
                 when (status.uppercase()) {
                     "PROCESSING" -> "Processing ${transaction.type.name.lowercase()} transaction..."
+                    "WAITING_CARD" -> "Please tap/swipe/insert card, or switch to manual entry."
+                    "WAITING_MANUAL_ENTRY" -> "Please input card number manually on terminal."
+                    "MANUAL_ENTRY_COMPLETED" -> "Manual entry completed, continue processing..."
                     "WAITING" -> "Waiting for user action..."
                     "CONNECTING" -> "Connecting to payment terminal..."
                     "ABORTING" -> "Aborting transaction..."
@@ -846,8 +904,9 @@ class TransactionProgressActivity : AppCompatActivity() {
                 // Disable abort button during abort process
                 abortButton.isEnabled = false
                 abortButton.text = "Aborting..."
+                switchManualButton.visibility = View.GONE
             }
-            "PROCESSING", "WAITING", "CONNECTING" -> {
+            "PROCESSING", "WAITING", "CONNECTING", "WAITING_MANUAL_ENTRY", "MANUAL_ENTRY_COMPLETED" -> {
                 // Enable abort button for supported transaction types
                 val shouldShowAbort = when (transaction.type) {
                     TransactionType.QUERY, TransactionType.BATCH_CLOSE -> false
@@ -861,6 +920,21 @@ class TransactionProgressActivity : AppCompatActivity() {
                 } else {
                     abortButton.visibility = View.GONE
                 }
+                switchManualButton.visibility = View.GONE
+            }
+            "WAITING_CARD" -> {
+                val shouldShowAbort = when (transaction.type) {
+                    TransactionType.QUERY, TransactionType.BATCH_CLOSE -> false
+                    else -> true
+                }
+                abortButton.visibility = if (shouldShowAbort) View.VISIBLE else View.GONE
+                abortButton.isEnabled = shouldShowAbort
+                abortButton.text = "Abort Transaction"
+
+                // 仅在 WAITING_CARD 阶段展示“切换手输”按钮。
+                switchManualButton.visibility = if (shouldShowAbort) View.VISIBLE else View.GONE
+                switchManualButton.isEnabled = shouldShowAbort
+                switchManualButton.text = "Switch to Manual Entry"
             }
         }
     }
@@ -904,6 +978,7 @@ class TransactionProgressActivity : AppCompatActivity() {
             
             // Hide abort button (not needed after transaction completion)
             abortButton.visibility = View.GONE
+            switchManualButton.visibility = View.GONE
             
             if (result != null) {
                 when {

@@ -88,6 +88,7 @@ class TransactionProgressViewModel(
             is TransactionProgressIntent.DismissMessage -> dismissMessage()
             is TransactionProgressIntent.ClearNavigationEvent -> clearNavigationEvent()
             is TransactionProgressIntent.QueryTransaction -> queryTransaction()
+            is TransactionProgressIntent.SwitchToManualEntry -> switchToManualEntry()
         }
     }
     
@@ -699,6 +700,70 @@ class TransactionProgressViewModel(
             originalTransactionRequestId = transaction.transactionRequestId,
             description = "user close the payment",
             callback = callback
+        )
+    }
+
+    /**
+     * 请求将当前交易切换到“手输卡号”。
+     *
+     * 业务约束：仅在交易进行中且进度阶段为 WAITING_CARD 时触发。
+     * 最终阶段校验仍由 Tapro 侧执行，ViewModel 只做前置 UI 门控。
+     */
+    private fun switchToManualEntry() {
+        val transaction = currentTransaction ?: return
+        val progressStatus = transaction.progressStatus?.uppercase()
+        val isWaitingCard = progressStatus == "WAITING_CARD"
+        val isPendingTxn = transaction.status == TransactionStatus.PENDING ||
+            transaction.status == TransactionStatus.PROCESSING
+        if (!isPendingTxn || !isWaitingCard) {
+            Log.w(
+                TAG,
+                "switchToManualEntry ignored: status=${transaction.status}, progressStatus=${transaction.progressStatus}"
+            )
+            return
+        }
+
+        _state.update {
+            it.copy(
+                message = Message(
+                    type = MessageType.INFO,
+                    title = "Switching Input Mode",
+                    content = "Requesting terminal to switch to manual card entry...",
+                    actions = emptyList()
+                )
+            )
+        }
+
+        paymentService.executeSwitchToManualEntry(
+            originalTransactionRequestId = transaction.transactionRequestId,
+            callback = object : PaymentCallback {
+                override fun onSuccess(result: PaymentResult) {
+                    Log.i(TAG, "switchToManualEntry success: ${transaction.transactionRequestId}")
+                }
+
+                override fun onFailure(code: String, message: String) {
+                    Log.w(TAG, "switchToManualEntry failed: $code, $message")
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.ERROR,
+                                title = "Switch Failed",
+                                content = "Failed to switch to manual entry: $message (Code: $code)",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                }
+
+                override fun onProgress(status: String, message: String) {
+                    // 透传阶段信息给状态栏，便于观察 WAITING_MANUAL_ENTRY/MANUAL_ENTRY_COMPLETED。
+                    transactionRepository.updateTransactionProgress(
+                        transactionRequestId = transaction.transactionRequestId,
+                        progressStatus = status,
+                        progressMessage = message
+                    )
+                }
+            }
         )
     }
     

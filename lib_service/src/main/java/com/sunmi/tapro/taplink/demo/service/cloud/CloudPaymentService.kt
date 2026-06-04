@@ -542,4 +542,23 @@ class CloudPaymentService : PaymentService {
         Log.d(TAG, "SDK_REQ [ABORT]: $body")
         executeCloud("ABORT", callback) { it.post(PATH_ABORT, body) }
     }
+
+    /**
+     * Cloud 模式暂不支持 Headless 手输切换控制指令。
+     *
+     * 该能力仅用于本地 Headless 交易流程，因此这里直接返回明确错误，避免“静默成功”。
+     */
+    override fun executeSwitchToManualEntry(
+        originalTransactionRequestId: String?,
+        callback: PaymentCallback
+    ) {
+        Log.w(
+            TAG,
+            "executeSwitchToManualEntry is not supported in Cloud mode, transactionRequestId=$originalTransactionRequestId"
+        )
+        callback.onFailure(
+            "UNSUPPORTED_IN_CLOUD_MODE",
+            "Switch to manual entry is only supported in local Headless mode"
+        )
+    }
 }
