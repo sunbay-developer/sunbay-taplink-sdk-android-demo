@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
@@ -179,6 +180,7 @@ class TransactionProgressViewModel(
                 status = transaction.status,
                 progressStatus = transaction.progressStatus,
                 progressMessage = transaction.progressMessage,
+                headlessProgressEvent = transaction.headlessProgressEvent,
                 isLoading = !isComplete,
                 canNavigateBack = isComplete,
                 canRetry = canRetry,
@@ -482,6 +484,19 @@ class TransactionProgressViewModel(
                     progressMessage = message
                 )
             }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                Log.d(
+                    TAG,
+                    "Headless progress: $transactionRequestId - ${event.eventCode}, eventId=${event.eventId}"
+                )
+                transactionRepository.updateTransactionProgress(
+                    transactionRequestId = transactionRequestId,
+                    progressStatus = event.eventCode,
+                    progressMessage = event.eventMessage,
+                    headlessProgressEvent = event
+                )
+            }
         }
     }
 
@@ -650,6 +665,13 @@ class TransactionProgressViewModel(
             return
         }
 
+        // Headless mode provides authoritative cancelability. If the engine says
+        // the stage is not cancelable, keep the UI consistent with Tapro rules.
+        if (transaction.headlessProgressEvent?.cancelable == false) {
+            Log.w(TAG, "abortTransaction ignored: headless stage is not cancelable")
+            return
+        }
+
         // Update UI state to show aborting progress
         _state.update {
             it.copy(
@@ -711,7 +733,8 @@ class TransactionProgressViewModel(
      */
     private fun switchToManualEntry() {
         val transaction = currentTransaction ?: return
-        val progressStatus = transaction.progressStatus?.uppercase()
+        val progressStatus = transaction.headlessProgressEvent?.eventCode?.uppercase()
+            ?: transaction.progressStatus?.uppercase()
         val isWaitingCard = progressStatus == "WAITING_CARD"
         val isPendingTxn = transaction.status == TransactionStatus.PENDING ||
             transaction.status == TransactionStatus.PROCESSING
@@ -761,6 +784,15 @@ class TransactionProgressViewModel(
                         transactionRequestId = transaction.transactionRequestId,
                         progressStatus = status,
                         progressMessage = message
+                    )
+                }
+
+                override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                    transactionRepository.updateTransactionProgress(
+                        transactionRequestId = transaction.transactionRequestId,
+                        progressStatus = event.eventCode,
+                        progressMessage = event.eventMessage,
+                        headlessProgressEvent = event
                     )
                 }
             }

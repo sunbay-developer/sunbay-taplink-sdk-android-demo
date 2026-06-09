@@ -21,7 +21,8 @@ import com.sunmi.tapro.taplink.demo.util.ErrorHandler
 fun createMessageAwareCallback(
     onSuccess: (PaymentResult) -> Unit,
     onFailure: (Message) -> Unit,
-    onProgress: ((String, String) -> Unit)? = null
+    onProgress: ((String, String) -> Unit)? = null,
+    onHeadlessProgress: ((HeadlessProgressEvent) -> Unit)? = null
 ): PaymentCallback {
     return object : PaymentCallback {
         override fun onSuccess(result: PaymentResult) {
@@ -37,6 +38,10 @@ fun createMessageAwareCallback(
 
         override fun onProgress(status: String, message: String) {
             onProgress?.invoke(status, message)
+        }
+
+        override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+            onHeadlessProgress?.invoke(event)
         }
     }
 }

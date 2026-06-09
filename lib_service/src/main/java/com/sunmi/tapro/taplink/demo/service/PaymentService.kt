@@ -199,7 +199,36 @@ interface PaymentCallback {
     fun onSuccess(result: PaymentResult)
     fun onFailure(code: String, message: String)
     fun onProgress(status: String, message: String) {}
+
+    /**
+     * Headless mode structured progress event.
+     *
+     * This callback is only used when Taplink emits the richer Headless event payload.
+     * Existing implementations can ignore it and continue using [onProgress].
+     */
+    fun onHeadlessProgress(event: HeadlessProgressEvent) {
+        onProgress(event.eventCode, event.eventMessage)
+    }
 }
+
+/**
+ * Headless progress payload.
+ *
+ * Keeps the full metadata required by the design doc so POS apps can recover
+ * state, de-duplicate events, and gate UI actions with the server-provided
+ * cancelable flag.
+ */
+data class HeadlessProgressEvent(
+    val eventCode: String,
+    val eventMessage: String,
+    val eventId: String? = null,
+    val transactionRequestId: String? = null,
+    val referenceOrderId: String? = null,
+    val cancelable: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis(),
+    val data: Map<String, String>? = null,
+    val rawEventCode: String? = null
+)
 
 /**
  * Payment result

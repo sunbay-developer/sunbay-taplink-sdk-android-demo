@@ -12,6 +12,7 @@ import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.util.Constants
@@ -459,6 +460,11 @@ class TransactionDetailViewModel(
                 }
                 inner.onProgress(status, message)
             }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                if (isAppToApp) navigateOnce()
+                inner.onHeadlessProgress(event)
+            }
         }
     }
 
@@ -561,6 +567,17 @@ class TransactionDetailViewModel(
                         transactionRequestId = transactionRequestId,
                         progressStatus = status,
                         progressMessage = message
+                    )
+                }
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                viewModelScope.launch {
+                    transactionRepository.updateTransactionProgress(
+                        transactionRequestId = transactionRequestId,
+                        progressStatus = event.eventCode,
+                        progressMessage = event.eventMessage,
+                        headlessProgressEvent = event
                     )
                 }
             }

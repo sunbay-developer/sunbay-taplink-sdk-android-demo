@@ -39,6 +39,7 @@ import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
 import com.sunmi.tapro.taplink.sdk.error.PaymentError as SdkPaymentError
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentEvent as SdkPaymentEvent
 import com.sunmi.tapro.taplink.sdk.model.response.PaymentResult as SdkPaymentResult
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 
 
 /**
@@ -176,6 +177,23 @@ class TaplinkPaymentService : PaymentService {
         transactionType: String,
         tipConfig: TipConfig? = null
     ) {
+        if (event is SdkPaymentEvent.HeadlessEvent) {
+            callback.onHeadlessProgress(
+                HeadlessProgressEvent(
+                    eventCode = event.eventCode,
+                    eventMessage = event.eventMsg,
+                    eventId = event.eventId,
+                    transactionRequestId = event.transactionRequestId,
+                    referenceOrderId = event.referenceOrderId,
+                    cancelable = event.cancelable,
+                    timestamp = event.timestamp,
+                    data = event.data,
+                    rawEventCode = event.rawEventCode
+                )
+            )
+            return
+        }
+
         if (shouldEmitTipProcessing(tipConfig) && event.eventCode == SdkPaymentEvent.Processing.eventCode) {
             callback.onProgress(
                 SdkPaymentEvent.TipProcessing.eventCode,
@@ -737,21 +755,14 @@ class TaplinkPaymentService : PaymentService {
         originalTransactionRequestId: String?,
         callback: PaymentCallback
     ) {
-        val fallbackRequestId = "SWITCH_MANUAL_${System.currentTimeMillis()}"
-        val request = PaymentRequest.builder()
-            .setAction("SWITCH_TO_MANUAL_ENTRY")
-            .setTransactionRequestId(fallbackRequestId)
-            .apply {
-                // 透传原交易 requestId，让 Tapro 做在途交易一致性校验。
-                originalTransactionRequestId?.takeIf { it.isNotBlank() }?.let {
-                    setOriginalTransactionRequestId(it)
-                }
-            }
-            .build()
-        logSdkRequest("SWITCH_TO_MANUAL_ENTRY", request)
+        Log.d(
+            TAG,
+            "SWITCH_TO_MANUAL_ENTRY [SDK]: originalTransactionRequestId=$originalTransactionRequestId"
+        )
 
-        // 使用通用 execute 发送控制指令，兼容旧版 AAR 暂未暴露专用 API 的场景。
-        TaplinkSDK.execute(request, object : SdkPaymentCallback {
+        // Use the dedicated SDK API so Tapro can keep the original request-id
+        // consistency check and the WAITING_CARD gate in one place.
+        TaplinkSDK.switchToManualEntry(originalTransactionRequestId, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) {
                 handlePaymentFailure("SWITCH_TO_MANUAL_ENTRY", error, callback)

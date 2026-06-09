@@ -9,6 +9,7 @@ import com.sunmi.tapro.taplink.demo.model.OrderItem
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -338,12 +339,16 @@ class TransactionRepository private constructor(context: Context) {
     fun updateTransactionProgress(
         transactionRequestId: String,
         progressStatus: String,
-        progressMessage: String
+        progressMessage: String,
+        headlessProgressEvent: HeadlessProgressEvent? = null
     ): Boolean {
         return updateTransaction(transactionRequestId) { transaction ->
+            // Preserve the structured Headless payload when available so crash
+            // recovery and UI gating can reason about the exact engine state.
             transaction.copy(
                 progressStatus = progressStatus,
-                progressMessage = progressMessage
+                progressMessage = progressMessage,
+                headlessProgressEvent = headlessProgressEvent
             )
         }
     }
