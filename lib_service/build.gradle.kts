@@ -67,4 +67,8 @@ dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
     implementation("com.github.mik3y:usb-serial-for-android:3.9.0")
 
+
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+
+    implementation("com.fasterxml.jackson.core:jackson-annotations:2.15.2")
 }
