@@ -444,7 +444,11 @@ class MainViewModel(
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
-                    surchargeAmount = _state.value.additionalAmounts["Surcharge"]
+                    surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    // Persist payment method info so retry can reuse the same method
+                    paymentMethodId = paymentMethodId,
+                    subPaymentMethodId = subPaymentMethodId,
+                    cardNetworkType = cardNetworkType
                 )
                 
                 // Add to repository

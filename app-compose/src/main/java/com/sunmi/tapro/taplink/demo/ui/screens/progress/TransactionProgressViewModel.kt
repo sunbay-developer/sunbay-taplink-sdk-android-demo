@@ -299,12 +299,24 @@ class TransactionProgressViewModel(
                 val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.requireContext()
                 )
+                // Resolve paymentCategory from the stored paymentMethodId.
+                // If the original transaction specified EBT or QR_MPM/QR_CPM, reuse it.
+                // Otherwise default to CARD.
+                val paymentCategory = resolvePaymentCategory(transaction)
+                val paymentMethodId = transaction.paymentMethodId
+                val subPaymentMethodId = transaction.subPaymentMethodId
+                val cardNetworkType = transaction.cardNetworkType
+
                 paymentService.executeSale(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
                     amount = transaction.amount,
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
+                    paymentCategory = paymentCategory,
+                    paymentMethodId = paymentMethodId,
+                    subPaymentMethodId = subPaymentMethodId,
+                    cardNetworkType = cardNetworkType,
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
                     cashbackAmount = transaction.cashbackAmount,
@@ -336,6 +348,8 @@ class TransactionProgressViewModel(
                 )
             }
             TransactionType.REFUND -> {
+                // Resolve paymentCategory for refund retry based on original payment method
+                val paymentCategory = resolvePaymentCategory(transaction)
                 paymentService.executeRefund(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
@@ -345,6 +359,7 @@ class TransactionProgressViewModel(
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
                     reason = "Retry: ${transaction.getDisplayName()}",
+                    paymentCategory = paymentCategory,
                     callback = callback
                 )
             }
@@ -357,6 +372,23 @@ class TransactionProgressViewModel(
                     errorMessage = "This transaction type cannot be retried"
                 )
             }
+        }
+    }
+    
+    /**
+     * Resolve the payment category for a transaction based on its stored payment method info.
+     * 
+     * - If paymentMethodId is "EBT" → PaymentCategory.EBT
+     * - If paymentMethodId is "QR_MPM" → PaymentCategory.QR_MPM
+     * - If paymentMethodId is "QR_CPM" → PaymentCategory.QR_CPM
+     * - Otherwise (including null / card payments) → PaymentCategory.CARD
+     */
+    private fun resolvePaymentCategory(transaction: Transaction): com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory {
+        return when (transaction.paymentMethodId) {
+            "EBT" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.EBT
+            "QR_MPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_MPM
+            "QR_CPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
+            else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
         }
     }
     

@@ -55,7 +55,11 @@ data class Transaction(
     val progressStatus: String? = null,
     val progressMessage: String? = null,
     val completeTime: String? = null,
-    val cardInfo: CardInfo? = null
+    val cardInfo: CardInfo? = null,
+    // Payment method info used for retry. Stored from original request so retry can reuse it.
+    val paymentMethodId: String? = null,
+    val subPaymentMethodId: String? = null,
+    val cardNetworkType: String? = null
 ) {
     /**
      * Check if transaction is successful
