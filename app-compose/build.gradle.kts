@@ -108,15 +108,10 @@ android {
 
 dependencies {
     implementation(project(":lib_service"))
-    // Payment service (includes Taplink SDK)
-    //    implementation("com.sunmi:sunbay-taplink-sdk-android:1.0.7.14-SNAPSHOT")
-    
-    // Sunmi PrinterX SDK (available for integrators who need receipt self-printing)
-    // implementation(libs.printerx)
-    
-    // JSON processing
-//    implementation("com.google.code.gson:gson:2.13.1")
-//    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+
+    // Jackson - JSON serialization/deserialization
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.module.kotlin)
     
     // Android core libraries
     implementation(libs.androidx.core.ktx)

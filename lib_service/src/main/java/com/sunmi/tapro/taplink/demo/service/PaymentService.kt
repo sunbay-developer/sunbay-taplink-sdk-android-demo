@@ -88,6 +88,9 @@ interface PaymentService {
      * Unreferenced refund: both originalTransactionId and originalTransactionRequestId must be empty.
      *   referenceOrderId is REQUIRED.
      *
+     * @param paymentCategory Payment category for routing (CARD, QR_MPM, QR_CPM). When null,
+     *   defaults to CARD. For referenced refunds of QR transactions, pass QR_MPM or QR_CPM
+     *   so the terminal routes to the correct QR refund flow.
      * @see <a href="https://docs.sunbay.dev/zh/refspec/transaction/refund">Refund API</a>
      */
     fun executeRefund(
@@ -99,6 +102,7 @@ interface PaymentService {
         currency: String,
         description: String,
         reason: String?,
+        paymentCategory: PaymentCategory? = null,
         callback: PaymentCallback
     )
 

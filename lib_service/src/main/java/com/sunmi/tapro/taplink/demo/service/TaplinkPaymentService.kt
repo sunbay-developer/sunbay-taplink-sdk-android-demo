@@ -32,7 +32,9 @@ import com.sunmi.tapro.taplink.sdk.model.request.transaction.VoidRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.settlement.BatchCloseRequest
 import java.math.BigDecimal
 import java.math.RoundingMode
-import com.google.gson.GsonBuilder
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sunmi.tapro.taplink.sdk.callback.ConnectionListener as SdkConnectionListener
 import com.sunmi.tapro.taplink.sdk.callback.PaymentCallback as SdkPaymentCallback
 import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
@@ -186,14 +188,15 @@ class TaplinkPaymentService : PaymentService {
         callback.onProgress(event.eventCode, getProgressMessage(event, transactionType))
     }
 
-    private val gson by lazy {
-        GsonBuilder().setPrettyPrinting().serializeNulls().create()
+    private val objectMapper by lazy {
+        ObjectMapper().registerKotlinModule()
+            .enable(SerializationFeature.INDENT_OUTPUT)
     }
 
     /** Convert any object to JSON string for logging */
     private fun toJson(obj: Any): String {
         return try {
-            gson.toJson(obj)
+            objectMapper.writeValueAsString(obj)
         } catch (e: Exception) {
             obj.toString()
         }
@@ -465,6 +468,7 @@ class TaplinkPaymentService : PaymentService {
             description = description,
             paymentMethod = buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
             cardNetworkType = sdkCardNetworkType,
+//            requestTimeout = 200,
             tipConfig = tipConfig,
             printReceipt = printReceipt
         )
@@ -533,6 +537,7 @@ class TaplinkPaymentService : PaymentService {
         currency: String,
         description: String,
         reason: String?,
+        paymentCategory: PaymentCategory?,
         callback: PaymentCallback
     ) {
         val finalDescription = if (reason != null) {
@@ -543,6 +548,12 @@ class TaplinkPaymentService : PaymentService {
         //   referenceOrderId is NOT passed — server auto-associates the original order.
         // Unreferenced refund: both original IDs empty, referenceOrderId is REQUIRED.
         val isReferenced = originalTransactionId.isNotEmpty() || originalTransactionRequestId.isNotEmpty()
+
+        // Build paymentMethod from category when specified (needed for QR refund routing)
+        val paymentMethodInfo = paymentCategory?.let {
+            buildPaymentMethodInfo(category = it)
+        }
+
         val refundRequest = RefundRequest(
             transactionRequestId = transactionRequestId,
             amount = buildAmountInfo(amount, currency),
@@ -550,6 +561,7 @@ class TaplinkPaymentService : PaymentService {
             originalTransactionId = originalTransactionId.takeIf { it.isNotEmpty() },
             originalTransactionRequestId = originalTransactionRequestId.takeIf { it.isNotEmpty() && originalTransactionId.isEmpty() },
             referenceOrderId = if (!isReferenced) referenceOrderId else null,
+            paymentMethod = paymentMethodInfo,
             printReceipt = printReceipt
         )
         logSdkRequest("REFUND", refundRequest)

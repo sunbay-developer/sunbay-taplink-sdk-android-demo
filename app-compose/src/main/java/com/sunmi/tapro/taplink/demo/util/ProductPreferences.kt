@@ -2,8 +2,8 @@ package com.sunmi.tapro.taplink.demo.util
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.fasterxml.jackson.core.type.TypeReference
+import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.model.Product
 import java.math.BigDecimal
 
@@ -23,7 +23,7 @@ class ProductPreferences(context: Context) {
     }
     
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val gson = Gson()
+    private val objectMapper = DependencyProvider.objectMapper
     
     /**
      * Get all custom products
@@ -34,8 +34,10 @@ class ProductPreferences(context: Context) {
         val json = prefs.getString(KEY_CUSTOM_PRODUCTS, null) ?: return emptyList()
         
         return try {
-            val type = object : TypeToken<List<ProductData>>() {}.type
-            val productDataList: List<ProductData> = gson.fromJson(json, type)
+            val productDataList: List<ProductData> = objectMapper.readValue(
+                json,
+                object : TypeReference<List<ProductData>>() {}
+            )
             productDataList.map { it.toProduct() }
         } catch (e: Exception) {
             android.util.Log.e("ProductPreferences", "Failed to parse custom products", e)
@@ -101,7 +103,7 @@ class ProductPreferences(context: Context) {
      */
     private fun saveProducts(products: List<Product>) {
         val productDataList = products.map { ProductData.fromProduct(it) }
-        val json = gson.toJson(productDataList)
+        val json = objectMapper.writeValueAsString(productDataList)
         prefs.edit().putString(KEY_CUSTOM_PRODUCTS, json).apply()
     }
     

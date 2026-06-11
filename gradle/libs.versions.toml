@@ -39,6 +39,7 @@ constraintlayout = "2.1.4"
 okhttp = "4.10.0"
 adapterRxjava2 = "2.9.0"
 gson = "2.13.1"
+jackson = "2.15.2"
 printerx = "1.0.18"
 objectbox = "4.3.0"
 koinAndroid = "3.5.6"
@@ -73,6 +74,8 @@ core = { module = "com.google.zxing:core", version.ref = "core" }
 czxing = { module = "io.github.devilsen:czxing", version.ref = "czxing" }
 fat = { module = "com.github.aasitnikov:fat-aar-android", version.ref = "fat" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

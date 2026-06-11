@@ -2,8 +2,8 @@ package com.sunmi.tapro.taplink.demo.util
 
 import android.content.Context
 import androidx.core.content.edit
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.fasterxml.jackson.core.type.TypeReference
+import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 
 /**
  * Persisted Cloud mode configuration.
@@ -16,7 +16,7 @@ import com.google.gson.reflect.TypeToken
  */
 object CloudPreferences {
     private const val PREFS_NAME = "cloud_config"
-    private val gson = Gson()
+    private val objectMapper get() = DependencyProvider.objectMapper
 
     // --- Active value keys ---
     private const val KEY_API_KEY = "api_key"
@@ -156,8 +156,7 @@ object CloudPreferences {
     private fun getCustomOptions(context: Context, key: String): List<String> {
         val json = prefs(context).getString(key, null) ?: return emptyList()
         return try {
-            val type = object : TypeToken<List<String>>() {}.type
-            gson.fromJson<List<String>>(json, type) ?: emptyList()
+            objectMapper.readValue(json, object : TypeReference<List<String>>() {}) ?: emptyList()
         } catch (_: Exception) { emptyList() }
     }
 
@@ -166,7 +165,7 @@ object CloudPreferences {
         val current = getCustomOptions(context, key).toMutableList()
         if (!current.contains(value)) {
             current.add(value)
-            prefs(context).edit { putString(key, gson.toJson(current)) }
+            prefs(context).edit { putString(key, objectMapper.writeValueAsString(current)) }
         }
     }
 

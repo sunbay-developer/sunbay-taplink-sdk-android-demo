@@ -3,7 +3,10 @@ package com.sunmi.tapro.taplink.demo.service.cloud
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.google.gson.JsonObject
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sunmi.tapro.taplink.demo.service.util.AmountConverter
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
@@ -21,8 +24,8 @@ import java.math.BigDecimal
 /**
  * Cloud Payment Service implementation using OkHttp-based CloudHttpClient.
  *
- * Builds request JSON manually using JsonObject instead of Nexus SDK Lombok POJOs,
- * which cannot be properly serialized by Gson on Android.
+ * Builds request JSON manually using Jackson ObjectNode instead of Nexus SDK Lombok POJOs,
+ * which cannot be properly serialized on Android.
  */
 class CloudPaymentService : PaymentService {
 
@@ -55,6 +58,7 @@ class CloudPaymentService : PaymentService {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val objectMapper = ObjectMapper().registerKotlinModule()
 
     fun initialize(apiKey: String, baseUrl: String, appId: String, merchantId: String, terminalSn: String) {
         Log.d(TAG, "Configuring: baseUrl=$baseUrl, appId=$appId, merchantId=$merchantId, terminalSn=$terminalSn")
@@ -109,38 +113,38 @@ class CloudPaymentService : PaymentService {
 
     // --- Helper: build base JSON with common fields ---
 
-    private fun baseJson(): JsonObject = JsonObject().apply {
-        addProperty("appId", appId)
-        addProperty("merchantId", merchantId)
-        addProperty("terminalSn", terminalSn)
+    private fun baseJson(): ObjectNode = objectMapper.createObjectNode().apply {
+        put("appId", appId)
+        put("merchantId", merchantId)
+        put("terminalSn", terminalSn)
     }
 
-    private fun amountJson(orderAmount: Int, currency: String): JsonObject = JsonObject().apply {
-        addProperty("orderAmount", orderAmount)
-        addProperty("priceCurrency", currency)
+    private fun amountJson(orderAmount: Int, currency: String): ObjectNode = objectMapper.createObjectNode().apply {
+        put("orderAmount", orderAmount)
+        put("priceCurrency", currency)
     }
 
     private fun paymentMethodJson(
         category: PaymentCategory,
         id: String? = null,
         subId: String? = null
-    ): JsonObject = JsonObject().apply {
-        addProperty("category", category.name)
-        id?.let { addProperty("id", it) }
-        subId?.let { addProperty("subId", it) }
+    ): ObjectNode = objectMapper.createObjectNode().apply {
+        put("category", category.name)
+        id?.let { put("id", it) }
+        subId?.let { put("subId", it) }
     }
 
     /** Build tipConfig JSON object from SDK TipConfig for cloud requests */
-    private fun buildTipConfigJson(tipConfig: TipConfig): JsonObject = JsonObject().apply {
-        addProperty("onScreenTip", tipConfig.onScreenTip)
-        addProperty("tipMode", tipConfig.tipMode.name)
-        addProperty("tipWithTax", tipConfig.tipWithTax)
+    private fun buildTipConfigJson(tipConfig: TipConfig): ObjectNode = objectMapper.createObjectNode().apply {
+        put("onScreenTip", tipConfig.onScreenTip)
+        put("tipMode", tipConfig.tipMode.name)
+        put("tipWithTax", tipConfig.tipWithTax)
         tipConfig.suggestions?.let { suggestions ->
-            add("suggestions", JsonObject().apply {
-                addProperty("feeMode", suggestions.feeMode.name)
-                val valuesArray = com.google.gson.JsonArray()
+            set<ObjectNode>("suggestions", objectMapper.createObjectNode().apply {
+                put("feeMode", suggestions.feeMode.name)
+                val valuesArray: ArrayNode = objectMapper.createArrayNode()
                 suggestions.values.forEach { valuesArray.add(it) }
-                add("values", valuesArray)
+                set<ObjectNode>("values", valuesArray)
             })
         }
     }
@@ -173,9 +177,9 @@ class CloudPaymentService : PaymentService {
      * Apply notifyUrl to a request body if configured.
      * Supported by: SALE, AUTH, FORCED_AUTH, REFUND, VOID, POST_AUTH, INCREMENTAL_AUTH
      */
-    private fun JsonObject.applyNotifyUrl() {
+    private fun ObjectNode.applyNotifyUrl() {
         if (notifyUrl.isNotBlank()) {
-            addProperty("notifyUrl", notifyUrl)
+            put("notifyUrl", notifyUrl)
         }
     }
 
@@ -184,8 +188,8 @@ class CloudPaymentService : PaymentService {
      * Supported for: VOID, TIP_ADJUST, INCREMENTAL_AUTH, POST_AUTH,
      * and REFUND with originalTransactionId.
      */
-    private fun JsonObject.applyPushToTerminal() {
-        addProperty("pushToTerminal", pushToTerminal)
+    private fun ObjectNode.applyPushToTerminal() {
+        put("pushToTerminal", pushToTerminal)
     }
 
     // --- Execute cloud transaction with error handling ---
@@ -230,21 +234,21 @@ class CloudPaymentService : PaymentService {
         staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("referenceOrderId", referenceOrderId)
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("referenceOrderId", referenceOrderId)
+            put("transactionRequestId", transactionRequestId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
-            add("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
-            cardNetworkType?.let { addProperty("cardNetworkType", it) }
-            add("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
-                tipAmount?.let { addProperty("tipAmount", AmountConverter.toCents(it)) }
-                taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
-                cashbackAmount?.let { addProperty("cashbackAmount", AmountConverter.toCents(it)) }
-                serviceFee?.let { addProperty("serviceFee", AmountConverter.toCents(it)) }
-                surchargeAmount?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
+            set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
+            cardNetworkType?.let { put("cardNetworkType", it) }
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
+                tipAmount?.let { put("tipAmount", AmountConverter.toCents(it)) }
+                taxAmount?.let { put("taxAmount", AmountConverter.toCents(it)) }
+                cashbackAmount?.let { put("cashbackAmount", AmountConverter.toCents(it)) }
+                serviceFee?.let { put("serviceFee", AmountConverter.toCents(it)) }
+                surchargeAmount?.let { put("surchargeAmount", AmountConverter.toCents(it)) }
             })
-            tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
+            tipConfig?.let { tc -> set<ObjectNode>("tipConfig", buildTipConfigJson(tc)) }
         }
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
@@ -261,12 +265,12 @@ class CloudPaymentService : PaymentService {
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("referenceOrderId", referenceOrderId)
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("referenceOrderId", referenceOrderId)
+            put("transactionRequestId", transactionRequestId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
-            add("amount", amountJson(AmountConverter.toCents(amount), currency))
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [AUTH]: $body")
         executeCloud("AUTH", callback) { it.post(PATH_AUTH, body) }
@@ -279,12 +283,12 @@ class CloudPaymentService : PaymentService {
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("referenceOrderId", referenceOrderId)
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("referenceOrderId", referenceOrderId)
+            put("transactionRequestId", transactionRequestId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
-            add("amount", amountJson(AmountConverter.toCents(amount), currency))
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [FORCED_AUTH]: $body")
         executeCloud("FORCED_AUTH", callback) { it.post(PATH_FORCED_AUTH, body) }
@@ -294,29 +298,31 @@ class CloudPaymentService : PaymentService {
         referenceOrderId: String, transactionRequestId: String,
         originalTransactionId: String, originalTransactionRequestId: String,
         amount: BigDecimal, currency: String,
-        description: String, reason: String?, callback: PaymentCallback
+        description: String, reason: String?,
+        paymentCategory: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory?,
+        callback: PaymentCallback
     ) {
         // Referenced refund: provide originalTransactionId or originalTransactionRequestId.
         //   referenceOrderId is NOT passed — server auto-associates the original order.
         // Unreferenced refund: both original IDs empty, referenceOrderId is REQUIRED.
         val isReferenced = originalTransactionId.isNotBlank() || originalTransactionRequestId.isNotBlank()
         val body = baseJson().apply {
-            addProperty("transactionRequestId", transactionRequestId)
+            put("transactionRequestId", transactionRequestId)
             if (originalTransactionId.isNotBlank()) {
-                addProperty("originalTransactionId", originalTransactionId)
+                put("originalTransactionId", originalTransactionId)
             } else if (originalTransactionRequestId.isNotBlank()) {
-                addProperty("originalTransactionRequestId", originalTransactionRequestId)
+                put("originalTransactionRequestId", originalTransactionRequestId)
             }
             if (!isReferenced && referenceOrderId.isNotBlank()) {
-                addProperty("referenceOrderId", referenceOrderId)
+                put("referenceOrderId", referenceOrderId)
             }
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
             if (isReferenced) {
                 applyPushToTerminal()
             }
-            add("amount", amountJson(AmountConverter.toCents(amount), currency))
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [REFUND]: $body")
         executeCloud("REFUND", callback) { it.post(PATH_REFUND, body) }
@@ -328,10 +334,10 @@ class CloudPaymentService : PaymentService {
         reason: String?, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("originalTransactionId", originalTransactionId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("transactionRequestId", transactionRequestId)
+            put("originalTransactionId", originalTransactionId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyPushToTerminal()
             applyNotifyUrl()
         }
@@ -348,18 +354,18 @@ class CloudPaymentService : PaymentService {
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("originalTransactionId", originalTransactionId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("transactionRequestId", transactionRequestId)
+            put("originalTransactionId", originalTransactionId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
             applyPushToTerminal()
-            add("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
-                tipAmount?.let { addProperty("tipAmount", AmountConverter.toCents(it)) }
-                taxAmount?.let { addProperty("taxAmount", AmountConverter.toCents(it)) }
-                serviceFee?.let { addProperty("surchargeAmount", AmountConverter.toCents(it)) }
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
+                tipAmount?.let { put("tipAmount", AmountConverter.toCents(it)) }
+                taxAmount?.let { put("taxAmount", AmountConverter.toCents(it)) }
+                serviceFee?.let { put("surchargeAmount", AmountConverter.toCents(it)) }
             })
-            tipConfig?.let { tc -> add("tipConfig", buildTipConfigJson(tc)) }
+            tipConfig?.let { tc -> set<ObjectNode>("tipConfig", buildTipConfigJson(tc)) }
         }
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=${buildTipConfigJson(tipConfig)}")
@@ -376,13 +382,13 @@ class CloudPaymentService : PaymentService {
         description: String, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("transactionRequestId", transactionRequestId)
-            addProperty("originalTransactionId", originalTransactionId)
-            addProperty("description", description)
-            addProperty("printReceipt", printReceipt)
+            put("transactionRequestId", transactionRequestId)
+            put("originalTransactionId", originalTransactionId)
+            put("description", description)
+            put("printReceipt", printReceipt)
             applyNotifyUrl()
             applyPushToTerminal()
-            add("amount", amountJson(AmountConverter.toCents(amount), currency))
+            set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [INCREMENTAL_AUTH]: $body")
         executeCloud("INCREMENTAL_AUTH", callback) { it.post(PATH_INCREMENTAL_AUTH, body) }
@@ -394,8 +400,8 @@ class CloudPaymentService : PaymentService {
         tipAmount: BigDecimal, description: String, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            addProperty("originalTransactionId", originalTransactionId)
-            addProperty("tipAmount", AmountConverter.toCents(tipAmount))
+            put("originalTransactionId", originalTransactionId)
+            put("tipAmount", AmountConverter.toCents(tipAmount))
             applyPushToTerminal()
         }
         Log.d(TAG, "SDK_REQ [TIP_ADJUST]: $body")
@@ -403,20 +409,20 @@ class CloudPaymentService : PaymentService {
     }
 
     override fun executeQuery(transactionRequestId: String, callback: PaymentCallback) {
-        val params = JsonObject().apply {
-            addProperty("appId", appId)
-            addProperty("merchantId", merchantId)
-            addProperty("transactionRequestId", transactionRequestId)
+        val params = objectMapper.createObjectNode().apply {
+            put("appId", appId)
+            put("merchantId", merchantId)
+            put("transactionRequestId", transactionRequestId)
         }
         Log.d(TAG, "SDK_REQ [QUERY]: $params")
         executeCloud("QUERY", callback) { it.get(PATH_QUERY, params) }
     }
 
     override fun executeQueryByTransactionId(transactionId: String, callback: PaymentCallback) {
-        val params = JsonObject().apply {
-            addProperty("appId", appId)
-            addProperty("merchantId", merchantId)
-            addProperty("transactionId", transactionId)
+        val params = objectMapper.createObjectNode().apply {
+            put("appId", appId)
+            put("merchantId", merchantId)
+            put("transactionId", transactionId)
         }
         Log.d(TAG, "SDK_REQ [QUERY_BY_TXN_ID]: $params")
         executeCloud("QUERY", callback) { it.get(PATH_QUERY, params) }
@@ -434,10 +440,10 @@ class CloudPaymentService : PaymentService {
                 val client = ensureClient()
 
                 // Step 1: Query batch summary to get channelCode list
-                val queryParams = JsonObject().apply {
-                    addProperty("appId", appId)
-                    addProperty("merchantId", merchantId)
-                    addProperty("terminalSn", terminalSn)
+                val queryParams = objectMapper.createObjectNode().apply {
+                    put("appId", appId)
+                    put("merchantId", merchantId)
+                    put("terminalSn", terminalSn)
                 }
                 Log.d(TAG, "SDK_REQ [BATCH_QUERY]: $queryParams")
                 mainHandler.post { callback.onProgress("PROCESSING", "Querying batch summary...") }
@@ -446,7 +452,7 @@ class CloudPaymentService : PaymentService {
                 Log.d(TAG, "SDK_RESULT [BATCH_QUERY]: $queryResponse")
 
                 val data = queryResponse.data
-                val channelList = data?.getAsJsonArray("batchList")
+                val channelList = data?.get("batchList")
                 if (channelList == null || channelList.size() == 0) {
                     Log.w(TAG, "Batch query returned empty list, no channels to close")
                     mainHandler.post { callback.onFailure("BATCH_EMPTY", "No batch data found. There may be no transactions to settle.") }
@@ -456,8 +462,8 @@ class CloudPaymentService : PaymentService {
                 // Extract unique channelCodes from batch query result
                 val channelCodes = mutableListOf<String>()
                 for (i in 0 until channelList.size()) {
-                    val item = channelList.get(i).asJsonObject
-                    val code = item.get("channelCode")?.asString
+                    val item = channelList.get(i)
+                    val code = item.get("channelCode")?.asText()
                     if (code != null && code !in channelCodes) {
                         channelCodes.add(code)
                     }
@@ -482,9 +488,9 @@ class CloudPaymentService : PaymentService {
                     }
 
                     val body = baseJson().apply {
-                        addProperty("transactionRequestId", closeRequestId)
-                        addProperty("channelCode", channelCode)
-                        addProperty("description", description)
+                        put("transactionRequestId", closeRequestId)
+                        put("channelCode", channelCode)
+                        put("description", description)
                     }
                     Log.d(TAG, "SDK_REQ [BATCH_CLOSE ${index + 1}/${channelCodes.size}] channelCode=$channelCode: $body")
                     mainHandler.post {
@@ -535,9 +541,9 @@ class CloudPaymentService : PaymentService {
         description: String?, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
-            originalTransactionId?.let { addProperty("originalTransactionId", it) }
-            originalTransactionRequestId?.let { addProperty("originalTransactionRequestId", it) }
-            description?.let { addProperty("description", it) }
+            originalTransactionId?.let { put("originalTransactionId", it) }
+            originalTransactionRequestId?.let { put("originalTransactionRequestId", it) }
+            description?.let { put("description", it) }
         }
         Log.d(TAG, "SDK_REQ [ABORT]: $body")
         executeCloud("ABORT", callback) { it.post(PATH_ABORT, body) }

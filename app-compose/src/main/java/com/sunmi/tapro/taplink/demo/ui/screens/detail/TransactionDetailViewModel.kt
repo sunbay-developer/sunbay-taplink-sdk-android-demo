@@ -312,6 +312,11 @@ class TransactionDetailViewModel(
                 // Execute operation based on type
                 when (operationType) {
                     TransactionType.REFUND -> {
+                        // Determine payment category from original transaction's card info.
+                        // QR payment methods (WECHAT_PAY, ALIPAY, DANA) need QR_CPM category
+                        // so the terminal routes to the QR refund flow.
+                        val refundPaymentCategory = resolveRefundPaymentCategory(originalTransaction)
+
                         paymentService.executeRefund(
                             referenceOrderId = referenceOrderId,
                             transactionRequestId = transactionRequestId,
@@ -321,6 +326,7 @@ class TransactionDetailViewModel(
                             currency = originalTransaction.currency,
                             description = "Refund for ${originalTransaction.type.name}",
                             reason = "Customer request",
+                            paymentCategory = refundPaymentCategory,
                             callback = callback
                         )
                     }
@@ -757,5 +763,26 @@ class TransactionDetailViewModel(
      */
     private fun toggleCardInfoExpanded() {
         _state.update { it.copy(isCardInfoExpanded = !it.isCardInfoExpanded) }
+    }
+
+    /**
+     * Determine the payment category for a refund based on the original transaction's card info.
+     *
+     * QR payment methods (WECHAT_PAY, ALIPAY, DANA) indicate the original transaction was a QR
+     * payment, so the refund should use QR_CPM category to route correctly on the terminal.
+     * Card payment methods (VISA, MASTERCARD, etc.) or null use the default CARD category.
+     *
+     * @param originalTransaction the original transaction being refunded
+     * @return the PaymentCategory to pass to executeRefund, or null for default (CARD) behavior
+     */
+    private fun resolveRefundPaymentCategory(
+        originalTransaction: Transaction
+    ): com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory? {
+        val paymentMethodId = originalTransaction.cardInfo?.paymentMethodId ?: return null
+        return when (paymentMethodId.uppercase()) {
+            "WECHAT_PAY", "ALIPAY", "DANA" ->
+                com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
+            else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
+        }
     }
 }

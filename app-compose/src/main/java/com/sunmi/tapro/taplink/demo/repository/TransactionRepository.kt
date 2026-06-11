@@ -2,8 +2,8 @@ package com.sunmi.tapro.taplink.demo.repository
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.fasterxml.jackson.core.type.TypeReference
+import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.model.BatchCloseInfo
 import com.sunmi.tapro.taplink.demo.model.OrderItem
 import com.sunmi.tapro.taplink.demo.model.Transaction
@@ -168,7 +168,7 @@ class TransactionRepository private constructor(context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
-    private val gson = Gson()
+    private val objectMapper get() = DependencyProvider.objectMapper
     
     /**
      * Transaction records list (in-memory cache)
@@ -199,8 +199,8 @@ class TransactionRepository private constructor(context: Context) {
         try {
             val json = sharedPreferences.getString(KEY_ORDER_ITEMS, null)
             if (json != null) {
-                val type = object : TypeToken<Map<String, List<OrderItem>>>() {}.type
-                val loaded: Map<String, List<OrderItem>> = gson.fromJson(json, type)
+                val typeRef = object : TypeReference<Map<String, List<OrderItem>>>() {}
+                val loaded: Map<String, List<OrderItem>> = objectMapper.readValue(json, typeRef)
                 orderItemsByOrderId.clear()
                 orderItemsByOrderId.putAll(loaded)
             }
@@ -214,7 +214,7 @@ class TransactionRepository private constructor(context: Context) {
      */
     private fun saveOrderItemsMap() {
         try {
-            val json = gson.toJson(orderItemsByOrderId)
+            val json = objectMapper.writeValueAsString(orderItemsByOrderId)
             sharedPreferences.edit().putString(KEY_ORDER_ITEMS, json).apply()
         } catch (e: Exception) {
             android.util.Log.e("TransactionRepository", "Failed to save order items", e)
@@ -226,7 +226,7 @@ class TransactionRepository private constructor(context: Context) {
      */
     private fun saveTransactions() {
         try {
-            val json = gson.toJson(transactions)
+            val json = objectMapper.writeValueAsString(transactions)
             sharedPreferences.edit().putString(KEY_TRANSACTIONS, json).apply()
             _transactionsFlow.value = transactions.toList()
         } catch (e: Exception) {
@@ -242,8 +242,8 @@ class TransactionRepository private constructor(context: Context) {
         try {
             val json = sharedPreferences.getString(KEY_TRANSACTIONS, null)
             if (json != null) {
-                val type = object : TypeToken<List<Transaction>>() {}.type
-                val loadedTransactions: List<Transaction> = gson.fromJson(json, type)
+                val typeRef = object : TypeReference<List<Transaction>>() {}
+                val loadedTransactions: List<Transaction> = objectMapper.readValue(json, typeRef)
                 transactions.clear()
                 transactions.addAll(loadedTransactions)
                 _transactionsFlow.value = transactions.toList()

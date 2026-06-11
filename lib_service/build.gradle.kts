@@ -43,13 +43,16 @@ android {
 dependencies {
     // Taplink SDK - use the published Maven build that includes top-level tipConfig support.
 //    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6")
-    api("com.sunmi:sunbay-taplink-sdk-android:1.0.7")
+    api("com.sunmi:sunbay-taplink-sdk-android:1.0.7.8-SNAPSHOT")
+
+    // Jackson — required by the Taplink SDK (replaces Gson)
+    api(libs.jackson.databind)
+    api(libs.jackson.module.kotlin)
 
     // OkHttp - HTTP client (for Cloud mode API calls)
     implementation(libs.okhttp.v4120)
 
-    // Gson - JSON serialization (for Cloud mode API calls)
-//    implementation("com.google.code.gson:gson:2.13.1")
+    // Gson removed — lib_service now uses Jackson for all JSON operations
 
     // Android core
     implementation(libs.androidx.core.ktx)

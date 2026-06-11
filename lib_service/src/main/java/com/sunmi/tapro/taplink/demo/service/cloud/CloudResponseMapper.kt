@@ -1,7 +1,7 @@
 package com.sunmi.tapro.taplink.demo.service.cloud
 
 import android.util.Log
-import com.google.gson.JsonObject
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.sunmi.tapro.taplink.demo.service.util.AmountConverter
 import com.sunmi.tapro.taplink.demo.service.BatchCloseInfo
 import com.sunmi.tapro.taplink.demo.service.CardInfo
@@ -10,8 +10,8 @@ import com.sunmi.tapro.taplink.demo.service.TransactionAmount
 import java.math.BigDecimal
 
 /**
- * Maps CloudResponse (JsonObject-based) to PaymentResult.
- * Reads fields directly from JsonObject — no external SDK dependency.
+ * Maps CloudResponse (ObjectNode-based) to PaymentResult.
+ * Reads fields directly from Jackson ObjectNode — no external SDK dependency.
  */
 object CloudResponseMapper {
 
@@ -54,30 +54,30 @@ object CloudResponseMapper {
         )
     }
 
-    // --- Extension helpers for JsonObject ---
+    // --- Extension helpers for ObjectNode ---
 
-    private fun JsonObject.str(key: String): String? {
+    private fun ObjectNode.str(key: String): String? {
         val el = get(key) ?: return null
-        return if (el.isJsonNull) null else el.asString
+        return if (el.isNull) null else el.asText()
     }
 
-    private fun JsonObject.int(key: String): Int? {
+    private fun ObjectNode.int(key: String): Int? {
         val el = get(key) ?: return null
-        return if (el.isJsonNull) null else try { el.asInt } catch (_: Exception) { null }
+        return if (el.isNull) null else try { el.asInt() } catch (_: Exception) { null }
     }
 
-    private fun JsonObject.cents(key: String): BigDecimal? {
+    private fun ObjectNode.cents(key: String): BigDecimal? {
         return int(key)?.let { AmountConverter.toDollars(it) }
     }
 
-    private fun JsonObject.obj(key: String): JsonObject? {
+    private fun ObjectNode.obj(key: String): ObjectNode? {
         val el = get(key) ?: return null
-        return if (el.isJsonObject) el.asJsonObject else null
+        return if (el.isObject) el as ObjectNode else null
     }
 
     // --- Nested object mappers ---
 
-    private fun JsonObject.mapAmount(): TransactionAmount? {
+    private fun ObjectNode.mapAmount(): TransactionAmount? {
         val a = obj("amount") ?: return null
         return TransactionAmount(
             priceCurrency = a.str("priceCurrency"),
@@ -90,7 +90,7 @@ object CloudResponseMapper {
         )
     }
 
-    private fun JsonObject.mapCardInfo(): CardInfo? {
+    private fun ObjectNode.mapCardInfo(): CardInfo? {
         // Some APIs nest card info in a "cardInfo" object; Query API puts fields at top level.
         val c = obj("cardInfo") ?: this
         val pan = c.str("maskedPan") ?: return null
@@ -108,7 +108,7 @@ object CloudResponseMapper {
         )
     }
 
-    private fun JsonObject.mapBatchCloseInfo(): BatchCloseInfo? {
+    private fun ObjectNode.mapBatchCloseInfo(): BatchCloseInfo? {
         val count = int("transactionCount") ?: return null
         return BatchCloseInfo(
             totalCount = count,
