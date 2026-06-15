@@ -264,6 +264,15 @@ data class PaymentResult(
     val originalTransactionRequestId: String?
 ) {
     /**
+     * Check whether request-level result code indicates transport/gateway success.
+     *
+     * In Taplink protocol, code="100" means the request itself is accepted successfully.
+     * Any non-100 code should be treated as a terminal failure even if transactionStatus
+     * is reported as PROCESSING by upstream.
+     */
+    private fun isRequestAccepted(): Boolean = code == "100"
+
+    /**
      * Cloud API returns single-letter status codes: I, P, S, F, C
      * TaplinkPaymentService (App-to-App) uses full names: SUCCESS, PROCESSING, FAILED
      * These helpers support both formats.
@@ -274,9 +283,17 @@ data class PaymentResult(
      *   S = Success - terminal
      *   F = Failed - terminal (includes cancelled/aborted transactions)
      */
-    fun isSuccess(): Boolean = transactionStatus == "S" || transactionStatus == "SUCCESS"
-    fun isProcessing(): Boolean = transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING"
-    fun isFailed(): Boolean = transactionStatus == "F" || transactionStatus == "FAILED"
+    fun isSuccess(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "S" || transactionStatus == "SUCCESS")
+
+    fun isProcessing(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING")
+
+    fun isFailed(): Boolean = !isRequestAccepted() ||
+        transactionStatus == "F" ||
+        transactionStatus == "FAILED" ||
+        transactionStatus == "C"
+
     fun isTerminal(): Boolean = isSuccess() || isFailed()
 }
 
