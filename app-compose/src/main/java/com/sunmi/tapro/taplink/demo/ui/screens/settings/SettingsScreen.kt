@@ -652,7 +652,10 @@ private fun ConnectionSectionContent(
 
     // Mode-specific configuration
     when (state.selectedMode) {
-        ConnectionMode.APP_TO_APP -> AppToAppConfiguration()
+        ConnectionMode.APP_TO_APP -> AppToAppConfiguration(
+            appToAppMode = state.appToAppMode,
+            onAppToAppModeChange = { onIntent(SettingsIntent.UpdateAppToAppMode(it)) }
+        )
         ConnectionMode.CABLE -> CableConfiguration(
             cableProtocol = state.cableProtocol,
             onCableProtocolChange = { onIntent(SettingsIntent.UpdateCableProtocol(it)) }
@@ -1440,7 +1443,10 @@ fun SdkCredentialsCard(
 }
 
 @Composable
-fun AppToAppConfiguration() {
+fun AppToAppConfiguration(
+    appToAppMode: ConnectionPreferences.AppToAppMode,
+    onAppToAppModeChange: (ConnectionPreferences.AppToAppMode) -> Unit
+) {
     Column {
         Text("App-to-App Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(8.dp))
@@ -1449,6 +1455,43 @@ fun AppToAppConfiguration() {
                 Text("✓ Direct Connection", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("App-to-App mode provides direct communication with the Tapro payment app via Android IPC. No additional configuration is required.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Transaction Mode:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.CUSTOM) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = appToAppMode == ConnectionPreferences.AppToAppMode.CUSTOM,
+                        onClick = { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.CUSTOM) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text("CUSTOM (Default)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Medium)
+                        Text("Tapro shows full foreground payment UI.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = appToAppMode == ConnectionPreferences.AppToAppMode.HEADLESS,
+                        onClick = { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text("HEADLESS", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Medium)
+                        Text("Tapro runs with minimal UI and reports progress by callbacks.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Requirements:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))

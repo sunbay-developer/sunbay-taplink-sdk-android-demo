@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 sealed class SettingsIntent {
     // Connection Mode Selection
     data class SelectMode(val mode: ConnectionMode) : SettingsIntent()
+    data class UpdateAppToAppMode(val mode: ConnectionPreferences.AppToAppMode) : SettingsIntent()
     
     // Configuration Updates
     data class UpdateCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
