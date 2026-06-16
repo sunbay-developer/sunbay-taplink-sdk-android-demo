@@ -31,6 +31,9 @@ sealed class MainIntent {
     // Payment Operations
     object ProcessPayment : MainIntent()
     data class SelectPaymentOption(val option: PaymentOption) : MainIntent()
+    object StartSecondaryTipSelection : MainIntent()
+    object CancelSecondaryTipSelection : MainIntent()
+    data class ApplyTipFromSecondary(val tipAmount: BigDecimal) : MainIntent()
     
     // Navigation
     object NavigateToTransactionList : MainIntent()

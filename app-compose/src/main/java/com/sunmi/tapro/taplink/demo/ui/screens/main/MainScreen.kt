@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.components.*
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import java.math.BigDecimal
@@ -68,6 +69,63 @@ fun MainScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
+    val context = LocalContext.current
+    val secondaryTipController = remember(context) { SecondaryTipSelectionController(context) }
+
+    /**
+     * Ensure secondary presentation is dismissed when MainScreen leaves composition.
+     */
+    DisposableEffect(secondaryTipController) {
+        onDispose {
+            secondaryTipController.dismiss()
+        }
+    }
+
+    /**
+     * Idle behavior for secondary display:
+     * - App idle on main screen: show ad carousel.
+     * - During payment initiation: hide secondary display content.
+     * - During tip selection: keep current secondary tip presentation alive.
+     */
+    LaunchedEffect(state.isAwaitingSecondaryTipSelection, state.isInitiatingPayment) {
+        if (state.isInitiatingPayment) {
+            secondaryTipController.dismiss()
+        } else if (!state.isAwaitingSecondaryTipSelection) {
+            secondaryTipController.showAdCarousel()
+        }
+    }
+
+    /**
+     * Shared pay-click behavior:
+     * 1) If secondary display exists and current option supports tip, request tip on secondary screen first.
+     * 2) After tip selection, write tip to state and then continue payment flow.
+     */
+    val onPayClick = remember(state, secondaryTipController) {
+        {
+            if (shouldShowSecondaryTipSelection(state, secondaryTipController)) {
+                viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
+                val shown = secondaryTipController.showTipSelection(
+                    subtotalAmount = state.getItemsSubtotal(),
+                    currency = "USD",
+                    onTipSelected = { tipAmount ->
+                        viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
+                        viewModel.handleIntent(MainIntent.ProcessPayment)
+                    },
+                    onCancelled = {
+                        viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                    }
+                )
+                if (!shown) {
+                    viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                    viewModel.handleIntent(MainIntent.ProcessPayment)
+                }
+            } else {
+                // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
+                secondaryTipController.dismiss()
+                viewModel.handleIntent(MainIntent.ProcessPayment)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -141,10 +199,10 @@ fun MainScreen(
                             )
                         }
                         ModernPaymentButton(
-                            enabled = state.canProcessPayment,
+                            enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
                             isLoading = state.isInitiatingPayment,
                             selectedOption = state.selectedPaymentOption,
-                            onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
+                            onPay = onPayClick,
                             onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
                         )
                     }
@@ -203,10 +261,10 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     ModernPaymentButton(
-                        enabled = state.canProcessPayment,
+                        enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
                         isLoading = state.isInitiatingPayment,
                         selectedOption = state.selectedPaymentOption,
-                        onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
+                        onPay = onPayClick,
                         onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
                     )
                 }
@@ -230,6 +288,7 @@ fun MainScreen(
                 )
             }
         }
+
     }
     
     // Additional amounts dialog
@@ -263,6 +322,22 @@ fun MainScreen(
             viewModel.handleIntent(MainIntent.ClearNavigationEvent)
         }
     }
+}
+
+/**
+ * Decide whether this payment should trigger tip selection on secondary display.
+ *
+ * Business rule:
+ * - Only when order has items.
+ * - Only transaction types that support dedicated tip field (SALE / FORCED_AUTH).
+ * - Only when a secondary display is currently available.
+ */
+private fun shouldShowSecondaryTipSelection(
+    state: MainState,
+    secondaryTipController: SecondaryTipSelectionController
+): Boolean {
+    val supportsTip = state.selectedPaymentOption.transactionType != PaymentOption.TransactionType.AUTH
+    return state.hasItems() && supportsTip && secondaryTipController.hasSecondaryDisplay()
 }
 
 /**

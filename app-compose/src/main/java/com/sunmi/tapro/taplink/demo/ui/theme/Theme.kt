@@ -1,6 +1,8 @@
 package com.sunmi.tapro.taplink.demo.ui.theme
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -48,10 +50,15 @@ fun TaplinkTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            @Suppress("DEPRECATION")
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            // 副屏 Presentation 的 ComposeView 可能不在 Activity 上下文中，
+            // 此时不应强转 Activity，避免 ClassCastException。
+            val activity = view.context.findActivity()
+            if (activity != null) {
+                val window = activity.window
+                @Suppress("DEPRECATION")
+                window.statusBarColor = colorScheme.primary.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            }
         }
     }
 
@@ -61,4 +68,18 @@ fun TaplinkTheme(
         shapes = Shapes,
         content = content
     )
+}
+
+/**
+ * Recursively unwrap Context until Activity is found.
+ *
+ * Returns null when the current composition is hosted outside Activity
+ * (e.g. Presentation/Service/other wrapped contexts).
+ */
+private tailrec fun Context.findActivity(): Activity? {
+    return when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext?.findActivity()
+        else -> null
+    }
 }

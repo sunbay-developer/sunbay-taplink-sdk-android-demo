@@ -38,6 +38,7 @@ data class MainState(
     val isEditingSubtotal: Boolean = false,
     val isLoading: Boolean = false,
     val isInitiatingPayment: Boolean = false,
+    val isAwaitingSecondaryTipSelection: Boolean = false,
     
     // Message display (errors, warnings, info, success)
     val message: Message? = null,
