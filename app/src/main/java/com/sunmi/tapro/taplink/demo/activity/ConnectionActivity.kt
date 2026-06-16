@@ -968,6 +968,8 @@ class ConnectionActivity : AppCompatActivity() {
         currentPaymentService().connect(connectionConfig, object : ConnectionListener {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 Log.d(TAG, "Connection successful - DeviceId: $deviceId, Version: $taproVersion")
+                // 连接成功后先请求副屏播放器就绪，避免后续进入 Presentation 时再临时拉起。
+                currentPaymentService().ensureUsbScreenPlayerReady()
                 runOnUiThread {
                     showConnectionResult(true, "Connected to $deviceId (v$taproVersion)")
                 }

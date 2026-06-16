@@ -61,6 +61,9 @@ class TaplinkDemoApplication : Application() {
         TaplinkPaymentService.getInstance().setPrintReceipt(
             PrintReceiptMapping.toSdk(ConnectionPreferences.getPrintReceipt(this))
         )
+
+        // 业务要求时机 1：应用启动时先请求副屏播放器拉起（best-effort）。
+        warmUpUsbScreenPlayerOnAppStart()
     }
 
     /**
@@ -114,6 +117,20 @@ class TaplinkDemoApplication : Application() {
             Log.e(TAG, "Status: FAILURE")
             Log.e(TAG, "Error: ${e.message}")
             Log.e(TAG, "Exception: ", e)
+        }
+    }
+
+    /**
+     * Request USB secondary-screen player warm-up at app startup.
+     *
+     * This call is best-effort and should never break startup flow.
+     */
+    private fun warmUpUsbScreenPlayerOnAppStart() {
+        try {
+            TaplinkPaymentService.getInstance().ensureUsbScreenPlayerReady()
+            Log.d(TAG, "Startup warm-up requested: ensureUsbScreenPlayerReady")
+        } catch (e: Exception) {
+            Log.w(TAG, "Startup warm-up failed: ${e.message}")
         }
     }
 

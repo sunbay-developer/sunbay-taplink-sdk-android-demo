@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.main
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,6 +92,22 @@ fun MainScreen(
         if (state.isInitiatingPayment) {
             secondaryTipController.dismiss()
         } else if (!state.isAwaitingSecondaryTipSelection) {
+            secondaryTipController.showAdCarousel()
+        }
+    }
+
+    /**
+     * When the terminal becomes connected, refresh the idle ad carousel once more.
+     *
+     * This keeps the secondary screen in the expected idle state after the warm-up
+     * request sent by the connection flow.
+     */
+    LaunchedEffect(state.connectionStatus) {
+        if (state.connectionStatus is ConnectionState.Connected &&
+            !state.isInitiatingPayment &&
+            !state.isAwaitingSecondaryTipSelection
+        ) {
+            Log.d("MainScreen", "Connection became connected, refreshing secondary ad carousel")
             secondaryTipController.showAdCarousel()
         }
     }

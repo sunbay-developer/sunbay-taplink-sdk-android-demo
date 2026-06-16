@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.main
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
@@ -217,7 +218,7 @@ class MainViewModel(
             }
         }
     }
-    
+     
     // Intent Handlers
     
     /**

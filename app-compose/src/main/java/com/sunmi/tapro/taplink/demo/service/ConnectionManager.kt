@@ -103,6 +103,8 @@ class ConnectionManager(
                             return
                         }
                         Log.d(TAG, "Connected successfully - Device: $deviceId, Version: $taproVersion")
+                        // 先请求副屏播放器就绪，再广播连接成功状态，方便 UI 层在同一时机恢复广告展示。
+                        paymentService.ensureUsbScreenPlayerReady()
                         _connectionState.value = ConnectionState.Connected(
                             mode = mode,
                             deviceId = deviceId,
@@ -220,6 +222,8 @@ class ConnectionManager(
                 deviceId = cloudConfig.terminalSn.ifBlank { "Cloud" },
                 version = "Cloud"
             )
+            // Cloud 模式也保持同一调用点，具体实现由 CloudPaymentService 忽略。
+            paymentService.ensureUsbScreenPlayerReady()
         } catch (e: Exception) {
             Log.e(TAG, "Cloud connection failed", e)
             _connectionState.value = ConnectionState.Error(

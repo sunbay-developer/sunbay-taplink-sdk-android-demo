@@ -45,6 +45,9 @@ class TaplinkDemoApplication : Application() {
         
         // Initialize connection manager and establish connection
         initializeConnectionManager()
+
+        // 业务要求时机 1：应用启动时，先请求一次副屏播放器拉起。
+        warmUpUsbScreenPlayerOnAppStart()
         
         // Setup global connection state observer
         setupGlobalConnectionObserver()
@@ -248,6 +251,20 @@ class TaplinkDemoApplication : Application() {
             Log.e(TAG, "Status: FAILURE")
             Log.e(TAG, "Error: ${e.message}")
             Log.e(TAG, "Exception: ", e)
+        }
+    }
+
+    /**
+     * Request USB secondary-screen player warm-up at app startup.
+     *
+     * This is best-effort and must not block startup even if device is not connected yet.
+     */
+    private fun warmUpUsbScreenPlayerOnAppStart() {
+        try {
+            DependencyProvider.paymentService.ensureUsbScreenPlayerReady()
+            Log.d(TAG, "Startup warm-up requested: ensureUsbScreenPlayerReady")
+        } catch (e: Exception) {
+            Log.w(TAG, "Startup warm-up failed: ${e.message}")
         }
     }
 

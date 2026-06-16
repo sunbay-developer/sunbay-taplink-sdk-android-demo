@@ -107,6 +107,13 @@ class CloudPaymentService : PaymentService {
     override fun getConnectedDeviceId(): String? = terminalSn.takeIf { it.isNotEmpty() }
     override fun getTaproVersion(): String = "Cloud"
 
+    /**
+     * Cloud 模式没有本地 tapro 进程，不支持副屏播放器拉起控制指令。
+     */
+    override fun ensureUsbScreenPlayerReady() {
+        Log.w(TAG, "ensureUsbScreenPlayerReady is ignored in Cloud mode")
+    }
+
     // --- Helper: build base JSON with common fields ---
 
     private fun baseJson(): JsonObject = JsonObject().apply {

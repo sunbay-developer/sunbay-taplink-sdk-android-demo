@@ -42,6 +42,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.sunmi.tapro.taplink.demo.R
+import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import kotlinx.coroutines.delay
 import java.math.BigDecimal
@@ -57,6 +58,17 @@ class SecondaryTipSelectionController(private val context: Context) {
 
     private var presentation: SecondaryTipSelectionPresentation? = null
     private var adPresentation: SecondaryAdCarouselPresentation? = null
+
+    /**
+     * Ask SDK/tapro to ensure USB screen player app is ready before showing Presentation.
+     */
+    private fun ensureUsbScreenPlayerReady() {
+        runCatching {
+            DependencyProvider.paymentService.ensureUsbScreenPlayerReady()
+        }.onFailure { error ->
+            Log.w(TAG, "Failed to request USB screen player readiness: ${error.message}")
+        }
+    }
 
     /**
      * Returns true when at least one non-default display is available.
@@ -119,6 +131,9 @@ class SecondaryTipSelectionController(private val context: Context) {
         onTipSelected: (BigDecimal) -> Unit,
         onCancelled: () -> Unit
     ): Boolean {
+        // 每次展示副屏 Presentation 前先请求 tapro 拉起副屏播放器。
+        ensureUsbScreenPlayerReady()
+
         dismiss()
 
         val secondaryDisplay = findSecondaryDisplay()
