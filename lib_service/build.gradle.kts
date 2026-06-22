@@ -45,10 +45,6 @@ dependencies {
 //    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6")
     api("com.sunmi:sunbay-taplink-sdk-android:1.0.7.8-SNAPSHOT")
 
-    // Jackson — required by the Taplink SDK (replaces Gson)
-    api(libs.jackson.databind)
-    api(libs.jackson.module.kotlin)
-
     // OkHttp - HTTP client (for Cloud mode API calls)
     implementation(libs.okhttp.v4120)
 

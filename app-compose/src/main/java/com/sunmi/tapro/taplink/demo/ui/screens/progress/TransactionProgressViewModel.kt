@@ -427,13 +427,13 @@ class TransactionProgressViewModel(
                                   txnType == TransactionType.INCREMENT_AUTH ||
                                   txnType == TransactionType.REFUND
 
-                if (result.isFailed()) {
+                if (result.isFailed() || result.isCancelled()) {
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
                         status = TransactionStatus.FAILED,
                         transactionId = result.transactionId ?: result.originalTransactionId,
                         errorCode = result.transactionResultCode ?: result.code,
-                        errorMessage = result.message ?: "Transaction failed"
+                        errorMessage = if (result.isCancelled()) "Transaction cancelled" else (result.message ?: "Transaction failed")
                     )
                     return
                 }
@@ -900,7 +900,7 @@ class TransactionProgressViewModel(
      *   P = Processing - non-terminal
      *   S = Success - terminal
      *   F = Failed - terminal
-     *   C = Closed - terminal
+     *   C = Cancelled - terminal (transaction was cancelled by user or system)
      *
      * TaplinkPaymentService (App-to-App) uses full names: SUCCESS, FAILED, PROCESSING
      * so we support both formats.
@@ -909,7 +909,7 @@ class TransactionProgressViewModel(
         return when (status) {
             "S", "SUCCESS" -> TransactionStatus.SUCCESS
             "F", "FAILED" -> TransactionStatus.FAILED
-            "C" -> TransactionStatus.FAILED
+            "C", "CANCELLED" -> TransactionStatus.FAILED
             "P", "PROCESSING" -> TransactionStatus.PROCESSING
             "I" -> TransactionStatus.PENDING
             else -> TransactionStatus.PENDING

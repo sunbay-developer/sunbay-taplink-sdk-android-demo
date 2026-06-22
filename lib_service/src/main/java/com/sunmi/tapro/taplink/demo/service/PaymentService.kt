@@ -235,11 +235,13 @@ data class PaymentResult(
      *   P = Processing - non-terminal
      *   S = Success - terminal
      *   F = Failed - terminal (includes cancelled/aborted transactions)
+     *   C = Cancelled - terminal (transaction was cancelled)
      */
     fun isSuccess(): Boolean = transactionStatus == "S" || transactionStatus == "SUCCESS"
     fun isProcessing(): Boolean = transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING"
     fun isFailed(): Boolean = transactionStatus == "F" || transactionStatus == "FAILED"
-    fun isTerminal(): Boolean = isSuccess() || isFailed()
+    fun isCancelled(): Boolean = transactionStatus == "C" || transactionStatus == "CANCELLED"
+    fun isTerminal(): Boolean = isSuccess() || isFailed() || isCancelled()
 }
 
 data class TransactionAmount(
