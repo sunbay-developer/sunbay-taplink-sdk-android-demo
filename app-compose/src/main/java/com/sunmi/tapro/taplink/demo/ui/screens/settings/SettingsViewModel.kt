@@ -83,6 +83,7 @@ class SettingsViewModel(
     fun handleIntent(intent: SettingsIntent) {
         when (intent) {
             is SettingsIntent.SelectMode -> selectMode(intent.mode)
+            is SettingsIntent.UpdateAppToAppMode -> updateAppToAppMode(intent.mode)
             is SettingsIntent.UpdateCableProtocol -> updateCableProtocol(intent.protocol)
             is SettingsIntent.UpdateIpAddress -> updateIpAddress(intent.ipAddress)
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
@@ -139,6 +140,7 @@ class SettingsViewModel(
                 
                 // Load Cable protocol
                 val savedCableProtocol = ConnectionPreferences.getCableProtocol(context)
+                val savedAppToAppMode = ConnectionPreferences.getAppToAppMode(context)
                 
                 // Load LAN configuration
                 val (savedIp, savedPort) = ConnectionPreferences.getLanConfig(context)
@@ -184,6 +186,7 @@ class SettingsViewModel(
                 _state.update {
                     it.copy(
                         selectedMode = mode,
+                        appToAppMode = savedAppToAppMode,
                         cableProtocol = savedCableProtocol,
                         ipAddress = savedIp ?: DEFAULT_IP_ADDRESS,
                         port = savedPort.toString(),
@@ -259,6 +262,13 @@ class SettingsViewModel(
      */
     private fun updateCableProtocol(protocol: ConnectionPreferences.CableProtocol) {
         _state.update { it.copy(cableProtocol = protocol) }
+    }
+
+    /**
+     * Update App-to-App mode (CUSTOM / HEADLESS).
+     */
+    private fun updateAppToAppMode(mode: ConnectionPreferences.AppToAppMode) {
+        _state.update { it.copy(appToAppMode = mode) }
     }
     
     /**
@@ -992,6 +1002,9 @@ class SettingsViewModel(
             
             // Save mode-specific configuration
             when (currentState.selectedMode) {
+                ConnectionMode.APP_TO_APP -> {
+                    ConnectionPreferences.saveAppToAppMode(context, currentState.appToAppMode)
+                }
                 ConnectionMode.CABLE -> {
                     ConnectionPreferences.saveCableProtocol(context, currentState.cableProtocol)
                 }

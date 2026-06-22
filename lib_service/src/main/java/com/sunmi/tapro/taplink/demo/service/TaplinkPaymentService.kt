@@ -41,6 +41,7 @@ import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
 import com.sunmi.tapro.taplink.sdk.error.PaymentError as SdkPaymentError
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentEvent as SdkPaymentEvent
 import com.sunmi.tapro.taplink.sdk.model.response.PaymentResult as SdkPaymentResult
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 
 
 /**
@@ -178,6 +179,23 @@ class TaplinkPaymentService : PaymentService {
         transactionType: String,
         tipConfig: TipConfig? = null
     ) {
+        if (event is SdkPaymentEvent.HeadlessEvent) {
+            callback.onHeadlessProgress(
+                HeadlessProgressEvent(
+                    eventCode = event.eventCode,
+                    eventMessage = event.eventMsg,
+                    eventId = event.eventId,
+                    transactionRequestId = event.transactionRequestId,
+                    referenceOrderId = event.referenceOrderId,
+                    cancelable = event.cancelable,
+                    timestamp = event.timestamp,
+                    data = event.data,
+                    rawEventCode = event.rawEventCode
+                )
+            )
+            return
+        }
+
         if (shouldEmitTipProcessing(tipConfig) && event.eventCode == SdkPaymentEvent.Processing.eventCode) {
             callback.onProgress(
                 SdkPaymentEvent.TipProcessing.eventCode,
@@ -735,6 +753,35 @@ class TaplinkPaymentService : PaymentService {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("ABORT", error, callback) }
             override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "ABORT") }
+        })
+    }
+
+    /**
+     * Headless 控制指令：请求切换到手输卡号。
+     *
+     * 说明：
+     * 1. 这里只负责把控制指令透传给 SDK；
+     * 2. 是否允许切换由 Tapro 根据当前交易阶段（必须 WAITING_CARD）做最终判定。
+     */
+    override fun executeSwitchToManualEntry(
+        originalTransactionRequestId: String?,
+        callback: PaymentCallback
+    ) {
+        Log.d(
+            TAG,
+            "SWITCH_TO_MANUAL_ENTRY [SDK]: originalTransactionRequestId=$originalTransactionRequestId"
+        )
+
+        // Use the dedicated SDK API so Tapro can keep the original request-id
+        // consistency check and the WAITING_CARD gate in one place.
+        TaplinkSDK.switchToManualEntry(originalTransactionRequestId, object : SdkPaymentCallback {
+            override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
+            override fun onFailure(error: SdkPaymentError) {
+                handlePaymentFailure("SWITCH_TO_MANUAL_ENTRY", error, callback)
+            }
+            override fun onProgress(event: SdkPaymentEvent) {
+                forwardProgress(callback, event, "SWITCH_TO_MANUAL_ENTRY")
+            }
         })
     }
 

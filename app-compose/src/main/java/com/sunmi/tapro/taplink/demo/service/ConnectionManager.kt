@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.util.ErrorMessageConverter
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
+import com.sunmi.tapro.taplink.sdk.enums.AppToAppMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -88,6 +89,12 @@ class ConnectionManager(
                 // Cloud mode: initialize and connect entirely on IO thread
                 if (mode == ConnectionMode.CLOUD && paymentService is CloudPaymentService) {
                     connectCloud(paymentService)
+                    return@launch
+                }
+
+                // Local SDK modes must have valid SDK credentials and a completed SDK init.
+                // This prevents late E201 ("SDK not initialized") errors during connect().
+                if (!ensureSdkInitializedForLocalModes()) {
                     return@launch
                 }
                 
@@ -334,8 +341,12 @@ class ConnectionManager(
     private fun createConnectionConfig(mode: ConnectionMode): ConnectionConfig {
         return when (mode) {
             ConnectionMode.APP_TO_APP -> {
-                Log.d(TAG, "Creating App-to-App connection config")
-                ConnectionConfig.createAppMode()
+                val appToAppMode = when (ConnectionPreferences.getAppToAppMode(context)) {
+                    ConnectionPreferences.AppToAppMode.CUSTOM -> AppToAppMode.CUSTOM
+                    ConnectionPreferences.AppToAppMode.HEADLESS -> AppToAppMode.HEADLESS
+                }
+                Log.d(TAG, "Creating App-to-App connection config, mode=$appToAppMode")
+                ConnectionConfig.createAppMode(appToAppMode)
             }
             ConnectionMode.CABLE -> {
                 Log.d(TAG, "Creating Cable connection config")
@@ -367,6 +378,42 @@ class ConnectionManager(
                 ConnectionConfig.createAppMode()
             }
         }
+    }
+
+    /**
+     * Ensures Taplink SDK is initialized with valid credentials for local modes.
+     *
+     * Validation is executed before each non-cloud connection attempt so that
+     * users receive an actionable error message (missing AppId/SecretKey) instead
+     * of a delayed generic SDK error code during low-level connect.
+     */
+    private fun ensureSdkInitializedForLocalModes(): Boolean {
+        val sdkConfig = TaplinkSdkPreferences.getConfig(context, TaplinkSdkInitializer.DEFAULT_CONFIG)
+        if (sdkConfig.appId.isBlank() || sdkConfig.secretKey.isBlank()) {
+            Log.e(
+                TAG,
+                "SDK credential missing: appIdBlank=${sdkConfig.appId.isBlank()}, " +
+                    "secretKeyBlank=${sdkConfig.secretKey.isBlank()}"
+            )
+            _connectionState.value = ConnectionState.Error(
+                code = "SDK_CONFIG_ERROR",
+                message = "SDK credentials incomplete. Please set App ID and Secret Key in Settings."
+            )
+            return false
+        }
+
+        val initOk = TaplinkSdkInitializer.initFromPreferences(context)
+        if (!initOk) {
+            Log.e(TAG, "Taplink SDK initialization failed before connect")
+            _connectionState.value = ConnectionState.Error(
+                code = "SDK_INIT_ERROR",
+                message = "SDK initialization failed. Please check SDK parameters in Settings."
+            )
+            return false
+        }
+
+        Log.d(TAG, "Taplink SDK initialized successfully for local connection")
+        return true
     }
     
     /**

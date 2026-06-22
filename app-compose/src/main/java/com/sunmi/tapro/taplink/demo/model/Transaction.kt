@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.model
 
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import java.math.BigDecimal
 
 /**
@@ -54,6 +55,7 @@ data class Transaction(
     val batchCloseInfo: BatchCloseInfo? = null,
     val progressStatus: String? = null,
     val progressMessage: String? = null,
+    val headlessProgressEvent: HeadlessProgressEvent? = null,
     val completeTime: String? = null,
     val cardInfo: CardInfo? = null,
     // Payment method info used for retry. Stored from original request so retry can reuse it.

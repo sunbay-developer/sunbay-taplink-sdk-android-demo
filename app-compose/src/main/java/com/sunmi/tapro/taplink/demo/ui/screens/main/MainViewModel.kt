@@ -15,6 +15,7 @@ import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
@@ -772,14 +773,16 @@ class MainViewModel(
                 inner.onFailure(code, message)
             }
             override fun onProgress(status: String, message: String) {
-                if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely — do not write
-                    // intermediate messages (e.g. "waiting for card") to the repository,
-                    // so the progress screen won't flash stale progress on navigation.
-                    return
-                }
+                // Always navigate to progress screen and forward progress updates.
+                // In Headless mode, POS needs to show real-time transaction progress.
+                // In Custom mode, progress events are less frequent but navigation is still correct.
                 navigateOnce()
                 inner.onProgress(status, message)
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                navigateOnce()
+                inner.onHeadlessProgress(event)
             }
         }
     }
@@ -910,6 +913,19 @@ class MainViewModel(
                     transactionRequestId = transactionRequestId,
                     progressStatus = status,
                     progressMessage = message
+                )
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                android.util.Log.d(
+                    TAG,
+                    "Headless progress: $transactionRequestId - ${event.eventCode}, id=${event.eventId}"
+                )
+                transactionRepository.updateTransactionProgress(
+                    transactionRequestId = transactionRequestId,
+                    progressStatus = event.eventCode,
+                    progressMessage = event.eventMessage,
+                    headlessProgressEvent = event
                 )
             }
         }

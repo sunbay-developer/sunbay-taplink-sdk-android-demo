@@ -4,6 +4,7 @@ import com.sunmi.tapro.taplink.demo.model.Message
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import java.math.BigDecimal
 
 /**
@@ -25,6 +26,7 @@ data class TransactionProgressState(
     // Progress information
     val progressStatus: String? = null,
     val progressMessage: String? = null,
+    val headlessProgressEvent: HeadlessProgressEvent? = null,
     
     // UI control flags
     val isLoading: Boolean = true,

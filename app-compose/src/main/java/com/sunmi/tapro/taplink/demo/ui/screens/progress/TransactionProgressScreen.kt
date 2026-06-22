@@ -184,6 +184,16 @@ fun TransactionProgressScreen(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
                             )
+
+                            state.headlessProgressEvent?.let { headless ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Headless: ${headless.eventCode} · id=${headless.eventId ?: "-"} · cancelable=${headless.cancelable}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                         
                         state.isSuccess() -> {
@@ -233,6 +243,12 @@ fun TransactionProgressScreen(
                     }
                 }
                 
+                // 仅在读卡阶段展示“切换手输”，避免在其他阶段误触发控制指令。
+                val isHeadlessWaitingCard = state.headlessProgressEvent?.eventCode
+                    ?.equals("WAITING_CARD", ignoreCase = true) == true
+                val canSwitchToManualEntry = state.isPending() &&
+                    (isHeadlessWaitingCard || state.progressStatus.equals("WAITING_CARD", ignoreCase = true))
+
                 // Lower section: Action buttons (horizontal in landscape)
                 Column(
                     modifier = Modifier
@@ -265,6 +281,17 @@ fun TransactionProgressScreen(
                                         text = "Abort Transaction",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            if (canSwitchToManualEntry) {
+                                OutlinedButton(
+                                    onClick = { viewModel.handleIntent(TransactionProgressIntent.SwitchToManualEntry) },
+                                    modifier = Modifier.height(56.dp)
+                                ) {
+                                    Text(
+                                        text = "Switch to Manual Entry",
+                                        style = MaterialTheme.typography.titleMedium
                                     )
                                 }
                             }
@@ -359,6 +386,19 @@ fun TransactionProgressScreen(
                                         text = "Abort Transaction",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            if (canSwitchToManualEntry) {
+                                OutlinedButton(
+                                    onClick = { viewModel.handleIntent(TransactionProgressIntent.SwitchToManualEntry) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                ) {
+                                    Text(
+                                        text = "Switch to Manual Entry",
+                                        style = MaterialTheme.typography.titleMedium
                                     )
                                 }
                             }

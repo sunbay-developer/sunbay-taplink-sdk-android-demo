@@ -172,6 +172,19 @@ interface PaymentService {
         description: String?,
         callback: PaymentCallback
     )
+
+    /**
+     * Headless 控制指令：将当前在途交易切换为手输卡号流程。
+     *
+     * 仅在终端返回 WAITING_CARD 阶段时允许触发，其他阶段由服务端拒绝。
+     *
+     * @param originalTransactionRequestId 目标交易请求 ID（可选，作为幂等与一致性校验）
+     * @param callback 回调结果
+     */
+    fun executeSwitchToManualEntry(
+        originalTransactionRequestId: String?,
+        callback: PaymentCallback
+    )
 }
 
 /**
@@ -190,7 +203,36 @@ interface PaymentCallback {
     fun onSuccess(result: PaymentResult)
     fun onFailure(code: String, message: String)
     fun onProgress(status: String, message: String) {}
+
+    /**
+     * Headless mode structured progress event.
+     *
+     * This callback is only used when Taplink emits the richer Headless event payload.
+     * Existing implementations can ignore it and continue using [onProgress].
+     */
+    fun onHeadlessProgress(event: HeadlessProgressEvent) {
+        onProgress(event.eventCode, event.eventMessage)
+    }
 }
+
+/**
+ * Headless progress payload.
+ *
+ * Keeps the full metadata required by the design doc so POS apps can recover
+ * state, de-duplicate events, and gate UI actions with the server-provided
+ * cancelable flag.
+ */
+data class HeadlessProgressEvent(
+    val eventCode: String,
+    val eventMessage: String,
+    val eventId: String? = null,
+    val transactionRequestId: String? = null,
+    val referenceOrderId: String? = null,
+    val cancelable: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis(),
+    val data: Map<String, String>? = null,
+    val rawEventCode: String? = null
+)
 
 /**
  * Payment result
@@ -226,6 +268,15 @@ data class PaymentResult(
     val originalTransactionRequestId: String?
 ) {
     /**
+     * Check whether request-level result code indicates transport/gateway success.
+     *
+     * In Taplink protocol, code="100" means the request itself is accepted successfully.
+     * Any non-100 code should be treated as a terminal failure even if transactionStatus
+     * is reported as PROCESSING by upstream.
+     */
+    private fun isRequestAccepted(): Boolean = code == "100"
+
+    /**
      * Cloud API returns single-letter status codes: I, P, S, F, C
      * TaplinkPaymentService (App-to-App) uses full names: SUCCESS, PROCESSING, FAILED
      * These helpers support both formats.
@@ -237,10 +288,19 @@ data class PaymentResult(
      *   F = Failed - terminal (includes cancelled/aborted transactions)
      *   C = Cancelled - terminal (transaction was cancelled)
      */
-    fun isSuccess(): Boolean = transactionStatus == "S" || transactionStatus == "SUCCESS"
-    fun isProcessing(): Boolean = transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING"
-    fun isFailed(): Boolean = transactionStatus == "F" || transactionStatus == "FAILED"
-    fun isCancelled(): Boolean = transactionStatus == "C" || transactionStatus == "CANCELLED"
+    fun isSuccess(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "S" || transactionStatus == "SUCCESS")
+
+    fun isProcessing(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING")
+
+    fun isFailed(): Boolean = !isRequestAccepted() ||
+        transactionStatus == "F" ||
+        transactionStatus == "FAILED"
+
+    fun isCancelled(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "C" || transactionStatus == "CANCELLED")
+
     fun isTerminal(): Boolean = isSuccess() || isFailed() || isCancelled()
 }
 

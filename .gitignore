@@ -31,7 +31,6 @@ key
 # build artifacts / binaries
 *.apk
 *.aab
-*.aar
 *.dm
 
 # generated metadata

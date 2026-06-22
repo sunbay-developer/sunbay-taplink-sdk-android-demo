@@ -44,7 +44,9 @@ dependencies {
     // Taplink SDK - use the published Maven build that includes top-level tipConfig support.
 //    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6")
     api("com.sunmi:sunbay-taplink-sdk-android:1.0.7.8-SNAPSHOT")
+//    api("com.sunmi:sunbay-taplink-sdk-android:1.0.6.15-SNAPSHOT")
 
+    api(project(":lib_taplink_sdk"))
     // OkHttp - HTTP client (for Cloud mode API calls)
     implementation(libs.okhttp.v4120)
 
@@ -60,4 +62,13 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit.v112)
     androidTestImplementation(libs.androidx.espresso.core.v330)
+
+    implementation("com.google.code.gson:gson:2.13.1")
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+    implementation("com.github.mik3y:usb-serial-for-android:3.9.0")
+
+
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+
+    implementation("com.fasterxml.jackson.core:jackson-annotations:2.15.2")
 }

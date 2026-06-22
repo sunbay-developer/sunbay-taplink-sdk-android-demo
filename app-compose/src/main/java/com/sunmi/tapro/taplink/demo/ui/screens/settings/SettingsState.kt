@@ -36,6 +36,7 @@ data class SettingsState(
     
     // App-to-App Configuration
     val packageName: String = "",
+    val appToAppMode: ConnectionPreferences.AppToAppMode = ConnectionPreferences.AppToAppMode.CUSTOM,
     
     // Cable Configuration (SDK connection mode: AUTO, USB_AOA, USB_VSP, RS232)
     val cableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,

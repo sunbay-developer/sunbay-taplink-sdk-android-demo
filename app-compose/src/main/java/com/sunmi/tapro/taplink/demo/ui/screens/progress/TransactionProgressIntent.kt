@@ -44,4 +44,9 @@ sealed class TransactionProgressIntent {
      * Query transaction status from payment terminal
      */
     object QueryTransaction : TransactionProgressIntent()
+
+    /**
+     * Switch current Headless transaction to manual card entry.
+     */
+    object SwitchToManualEntry : TransactionProgressIntent()
 }

@@ -13,11 +13,13 @@ object ConnectionPreferences {
     private const val KEY_LAN_IP = "lan_ip"
     private const val KEY_LAN_PORT = "lan_port"
     private const val KEY_CABLE_PROTOCOL = "cable_protocol"
+    private const val KEY_APP_TO_APP_MODE = "app_to_app_mode"
     private const val KEY_PRINT_RECEIPT = "print_receipt"
 
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
     private const val DEFAULT_CABLE_PROTOCOL = "AUTO"
+    private const val DEFAULT_APP_TO_APP_MODE = "CUSTOM"
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
 
     enum class ConnectionMode {
@@ -32,6 +34,11 @@ object ConnectionPreferences {
         USB_AOA,
         USB_VSP,
         RS232
+    }
+
+    enum class AppToAppMode {
+        CUSTOM,
+        HEADLESS
     }
 
     private fun getPreferences(context: Context): SharedPreferences {
@@ -76,6 +83,19 @@ object ConnectionPreferences {
             CableProtocol.valueOf(protocolName ?: DEFAULT_CABLE_PROTOCOL)
         } catch (_: IllegalArgumentException) {
             CableProtocol.AUTO
+        }
+    }
+
+    fun saveAppToAppMode(context: Context, mode: AppToAppMode) {
+        getPreferences(context).edit { putString(KEY_APP_TO_APP_MODE, mode.name) }
+    }
+
+    fun getAppToAppMode(context: Context): AppToAppMode {
+        val modeName = getPreferences(context).getString(KEY_APP_TO_APP_MODE, DEFAULT_APP_TO_APP_MODE)
+        return try {
+            AppToAppMode.valueOf(modeName ?: DEFAULT_APP_TO_APP_MODE)
+        } catch (_: IllegalArgumentException) {
+            AppToAppMode.CUSTOM
         }
     }
 

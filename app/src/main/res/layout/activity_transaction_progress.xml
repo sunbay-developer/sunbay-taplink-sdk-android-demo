@@ -485,12 +485,27 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="12dp"
+                android:layout_marginEnd="8dp"
                 android:text="Abort Transaction"
                 android:textColor="#F44336"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
                 android:background="@drawable/button_rounded_white"
+                android:stateListAnimator="@null" />
+
+            <!-- Switch-to-manual button (shown only at WAITING_CARD stage) -->
+            <Button
+                android:id="@+id/btn_switch_manual"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Switch to Manual Entry"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone"
+                android:background="@drawable/button_rounded_white"
+                android:textColor="@color/colorPrimary"
                 android:stateListAnimator="@null" />
 
             <!-- Retry Button (shown on failure) -->
@@ -499,7 +514,7 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="12dp"
+                android:layout_marginEnd="8dp"
                 android:text="Retry"
                 android:textColor="@color/colorPrimary"
                 android:textSize="14sp"
