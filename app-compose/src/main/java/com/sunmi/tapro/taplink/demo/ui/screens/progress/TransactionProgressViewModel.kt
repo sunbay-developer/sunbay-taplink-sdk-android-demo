@@ -430,6 +430,32 @@ class TransactionProgressViewModel(
                                   txnType == TransactionType.INCREMENT_AUTH ||
                                   txnType == TransactionType.REFUND
 
+                if (isCloudMode) {
+                    if (result.isFailed()) {
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.FAILED,
+                            transactionId = result.transactionId ?: result.originalTransactionId,
+                            errorCode = result.transactionResultCode ?: result.code,
+                            errorMessage = result.message ?: "Transaction failed"
+                        )
+                        return
+                    }
+
+                    if (needsPolling && !result.isTerminal()) {
+                        Log.d(TAG, "Cloud mode: starting polling for final status: $transactionRequestId")
+
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.PROCESSING,
+                            transactionId = result.transactionId ?: result.originalTransactionId
+                        )
+
+                        startCloudPolling(transactionRequestId)
+                        return
+                    }
+                }
+
                 if (result.isFailed() || result.isCancelled()) {
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
@@ -441,20 +467,14 @@ class TransactionProgressViewModel(
                     return
                 }
 
-                if (result.isProcessing() || (isCloudMode && needsPolling && !result.isTerminal())) {
-                    Log.d(TAG, "Cloud mode: starting polling for final status: $transactionRequestId")
-                    
-                    // Keep transaction in PROCESSING status
+                if (result.isProcessing()) {
+                    Log.d(TAG, "Transaction is processing: $transactionRequestId")
+
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
                         status = TransactionStatus.PROCESSING,
                         transactionId = result.transactionId ?: result.originalTransactionId
                     )
-                    
-                    if (isCloudMode && needsPolling) {
-                        // Start cloud polling only for cloud transactions that are still pending.
-                        startCloudPolling(transactionRequestId)
-                    }
                     return
                 }
                 

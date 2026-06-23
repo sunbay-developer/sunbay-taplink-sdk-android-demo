@@ -22,8 +22,11 @@ object CloudResponseMapper {
 
         val data = response.data
 
+        // Normalize cloud API success code to the local Taplink success code.
+        val normalizedCode = if (response.code == "0" || response.code == "100") "100" else response.code
+
         return PaymentResult(
-            code = response.code,
+            code = normalizedCode,
             message = response.msg,
             traceId = response.traceId,
             transactionId = data?.str("transactionId"),

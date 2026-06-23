@@ -50,6 +50,7 @@ import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
+import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import java.math.BigDecimal
 
 /**
@@ -244,9 +245,16 @@ fun TransactionProgressScreen(
                 }
                 
                 // 仅在读卡阶段展示“切换手输”，避免在其他阶段误触发控制指令。
+                // “切换手输”仅在 App-to-App 模式下支持，其他模式不显示。
                 val isHeadlessWaitingCard = state.headlessProgressEvent?.eventCode
                     ?.equals("WAITING_CARD", ignoreCase = true) == true
-                val canSwitchToManualEntry = state.isPending() &&
+                val isAppToAppMode = try {
+                    val context = DependencyProvider.requireContext()
+                    ConnectionPreferences.getConnectionMode(context) == ConnectionPreferences.ConnectionMode.APP_TO_APP
+                } catch (e: Exception) {
+                    false
+                }
+                val canSwitchToManualEntry = isAppToAppMode && state.isPending() &&
                     (isHeadlessWaitingCard || state.progressStatus.equals("WAITING_CARD", ignoreCase = true))
 
                 // Lower section: Action buttons (horizontal in landscape)
