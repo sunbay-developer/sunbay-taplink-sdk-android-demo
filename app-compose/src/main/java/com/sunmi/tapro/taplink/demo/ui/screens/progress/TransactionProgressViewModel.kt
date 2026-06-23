@@ -16,6 +16,7 @@ import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+import com.sunmi.tapro.taplink.demo.util.Constants
 import com.sunmi.tapro.taplink.demo.util.ErrorHandler
 import com.sunmi.tapro.taplink.demo.util.RetryManager
 import com.sunmi.tapro.taplink.demo.util.RetryManagerFactory
@@ -69,6 +70,9 @@ class TransactionProgressViewModel(
     
     // Current transaction being observed
     private var currentTransaction: Transaction? = null
+
+    // Active transaction observation job (switches when requestId changes, e.g. retry)
+    private var observeTransactionJob: Job? = null
     
     // Cloud mode polling job - cancelled on ViewModel clear or terminal status
     private var pollingJob: Job? = null
@@ -100,9 +104,12 @@ class TransactionProgressViewModel(
      * @param transactionId Transaction ID to load and observe
      */
     fun observeTransaction(transactionId: String) {
+        Log.d(TAG, "Start observing transaction requestId=$transactionId")
         _state.update { it.copy(transactionId = transactionId, isLoading = true) }
-        
-        viewModelScope.launch {
+
+        // Keep only one collector alive to avoid stale transaction updates overriding current UI state.
+        observeTransactionJob?.cancel()
+        observeTransactionJob = viewModelScope.launch {
             // Observe transaction changes from repository
             transactionRepository.transactionsFlow.collect { transactions ->
                 val transaction = transactions.find { it.transactionRequestId == transactionId }
@@ -212,7 +219,7 @@ class TransactionProgressViewModel(
     
     /**
      * Retry transaction
-     * Attempts to retry the current transaction using the same request ID
+     * Attempts to retry the current transaction using a new request ID
      * Supports all transaction types except QUERY and BATCH_CLOSE
      */
     private fun retryTransaction() {
@@ -251,7 +258,47 @@ class TransactionProgressViewModel(
             }
             return
         }
-        
+
+        // Generate a new request ID to avoid duplicated-transaction rejection on terminal/API side.
+        val retryTransactionRequestId = generateRetryTransactionRequestId()
+        val retryTransaction = transaction.copy(
+            transactionRequestId = retryTransactionRequestId,
+            status = TransactionStatus.PENDING,
+            timestamp = System.currentTimeMillis(),
+            transactionId = null,
+            authCode = null,
+            errorCode = null,
+            errorMessage = null,
+            progressStatus = null,
+            progressMessage = null,
+            headlessProgressEvent = null,
+            completeTime = null,
+            cardInfo = null
+        )
+        Log.i(
+            TAG,
+            "Retry requested: originalRequestId=${transaction.transactionRequestId}, newRequestId=$retryTransactionRequestId, type=${transaction.type}"
+        )
+
+        if (!transactionRepository.addTransaction(retryTransaction)) {
+            Log.e(TAG, "Failed to add retry transaction, duplicated requestId=$retryTransactionRequestId")
+            _state.update {
+                it.copy(
+                    message = Message(
+                        type = MessageType.ERROR,
+                        title = "Retry Failed",
+                        content = "Failed to create a new retry request. Please try again.",
+                        actions = listOf(MessageAction.DISMISS)
+                    )
+                )
+            }
+            return
+        }
+
+        // Switch current screen observation to the new request ID immediately.
+        currentTransaction = retryTransaction
+        observeTransaction(retryTransactionRequestId)
+
         // Update state to show retrying
         _state.update {
             it.copy(
@@ -260,26 +307,25 @@ class TransactionProgressViewModel(
                 message = Message(
                     type = MessageType.INFO,
                     title = "Retrying Transaction",
-                    content = "Retrying ${transaction.getDisplayName()} with same request ID...",
+                    content = "Retrying ${transaction.getDisplayName()} with new request ID: $retryTransactionRequestId",
                     actions = emptyList()
                 )
             )
         }
-        
-        // Update transaction status to PROCESSING
-        transactionRepository.updateTransactionStatus(
-            transactionRequestId = transaction.transactionRequestId,
-            status = TransactionStatus.PROCESSING
-        )
-        
+
         // Retry the transaction based on type
         viewModelScope.launch {
             try {
-                retryTransactionByType(transaction)
+                retryTransactionByType(retryTransaction)
             } catch (e: Exception) {
                 // Handle retry failure
+                Log.e(
+                    TAG,
+                    "Retry dispatch failed: requestId=$retryTransactionRequestId, type=${retryTransaction.type}, error=${e.message}",
+                    e
+                )
                 transactionRepository.updateTransactionStatus(
-                    transactionRequestId = transaction.transactionRequestId,
+                    transactionRequestId = retryTransactionRequestId,
                     status = TransactionStatus.FAILED,
                     errorCode = "RETRY_ERROR",
                     errorMessage = "Failed to retry transaction: ${e.message}"
@@ -287,7 +333,25 @@ class TransactionProgressViewModel(
             }
         }
     }
-    
+
+    /**
+     * Generate a unique transaction request ID for retry operations.
+     *
+     * Business rule: retry requests must use a brand-new request ID, otherwise terminal/API may
+     * treat it as duplicated transaction.
+     *
+     * @return New unique transaction request ID.
+     */
+    private fun generateRetryTransactionRequestId(): String {
+        var timestamp = System.currentTimeMillis()
+        var candidate = "${Constants.TRANSACTION_REQUEST_ID_PREFIX}$timestamp"
+        while (transactionRepository.isTransactionRequestIdExists(candidate)) {
+            timestamp++
+            candidate = "${Constants.TRANSACTION_REQUEST_ID_PREFIX}$timestamp"
+        }
+        return candidate
+    }
+
     /**
      * Retry transaction based on its type
      * Executes the appropriate payment service method for the transaction type
@@ -295,6 +359,10 @@ class TransactionProgressViewModel(
      * @param transaction Transaction to retry
      */
     private fun retryTransactionByType(transaction: Transaction) {
+        Log.i(
+            TAG,
+            "Dispatch retry payment request: requestId=${transaction.transactionRequestId}, type=${transaction.type}, referenceOrderId=${transaction.referenceOrderId}"
+        )
         val callback = createPaymentCallback(transaction.transactionRequestId)
         
         when (transaction.type) {
@@ -986,6 +1054,8 @@ class TransactionProgressViewModel(
      */
     override fun onCleared() {
         super.onCleared()
+        observeTransactionJob?.cancel()
+        observeTransactionJob = null
         pollingJob?.cancel()
         pollingJob = null
         retryManager.reset()
