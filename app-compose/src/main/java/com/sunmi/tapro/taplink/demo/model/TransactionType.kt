@@ -64,7 +64,7 @@ enum class TransactionType {
         SALE -> "Sale"
         AUTH -> "Auth"
         INCREMENT_AUTH -> "Increment"
-        FORCED_AUTH -> "Forced"
+        FORCED_AUTH -> "Forced Auth"
         POST_AUTH -> "Capture"
         REFUND -> "Refund"
         VOID -> "Void"
