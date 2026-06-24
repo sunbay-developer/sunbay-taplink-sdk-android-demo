@@ -445,7 +445,13 @@ class MainViewModel(
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
-                    surchargeAmount = _state.value.additionalAmounts["Surcharge"]
+                    surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    // Persist the original payment method so a result-page retry keeps EBT/SNAP
+                    // instead of falling back to the executeSale default CARD category.
+                    paymentCategory = paymentCategory,
+                    paymentMethodId = paymentMethodId,
+                    subPaymentMethodId = subPaymentMethodId,
+                    cardNetworkType = cardNetworkType
                 )
                 
                 // Add to repository

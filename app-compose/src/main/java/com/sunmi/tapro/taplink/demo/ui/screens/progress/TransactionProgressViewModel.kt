@@ -277,7 +277,10 @@ class TransactionProgressViewModel(
         )
         Log.i(
             TAG,
-            "Retry requested: originalRequestId=${transaction.transactionRequestId}, newRequestId=$retryTransactionRequestId, type=${transaction.type}"
+            "Retry requested: originalRequestId=${transaction.transactionRequestId}, " +
+                "newRequestId=$retryTransactionRequestId, type=${transaction.type}, " +
+                "paymentCategory=${transaction.paymentCategory}, paymentMethodId=${transaction.paymentMethodId}, " +
+                "subPaymentMethodId=${transaction.subPaymentMethodId}, cardNetworkType=${transaction.cardNetworkType}"
         )
 
         if (!transactionRepository.addTransaction(retryTransaction)) {
@@ -376,6 +379,10 @@ class TransactionProgressViewModel(
                     amount = transaction.amount,
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
+                    paymentCategory = transaction.paymentCategory ?: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD,
+                    paymentMethodId = transaction.paymentMethodId,
+                    subPaymentMethodId = transaction.subPaymentMethodId,
+                    cardNetworkType = transaction.cardNetworkType,
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
                     cashbackAmount = transaction.cashbackAmount,

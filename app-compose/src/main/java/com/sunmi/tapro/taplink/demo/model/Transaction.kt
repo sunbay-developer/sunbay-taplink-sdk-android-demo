@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.model
 
 import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import java.math.BigDecimal
 
 /**
@@ -31,6 +32,10 @@ import java.math.BigDecimal
  * @property progressMessage Current progress message (from onProgress callback)
  * @property completeTime Transaction complete time (from PaymentResult)
  * @property cardInfo Card information (from PaymentResult)
+ * @property paymentCategory Original SALE payment category. Retry must keep it to avoid EBT retry falling back to CARD.
+ * @property paymentMethodId Original SALE payment method id, such as EBT.
+ * @property subPaymentMethodId Original SALE sub-payment method id, such as SNAP.
+ * @property cardNetworkType Original card network type for card-specific routing.
  */
 data class Transaction(
     val transactionRequestId: String,
@@ -57,7 +62,11 @@ data class Transaction(
     val progressMessage: String? = null,
     val headlessProgressEvent: HeadlessProgressEvent? = null,
     val completeTime: String? = null,
-    val cardInfo: CardInfo? = null
+    val cardInfo: CardInfo? = null,
+    val paymentCategory: PaymentCategory? = null,
+    val paymentMethodId: String? = null,
+    val subPaymentMethodId: String? = null,
+    val cardNetworkType: String? = null
 ) {
     /**
      * Check if transaction is successful
