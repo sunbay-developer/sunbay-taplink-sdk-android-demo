@@ -44,12 +44,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.model.MessageAction
+import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import java.math.BigDecimal
 
 /**
@@ -150,6 +152,17 @@ fun TransactionProgressScreen(
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
+
+                    val paymentMethodLabel = state.transaction?.headlessPaymentMethodLabel().orEmpty()
+                    if (paymentMethodLabel.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = paymentMethodLabel,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -188,9 +201,15 @@ fun TransactionProgressScreen(
                             state.headlessProgressEvent?.let { headless ->
                                 Spacer(modifier = Modifier.height(8.dp))
                                 val waitingCardTypes = headless.waitingCardTypes.joinToString(", ")
+                                val headlessPaymentMethod = state.transaction
+                                    ?.headlessPaymentMethodLabel()
+                                    .orEmpty()
                                 Text(
                                     text = buildString {
                                         append("Headless: ${headless.eventCode}")
+                                        if (headlessPaymentMethod.isNotBlank()) {
+                                            append(" · payment=$headlessPaymentMethod")
+                                        }
                                         if (waitingCardTypes.isNotBlank()) {
                                             append(" · cardTypes=$waitingCardTypes")
                                         }
@@ -202,7 +221,7 @@ fun TransactionProgressScreen(
                                 )
                             }
                         }
-                        
+
                         state.isSuccess() -> {
                             Icon(
                                 imageVector = Icons.Filled.CheckCircle,
@@ -248,6 +267,7 @@ fun TransactionProgressScreen(
                             }
                         }
                     }
+
                 }
                 
                 // 仅在读卡阶段展示“切换手输”，避免在其他阶段误触发控制指令。
@@ -510,6 +530,52 @@ fun TransactionProgressScreen(
     }
 }
 
+/**
+ * Formats the payment method that the headless read-card UI should show to the cashier.
+ *
+ * The headless callback only tells the currently enabled reader card types. The demo keeps
+ * the requested payment method on [Transaction], so use it to distinguish Credit/Debit/EBT
+ * while Tapro is still waiting for card input.
+ */
+private fun Transaction.headlessPaymentMethodLabel(): String {
+    return when (paymentCategory) {
+        PaymentCategory.EBT -> {
+            val subMethod = subPaymentMethodId.orEmpty()
+            if (subMethod.isBlank()) "EBT" else "EBT $subMethod"
+        }
+
+        PaymentCategory.CARD -> {
+            val method = paymentMethodId
+                ?.takeIf { it.isNotBlank() }
+                ?: cardNetworkType?.takeIf { it.isNotBlank() }
+            method?.toCreditDebitDisplayName() ?: "Card"
+        }
+
+        PaymentCategory.QR_MPM -> "QR MPM"
+        PaymentCategory.QR_CPM -> "QR CPM"
+        null -> paymentMethodId
+            ?.takeIf { it.isNotBlank() }
+            ?.toCreditDebitDisplayName()
+            .orEmpty()
+    }
+}
+
+/**
+ * Converts API-oriented payment method IDs into cashier-friendly labels.
+ */
+private fun String.toCreditDebitDisplayName(): String {
+    return when (uppercase()) {
+        "CREDIT" -> "Credit"
+        "DEBIT" -> "Debit"
+        "EBT" -> "EBT"
+        "SNAP" -> "EBT SNAP"
+        "BENEFIT" -> "EBT BENEFIT"
+        else -> replace('_', ' ')
+            .lowercase()
+            .replaceFirstChar { it.uppercase() }
+    }
+}
+
 // Preview functions for different states
 @Preview(showBackground = true)
 @Composable
@@ -624,6 +690,7 @@ private fun TransactionProgressScreenPreview(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
