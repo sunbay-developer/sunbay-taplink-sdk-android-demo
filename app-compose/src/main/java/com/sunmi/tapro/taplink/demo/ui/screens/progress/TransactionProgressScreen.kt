@@ -187,8 +187,15 @@ fun TransactionProgressScreen(
 
                             state.headlessProgressEvent?.let { headless ->
                                 Spacer(modifier = Modifier.height(8.dp))
+                                val waitingCardTypes = headless.waitingCardTypes.joinToString(", ")
                                 Text(
-                                    text = "Headless: ${headless.eventCode} · id=${headless.eventId ?: "-"} · cancelable=${headless.cancelable}",
+                                    text = buildString {
+                                        append("Headless: ${headless.eventCode}")
+                                        if (waitingCardTypes.isNotBlank()) {
+                                            append(" · cardTypes=$waitingCardTypes")
+                                        }
+                                        append(" · id=${headless.eventId ?: "-"} · cancelable=${headless.cancelable}")
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center

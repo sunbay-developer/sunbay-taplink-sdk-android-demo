@@ -896,7 +896,8 @@ class MainViewModel(
             override fun onHeadlessProgress(event: HeadlessProgressEvent) {
                 android.util.Log.d(
                     TAG,
-                    "Headless progress: $transactionRequestId - ${event.eventCode}, id=${event.eventId}"
+                    "Headless progress: $transactionRequestId - ${event.eventCode}, " +
+                        "id=${event.eventId}, waitingCardTypes=${event.waitingCardTypes}"
                 )
                 transactionRepository.updateTransactionProgress(
                     transactionRequestId = transactionRequestId,

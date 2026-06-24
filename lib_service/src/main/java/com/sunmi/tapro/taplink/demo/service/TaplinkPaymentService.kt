@@ -178,6 +178,10 @@ class TaplinkPaymentService : PaymentService {
         tipConfig: TipConfig? = null
     ) {
         if (event is SdkPaymentEvent.HeadlessEvent) {
+            Log.d(
+                TAG,
+                "HEADLESS_PROGRESS [$transactionType]: code=${event.eventCode}, data=${event.data}"
+            )
             callback.onHeadlessProgress(
                 HeadlessProgressEvent(
                     eventCode = event.eventCode,

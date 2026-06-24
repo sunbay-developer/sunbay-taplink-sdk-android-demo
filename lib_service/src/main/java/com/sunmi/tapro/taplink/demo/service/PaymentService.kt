@@ -228,7 +228,24 @@ data class HeadlessProgressEvent(
     val timestamp: Long = System.currentTimeMillis(),
     val data: Map<String, String>? = null,
     val rawEventCode: String? = null
-)
+) {
+    /**
+     * Card types currently enabled by Tapro while WAITING_CARD is active.
+     */
+    val waitingCardTypes: List<String>
+        get() = data?.get(KEY_WAITING_CARD_TYPES)
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+
+    companion object {
+        /**
+         * Headless WAITING_CARD data key for the currently enabled card types.
+         */
+        const val KEY_WAITING_CARD_TYPES = "cardTypes"
+    }
+}
 
 /**
  * Payment result

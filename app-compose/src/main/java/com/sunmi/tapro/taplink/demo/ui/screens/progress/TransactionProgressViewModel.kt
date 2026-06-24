@@ -556,7 +556,8 @@ class TransactionProgressViewModel(
             override fun onHeadlessProgress(event: HeadlessProgressEvent) {
                 Log.d(
                     TAG,
-                    "Headless progress: $transactionRequestId - ${event.eventCode}, eventId=${event.eventId}"
+                    "Headless progress: $transactionRequestId - ${event.eventCode}, " +
+                        "eventId=${event.eventId}, waitingCardTypes=${event.waitingCardTypes}"
                 )
                 transactionRepository.updateTransactionProgress(
                     transactionRequestId = transactionRequestId,
