@@ -310,6 +310,10 @@ private fun UnifiedConfigurationSectionContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(modifier = Modifier.height(16.dp))
         TipConfigSectionContent(state = state, onIntent = onIntent)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+        TaxConfigSectionContent(state = state, onIntent = onIntent)
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -321,6 +325,68 @@ private fun UnifiedConfigurationSectionContent(
         onToggle = { advancedExpanded = !advancedExpanded }
     ) {
         SdkSectionContent(state = state, onIntent = onIntent)
+    }
+}
+
+@Composable
+fun TaxConfigSectionContent(state: SettingsState, onIntent: (SettingsIntent) -> Unit) {
+    Text(
+        text = "Tax Configuration",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Configure the tax rate applied automatically to each order subtotal.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    // Enable/Disable Tax
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Enable Tax", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Automatically add tax to each order based on the rate below",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = state.taxConfigEnabled,
+            onCheckedChange = { onIntent(SettingsIntent.UpdateTaxConfigEnabled(it)) }
+        )
+    }
+
+    AnimatedVisibility(
+        visible = state.taxConfigEnabled,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        Column {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = if (state.taxRate == 0) "" else state.taxRate.toString(),
+                onValueChange = { text ->
+                    val parsed = text.filter { it.isDigit() }.toIntOrNull() ?: 0
+                    onIntent(SettingsIntent.UpdateTaxRate(parsed.coerceIn(0, 100)))
+                },
+                label = { Text("Tax Rate") },
+                suffix = { Text("%") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("Enter a value between 0 and 100") },
+                shape = MaterialTheme.shapes.medium
+            )
+        }
     }
 }
 

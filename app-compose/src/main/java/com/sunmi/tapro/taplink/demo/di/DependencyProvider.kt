@@ -1,8 +1,11 @@
 package com.sunmi.tapro.taplink.demo.di
 
 import android.app.Application
-import com.google.gson.Gson
 import android.content.Context
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.cloud.CloudPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
@@ -77,12 +80,19 @@ object DependencyProvider {
     // ========== Core Dependencies ==========
     
     /**
-     * Gson instance for JSON serialization/deserialization
+     * ObjectMapper instance for JSON serialization/deserialization
      * 
-     * Used by TransactionRepository for persisting transactions to SharedPreferences
+     * Configured with KotlinModule for data class support,
+     * NON_NULL serialization inclusion, and lenient deserialization
+     * (unknown properties are ignored).
+     * 
+     * Used by TransactionRepository, ProductPreferences, CloudPreferences, etc.
      */
-    val gson: Gson by lazy {
-        Gson()
+    val objectMapper: ObjectMapper by lazy {
+        ObjectMapper()
+            .registerKotlinModule()
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     }
     
     // ========== Utility Dependencies ==========
