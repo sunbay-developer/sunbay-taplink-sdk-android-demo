@@ -96,6 +96,9 @@ interface PaymentService {
      * Unreferenced refund: both originalTransactionId and originalTransactionRequestId must be empty.
      *   referenceOrderId is REQUIRED.
      *
+     * @param paymentCategory Payment category for routing (CARD, QR_MPM, QR_CPM). When null,
+     *   defaults to CARD. For referenced refunds of QR transactions, pass QR_MPM or QR_CPM
+     *   so the terminal routes to the correct QR refund flow.
      * @see <a href="https://docs.sunbay.dev/zh/refspec/transaction/refund">Refund API</a>
      */
     fun executeRefund(
@@ -107,6 +110,7 @@ interface PaymentService {
         currency: String,
         description: String,
         reason: String?,
+        paymentCategory: PaymentCategory? = null,
         callback: PaymentCallback
     )
 
@@ -307,6 +311,7 @@ data class PaymentResult(
      *   P = Processing - non-terminal
      *   S = Success - terminal
      *   F = Failed - terminal (includes cancelled/aborted transactions)
+     *   C = Cancelled - terminal (transaction was cancelled)
      */
     fun isSuccess(): Boolean = isRequestAccepted() &&
         (transactionStatus == "S" || transactionStatus == "SUCCESS")
@@ -316,10 +321,12 @@ data class PaymentResult(
 
     fun isFailed(): Boolean = !isRequestAccepted() ||
         transactionStatus == "F" ||
-        transactionStatus == "FAILED" ||
-        transactionStatus == "C"
+        transactionStatus == "FAILED"
 
-    fun isTerminal(): Boolean = isSuccess() || isFailed()
+    fun isCancelled(): Boolean = isRequestAccepted() &&
+        (transactionStatus == "C" || transactionStatus == "CANCELLED")
+
+    fun isTerminal(): Boolean = isSuccess() || isFailed() || isCancelled()
 }
 
 data class TransactionAmount(

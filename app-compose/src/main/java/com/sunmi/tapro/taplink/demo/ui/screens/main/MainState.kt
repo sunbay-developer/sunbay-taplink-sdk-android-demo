@@ -23,7 +23,10 @@ data class MainState(
     
     // Amount calculations
     val totalAmount: BigDecimal = BigDecimal.ZERO,
+    // Displayed additional amounts (includes auto-injected tax when tax config is enabled)
     val additionalAmounts: Map<String, BigDecimal> = emptyMap(),
+    // Manual additional amounts set by the user via the dialog (source of truth, no auto-tax)
+    val manualAdditionalAmounts: Map<String, BigDecimal> = emptyMap(),
     
     // Connection status
     val connectionStatus: ConnectionState = ConnectionState.Disconnected,

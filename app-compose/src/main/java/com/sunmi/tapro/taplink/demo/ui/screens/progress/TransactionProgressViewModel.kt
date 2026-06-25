@@ -73,7 +73,7 @@ class TransactionProgressViewModel(
 
     // Active transaction observation job (switches when requestId changes, e.g. retry)
     private var observeTransactionJob: Job? = null
-    
+
     // Cloud mode polling job - cancelled on ViewModel clear or terminal status
     private var pollingJob: Job? = null
     
@@ -373,16 +373,24 @@ class TransactionProgressViewModel(
                 val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.requireContext()
                 )
+                // Resolve paymentCategory from the stored paymentMethodId.
+                // If the original transaction specified EBT or QR_MPM/QR_CPM, reuse it.
+                // Otherwise default to CARD.
+                val paymentCategory = resolvePaymentCategory(transaction)
+                val paymentMethodId = transaction.paymentMethodId
+                val subPaymentMethodId = transaction.subPaymentMethodId
+                val cardNetworkType = transaction.cardNetworkType
+
                 paymentService.executeSale(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
                     amount = transaction.amount,
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
-                    paymentCategory = transaction.paymentCategory ?: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD,
-                    paymentMethodId = transaction.paymentMethodId,
-                    subPaymentMethodId = transaction.subPaymentMethodId,
-                    cardNetworkType = transaction.cardNetworkType,
+                    paymentCategory = paymentCategory,
+                    paymentMethodId = paymentMethodId,
+                    subPaymentMethodId = subPaymentMethodId,
+                    cardNetworkType = cardNetworkType,
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
                     cashbackAmount = transaction.cashbackAmount,
@@ -414,6 +422,8 @@ class TransactionProgressViewModel(
                 )
             }
             TransactionType.REFUND -> {
+                // Resolve paymentCategory for refund retry based on original payment method
+                val paymentCategory = resolvePaymentCategory(transaction)
                 paymentService.executeRefund(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
@@ -423,6 +433,7 @@ class TransactionProgressViewModel(
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
                     reason = "Retry: ${transaction.getDisplayName()}",
+                    paymentCategory = paymentCategory,
                     callback = callback
                 )
             }
@@ -438,6 +449,23 @@ class TransactionProgressViewModel(
         }
     }
     
+    /**
+     * Resolve the payment category for a transaction based on its stored payment method info.
+     *
+     * - If paymentMethodId is "EBT" → PaymentCategory.EBT
+     * - If paymentMethodId is "QR_MPM" → PaymentCategory.QR_MPM
+     * - If paymentMethodId is "QR_CPM" → PaymentCategory.QR_CPM
+     * - Otherwise (including null / card payments) → PaymentCategory.CARD
+     */
+    private fun resolvePaymentCategory(transaction: Transaction): com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory {
+        return when (transaction.paymentMethodId) {
+            "EBT" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.EBT
+            "QR_MPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_MPM
+            "QR_CPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
+            else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
+        }
+    }
+
     /**
      * Create payment callback for transaction
      * Handles payment result and updates transaction repository
@@ -473,31 +501,51 @@ class TransactionProgressViewModel(
                                   txnType == TransactionType.INCREMENT_AUTH ||
                                   txnType == TransactionType.REFUND
 
-                if (result.isFailed()) {
+                if (isCloudMode) {
+                    if (result.isFailed()) {
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.FAILED,
+                            transactionId = result.transactionId ?: result.originalTransactionId,
+                            errorCode = result.transactionResultCode ?: result.code,
+                            errorMessage = result.message ?: "Transaction failed"
+                        )
+                        return
+                    }
+
+                    if (needsPolling && !result.isTerminal()) {
+                        Log.d(TAG, "Cloud mode: starting polling for final status: $transactionRequestId")
+
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.PROCESSING,
+                            transactionId = result.transactionId ?: result.originalTransactionId
+                        )
+
+                        startCloudPolling(transactionRequestId)
+                        return
+                    }
+                }
+
+                if (result.isFailed() || result.isCancelled()) {
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
                         status = TransactionStatus.FAILED,
                         transactionId = result.transactionId ?: result.originalTransactionId,
                         errorCode = result.transactionResultCode ?: result.code,
-                        errorMessage = result.message ?: "Transaction failed"
+                        errorMessage = if (result.isCancelled()) "Transaction cancelled" else (result.message ?: "Transaction failed")
                     )
                     return
                 }
 
-                if (result.isProcessing() || (isCloudMode && needsPolling && !result.isTerminal())) {
-                    Log.d(TAG, "Cloud mode: starting polling for final status: $transactionRequestId")
-                    
-                    // Keep transaction in PROCESSING status
+                if (result.isProcessing()) {
+                    Log.d(TAG, "Transaction is processing: $transactionRequestId")
+
                     transactionRepository.updateTransactionStatus(
                         transactionRequestId = transactionRequestId,
                         status = TransactionStatus.PROCESSING,
                         transactionId = result.transactionId ?: result.originalTransactionId
                     )
-                    
-                    if (isCloudMode && needsPolling) {
-                        // Start cloud polling only for cloud transactions that are still pending.
-                        startCloudPolling(transactionRequestId)
-                    }
                     return
                 }
                 
@@ -1041,7 +1089,7 @@ class TransactionProgressViewModel(
      *   P = Processing - non-terminal
      *   S = Success - terminal
      *   F = Failed - terminal
-     *   C = Closed - terminal
+     *   C = Cancelled - terminal (transaction was cancelled by user or system)
      *
      * TaplinkPaymentService (App-to-App) uses full names: SUCCESS, FAILED, PROCESSING
      * so we support both formats.
@@ -1050,7 +1098,7 @@ class TransactionProgressViewModel(
         return when (status) {
             "S", "SUCCESS" -> TransactionStatus.SUCCESS
             "F", "FAILED" -> TransactionStatus.FAILED
-            "C" -> TransactionStatus.FAILED
+            "C", "CANCELLED" -> TransactionStatus.FAILED
             "P", "PROCESSING" -> TransactionStatus.PROCESSING
             "I" -> TransactionStatus.PENDING
             else -> TransactionStatus.PENDING

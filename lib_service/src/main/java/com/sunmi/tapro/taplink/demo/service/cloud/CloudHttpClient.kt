@@ -1,10 +1,10 @@
 package com.sunmi.tapro.taplink.demo.service.cloud
 
 import com.sunmi.tapro.taplink.demo.service.util.TLog
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import okhttp3.Interceptor
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
@@ -38,7 +38,9 @@ class CloudHttpClient(
         private const val RETRY_DELAY_BASE_MS = 1000L
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
-    private val gson: Gson = GsonBuilder().create()
+    private val objectMapper: ObjectMapper = ObjectMapper()
+        .registerKotlinModule()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
         .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
@@ -62,18 +64,20 @@ class CloudHttpClient(
             override fun writeTo(sink: BufferedSink) { sink.write(bytes) }
         }
     }
-    fun post(path: String, body: JsonObject): CloudResponse {
-        return executeWithRetry(baseUrl + path, "POST", gson.toJson(body), false)
+    fun post(path: String, body: ObjectNode): CloudResponse {
+        return executeWithRetry(baseUrl + path, "POST", objectMapper.writeValueAsString(body), false)
     }
 
-    fun get(path: String, params: JsonObject): CloudResponse {
+    fun get(path: String, params: ObjectNode): CloudResponse {
         val sb = StringBuilder(baseUrl + path)
         var first = true
-        for (key in params.keySet()) {
+        val fields = params.fieldNames()
+        while (fields.hasNext()) {
+            val key = fields.next()
             val v = params.get(key)
-            if (v != null && !v.isJsonNull) {
+            if (v != null && !v.isNull) {
                 sb.append(if (first) "?" else "&")
-                sb.append(key).append("=").append(v.asString)
+                sb.append(key).append("=").append(v.asText())
                 first = false
             }
         }
@@ -144,15 +148,15 @@ class CloudHttpClient(
         catch (e: IOException) { throw CloudNetworkException("Network error: ${e.message}", e) }
     }
     private fun parseResponse(body: String): CloudResponse {
-        val j = JsonParser.parseString(body).asJsonObject
-        val code = j.get("code")?.asString ?: "UNKNOWN"
-        val msg = j.get("msg")?.asString ?: ""
-        val tid = j.get("traceId")?.asString
+        val j = objectMapper.readTree(body) as ObjectNode
+        val code = j.get("code")?.asText() ?: "UNKNOWN"
+        val msg = j.get("msg")?.asText() ?: ""
+        val tid = j.get("traceId")?.asText()
         if (code != "0") {
             TLog.LogE(TAG, "API business error - code: " + code + ", msg: " + msg + ", traceId: " + tid)
             throw CloudBusinessException(code, msg, tid)
         }
-        val data = if (j.has("data") && j.get("data").isJsonObject) j.getAsJsonObject("data") else null
+        val data = if (j.has("data") && j.get("data").isObject) j.get("data") as ObjectNode else null
         return CloudResponse(code, msg, tid, data)
     }
     override fun close() {
@@ -161,6 +165,6 @@ class CloudHttpClient(
         TLog.Log(TAG, "CloudHttpClient closed")
     }
 }
-data class CloudResponse(val code: String, val msg: String, val traceId: String?, val data: JsonObject?)
+data class CloudResponse(val code: String, val msg: String, val traceId: String?, val data: ObjectNode?)
 class CloudBusinessException(val code: String, override val message: String, val traceId: String? = null) : Exception(message)
 class CloudNetworkException(override val message: String, cause: Throwable? = null) : Exception(message, cause)

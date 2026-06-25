@@ -34,10 +34,6 @@ object DependencyProviderTest {
             }
             Log.d(TAG, "✓ DependencyProvider is initialized")
             
-            // Verify Gson
-            val gson = DependencyProvider.gson
-            Log.d(TAG, "✓ Gson instance: ${gson.javaClass.simpleName}")
-            
             // Verify ConnectionPreferences
             val connectionPrefs = DependencyProvider.connectionPreferences
             Log.d(TAG, "✓ ConnectionPreferences: ${connectionPrefs.javaClass.simpleName}")
