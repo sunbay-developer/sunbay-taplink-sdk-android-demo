@@ -10,25 +10,36 @@ import android.view.WindowManager
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -47,6 +58,43 @@ import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import kotlinx.coroutines.delay
 import java.math.BigDecimal
 import java.math.RoundingMode
+
+/**
+ * One line item rendered on the secondary-screen order list.
+ *
+ * @property name 商品名称
+ * @property quantity 数量
+ * @property unitPrice 单价
+ * @property subtotal 该商品小计（单价 × 数量）
+ */
+data class SecondaryOrderLine(
+    val name: String,
+    val quantity: Int,
+    val unitPrice: BigDecimal,
+    val subtotal: BigDecimal
+)
+
+/**
+ * Order summary snapshot pushed to the secondary display.
+ *
+ * Business rule:
+ * - 当 lines 非空时，副屏左侧 30% 显示订单清单，右侧 70% 继续广告轮播。
+ * - 当 lines 为空（无商品）时，副屏全屏显示广告轮播。
+ *
+ * @property lines 订单行项目
+ * @property totalAmount 订单合计金额
+ * @property totalItemCount 商品总件数
+ * @property currency 货币符号/代码
+ */
+data class SecondaryOrderState(
+    val lines: List<SecondaryOrderLine>,
+    val totalAmount: BigDecimal,
+    val totalItemCount: Int,
+    val currency: String
+) {
+    /** 是否包含有效订单内容。 */
+    fun hasItems(): Boolean = lines.isNotEmpty()
+}
 
 /**
  * Controller for displaying tip selection on a secondary display.
@@ -82,11 +130,19 @@ class SecondaryTipSelectionController(private val context: Context) {
      *
      * Business rule:
      * - Used as default secondary-screen content when app is idle.
+     * - 当传入的 [orderState] 含有商品时，副屏左侧 30% 展示订单清单，右侧 70% 继续广告轮播。
+     * - 若副屏已在展示广告，则仅增量刷新订单内容，避免重建 Presentation 导致轮播闪烁。
      * - Automatically replaced by tip selection or dismissed when entering transaction.
+     *
+     * @param orderState 当前订单快照；为 null 或无商品时副屏全屏播放广告。
      */
-    fun showAdCarousel(): Boolean {
-        if (adPresentation?.isShowing == true) {
-            return true
+    fun showAdCarousel(orderState: SecondaryOrderState? = null): Boolean {
+        // 副屏已在播放广告：直接增量更新订单内容即可，无需重建。
+        adPresentation?.let { existing ->
+            if (existing.isShowing) {
+                existing.updateOrder(orderState)
+                return true
+            }
         }
 
         dismiss()
@@ -100,7 +156,8 @@ class SecondaryTipSelectionController(private val context: Context) {
         val newPresentation = SecondaryAdCarouselPresentation(
             outerContext = context,
             display = secondaryDisplay,
-            images = listOf(R.mipmap.g1, R.mipmap.g2)
+            images = listOf(R.mipmap.g1, R.mipmap.g2),
+            initialOrder = orderState
         )
         newPresentation.setOnDismissListener {
             adPresentation = null
@@ -109,7 +166,7 @@ class SecondaryTipSelectionController(private val context: Context) {
         return try {
             newPresentation.show()
             adPresentation = newPresentation
-            Log.d(TAG, "Secondary ad carousel shown on displayId=${secondaryDisplay.displayId}")
+            Log.d(TAG, "Secondary ad carousel shown on displayId=${secondaryDisplay.displayId}, hasOrder=${orderState?.hasItems() == true}")
             true
         } catch (e: WindowManager.InvalidDisplayException) {
             Log.e(TAG, "Failed to show ad carousel due to invalid display", e)
@@ -273,13 +330,29 @@ private class SecondaryTipSelectionPresentation(
 
 /**
  * Presentation used to render idle advertisement carousel on a secondary screen.
+ *
+ * 当存在订单内容时，左侧 30% 渲染订单清单，右侧 70% 渲染广告轮播；
+ * 否则广告轮播占满整个副屏。
  */
 private class SecondaryAdCarouselPresentation(
     outerContext: Context,
     display: Display,
-    @DrawableRes private val images: List<Int>
+    @DrawableRes private val images: List<Int>,
+    initialOrder: SecondaryOrderState?
 ) : Presentation(outerContext, display) {
     private val composeViewTreeOwner = PresentationComposeViewTreeOwner()
+
+    // 订单状态以 Compose State 持有，便于在不重建 Presentation 的情况下增量刷新。
+    private val orderState: MutableState<SecondaryOrderState?> = mutableStateOf(initialOrder)
+
+    /**
+     * Update the order snapshot shown alongside the ad carousel.
+     *
+     * 仅更新 State，触发 Compose 局部重组，不会重启广告轮播计时器。
+     */
+    fun updateOrder(order: SecondaryOrderState?) {
+        orderState.value = order
+    }
 
     /**
      * Build ad carousel Compose content when the presentation is created.
@@ -294,7 +367,10 @@ private class SecondaryAdCarouselPresentation(
             setViewTreeSavedStateRegistryOwner(composeViewTreeOwner)
             setContent {
                 TaplinkTheme {
-                    SecondaryAdCarouselContent(images = images)
+                    SecondaryAdCarouselContent(
+                        images = images,
+                        order = orderState.value
+                    )
                 }
             }
         }
@@ -469,9 +545,45 @@ private fun formatCurrency(amount: BigDecimal, currency: String): String {
 
 /**
  * Idle advertisement carousel content for secondary display.
+ *
+ * 布局规则：
+ * - [order] 含有商品时：左侧 30% 显示订单清单，右侧 70% 显示广告轮播。
+ * - 否则：广告轮播占满整个副屏。
  */
 @Composable
-private fun SecondaryAdCarouselContent(@DrawableRes images: List<Int>) {
+private fun SecondaryAdCarouselContent(
+    @DrawableRes images: List<Int>,
+    order: SecondaryOrderState?
+) {
+    if (order != null && order.hasItems()) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            // 左侧 30%：订单清单
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(0.3f)
+            ) {
+                SecondaryOrderListContent(order = order)
+            }
+            // 右侧 70%：广告轮播
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(0.7f)
+            ) {
+                AdCarousel(images = images)
+            }
+        }
+    } else {
+        AdCarousel(images = images)
+    }
+}
+
+/**
+ * Reusable advertisement carousel that loops through [images].
+ */
+@Composable
+private fun AdCarousel(@DrawableRes images: List<Int>) {
     if (images.isEmpty()) {
         return
     }
@@ -494,6 +606,111 @@ private fun SecondaryAdCarouselContent(@DrawableRes images: List<Int>) {
             contentDescription = "Advertisement ${currentIndex + 1}",
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
+        )
+    }
+}
+
+/**
+ * Customer-facing order list shown on the left portion of the secondary screen.
+ *
+ * 展示每个商品的名称、数量、单价、小计，并在底部汇总件数与合计金额。
+ */
+@Composable
+private fun SecondaryOrderListContent(order: SecondaryOrderState) {
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Order",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.padding(top = 8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.padding(top = 8.dp))
+
+            // 商品清单可滚动，避免商品过多时溢出副屏。
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(order.lines) { line ->
+                    SecondaryOrderLineRow(line = line, currency = order.currency)
+                }
+            }
+
+            Spacer(modifier = Modifier.padding(top = 8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.padding(top = 8.dp))
+
+            // 汇总：件数 + 合计金额
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Items: ${order.totalItemCount}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(modifier = Modifier.padding(top = 4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Total",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = formatCurrency(order.totalAmount, order.currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Single order line row: 名称、数量 × 单价、小计。
+ */
+@Composable
+private fun SecondaryOrderLineRow(line: SecondaryOrderLine, currency: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = line.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${line.quantity} × ${formatCurrency(line.unitPrice, currency)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            text = formatCurrency(line.subtotal, currency),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
         )
     }
 }

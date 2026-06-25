@@ -24,6 +24,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.components.*
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
@@ -83,16 +85,29 @@ fun MainScreen(
     }
 
     /**
+     * Build a customer-facing order snapshot for the secondary display.
+     *
+     * 当订单含商品时，副屏左侧展示商品清单（名称、数量、单价、小计、合计）。
+     */
+    val secondaryOrderState = remember(state.orderItems, state.totalAmount) {
+        buildSecondaryOrderState(state)
+    }
+
+    /**
      * Idle behavior for secondary display:
-     * - App idle on main screen: show ad carousel.
+     * - App idle on main screen: show ad carousel (订单非空时左侧叠加订单清单).
      * - During payment initiation: hide secondary display content.
      * - During tip selection: keep current secondary tip presentation alive.
      */
-    LaunchedEffect(state.isAwaitingSecondaryTipSelection, state.isInitiatingPayment) {
+    LaunchedEffect(
+        state.isAwaitingSecondaryTipSelection,
+        state.isInitiatingPayment,
+        secondaryOrderState
+    ) {
         if (state.isInitiatingPayment) {
             secondaryTipController.dismiss()
         } else if (!state.isAwaitingSecondaryTipSelection) {
-            secondaryTipController.showAdCarousel()
+            secondaryTipController.showAdCarousel(secondaryOrderState)
         }
     }
 
@@ -108,7 +123,7 @@ fun MainScreen(
             !state.isAwaitingSecondaryTipSelection
         ) {
             Log.d("MainScreen", "Connection became connected, refreshing secondary ad carousel")
-            secondaryTipController.showAdCarousel()
+            secondaryTipController.showAdCarousel(secondaryOrderState)
         }
     }
 
@@ -355,6 +370,35 @@ private fun shouldShowSecondaryTipSelection(
 ): Boolean {
     val supportsTip = state.selectedPaymentOption.transactionType != PaymentOption.TransactionType.AUTH
     return state.hasItems() && supportsTip && secondaryTipController.hasSecondaryDisplay()
+}
+
+/**
+ * Build a secondary-screen order snapshot from the current main state.
+ *
+ * Business rule:
+ * - 订单无商品时返回 null，副屏全屏播放广告。
+ * - 订单含商品时返回清单，副屏左侧显示名称/数量/单价/小计，并汇总件数与合计。
+ *
+ * 合计金额采用商品小计之和（getItemsSubtotal），与副屏小费场景保持一致口径。
+ */
+private fun buildSecondaryOrderState(state: MainState): SecondaryOrderState? {
+    if (!state.hasItems()) {
+        return null
+    }
+    val lines = state.orderItems.map { item ->
+        SecondaryOrderLine(
+            name = item.product.name,
+            quantity = item.quantity,
+            unitPrice = item.product.price,
+            subtotal = item.calculateSubtotal()
+        )
+    }
+    return SecondaryOrderState(
+        lines = lines,
+        totalAmount = state.getItemsSubtotal(),
+        totalItemCount = state.getTotalItemCount(),
+        currency = "USD"
+    )
 }
 
 /**
