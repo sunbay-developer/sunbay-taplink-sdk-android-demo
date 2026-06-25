@@ -22,6 +22,7 @@ import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.ConnectionListener
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.service.PaymentServiceProvider
@@ -881,6 +882,27 @@ class MainActivity : Activity() {
                             message.matches(Regex(".*transaction processing\\.\\.\\.", RegexOption.IGNORE_CASE)) ->
                                 "Payment processing, please complete in Tapro app"
                             else -> message
+                        }
+                        updatePaymentProgress(displayMessage)
+                    }
+                }
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                runOnUiThread {
+                    Log.d(
+                        TAG,
+                        "Headless progress: $transactionRequestId - ${event.eventCode}, " +
+                            "cardTypes=${event.waitingCardTypes}"
+                    )
+                    if (TransactionProgressActivity.isActive()) {
+                        TransactionProgressActivity.updateHeadlessProgressFromExternal(event)
+                    } else {
+                        val cardTypesText = event.waitingCardTypes.joinToString(", ")
+                        val displayMessage = if (cardTypesText.isNotBlank()) {
+                            "${event.eventMessage} (Card types: $cardTypesText)"
+                        } else {
+                            event.eventMessage
                         }
                         updatePaymentProgress(displayMessage)
                     }

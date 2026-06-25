@@ -17,6 +17,7 @@ import androidx.cardview.widget.CardView
 import com.sunmi.tapro.taplink.demo.R
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionType
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
@@ -87,6 +88,15 @@ class TransactionProgressActivity : AppCompatActivity() {
          */
         fun updateProgressFromExternal(status: String, message: String) {
             currentInstance?.updateProgress(status, message)
+        }
+
+        /**
+         * Static method to update rich Headless progress from MainActivity.
+         *
+         * @param event Headless progress event with metadata such as WAITING_CARD card types
+         */
+        fun updateHeadlessProgressFromExternal(event: HeadlessProgressEvent) {
+            currentInstance?.updateHeadlessProgress(event)
         }
         
         /**
@@ -699,54 +709,6 @@ class TransactionProgressActivity : AppCompatActivity() {
             return
         }
 
-        /**
-         * 处理“切换手输卡号”按钮点击。
-         *
-         * 仅当当前进度是 WAITING_CARD 时才会真正下发控制指令；
-         * 其余阶段直接忽略并记录日志，避免误触发。
-         */
-        private fun handleSwitchManualButtonClick() {
-            val currentStatus = progressStatusText.text?.toString().orEmpty().uppercase()
-            if (currentStatus != "WAITING_CARD") {
-                Log.w(TAG, "Switch manual ignored: currentStatus=$currentStatus")
-                return
-            }
-
-            Log.d(TAG, "Switch manual button clicked for transaction: ${transaction.transactionRequestId}")
-            switchManualButton.isEnabled = false
-            switchManualButton.text = "Switching..."
-            updateProgress("SWITCHING_MANUAL_ENTRY", "Requesting manual card entry...")
-
-            try {
-                currentPaymentService().executeSwitchToManualEntry(
-                    originalTransactionRequestId = transaction.transactionRequestId,
-                    callback = object : PaymentCallback {
-                        override fun onSuccess(result: PaymentResult) {
-                            Log.i(TAG, "Switch to manual entry request accepted")
-                        }
-
-                        override fun onFailure(code: String, message: String) {
-                            Log.w(TAG, "Switch to manual entry failed: $code, $message")
-                            runOnUiThread {
-                                switchManualButton.isEnabled = true
-                                switchManualButton.text = "Switch to Manual Entry"
-                                updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: $message")
-                            }
-                        }
-
-                        override fun onProgress(status: String, message: String) {
-                            updateProgress(status, message)
-                        }
-                    }
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to execute switch manual entry", e)
-                switchManualButton.isEnabled = true
-                switchManualButton.text = "Switch to Manual Entry"
-                updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: ${e.message}")
-            }
-        }
-        
         // Disable abort button immediately to prevent multiple clicks
         abortButton.isEnabled = false
         abortButton.text = "Aborting..."
@@ -776,6 +738,54 @@ class TransactionProgressActivity : AppCompatActivity() {
             
             // Show error message
             updateProgress("ERROR", "Failed to abort transaction: ${e.message}")
+        }
+    }
+
+    /**
+     * 处理“切换手输卡号”按钮点击。
+     *
+     * 仅当当前进度是 WAITING_CARD 时才会真正下发控制指令；
+     * 其余阶段直接忽略并记录日志，避免误触发。
+     */
+    private fun handleSwitchManualButtonClick() {
+        val currentStatus = progressStatusText.text?.toString().orEmpty().uppercase()
+        if (currentStatus != "WAITING_CARD") {
+            Log.w(TAG, "Switch manual ignored: currentStatus=$currentStatus")
+            return
+        }
+
+        Log.d(TAG, "Switch manual button clicked for transaction: ${transaction.transactionRequestId}")
+        switchManualButton.isEnabled = false
+        switchManualButton.text = "Switching..."
+        updateProgress("SWITCHING_MANUAL_ENTRY", "Requesting manual card entry...")
+
+        try {
+            currentPaymentService().executeSwitchToManualEntry(
+                originalTransactionRequestId = transaction.transactionRequestId,
+                callback = object : PaymentCallback {
+                    override fun onSuccess(result: PaymentResult) {
+                        Log.i(TAG, "Switch to manual entry request accepted")
+                    }
+
+                    override fun onFailure(code: String, message: String) {
+                        Log.w(TAG, "Switch to manual entry failed: $code, $message")
+                        runOnUiThread {
+                            switchManualButton.isEnabled = true
+                            switchManualButton.text = "Switch to Manual Entry"
+                            updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: $message")
+                        }
+                    }
+
+                    override fun onProgress(status: String, message: String) {
+                        updateProgress(status, message)
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to execute switch manual entry", e)
+            switchManualButton.isEnabled = true
+            switchManualButton.text = "Switch to Manual Entry"
+            updateProgress("SWITCH_MANUAL_FAILED", "Failed to switch manual entry: ${e.message}")
         }
     }
     
@@ -882,7 +892,7 @@ class TransactionProgressActivity : AppCompatActivity() {
                     else -> status
                 }
             }
-            
+
             progressMessageText.text = displayMessage
             
             // Update button states based on status
@@ -893,6 +903,37 @@ class TransactionProgressActivity : AppCompatActivity() {
             
             Log.d(TAG, "Progress updated successfully - back navigation blocked during processing")
         }
+    }
+
+    /**
+     * Update progress status from a structured Headless callback.
+     *
+     * WAITING_CARD carries the currently enabled card types in data.cardTypes, so the demo
+     * renders that metadata directly instead of dropping it through the legacy onProgress path.
+     */
+    fun updateHeadlessProgress(event: HeadlessProgressEvent) {
+        val cardTypesText = formatWaitingCardTypes(event.waitingCardTypes)
+        val displayMessage = if (cardTypesText.isNotBlank()) {
+            "${event.eventMessage} ($cardTypesText)"
+        } else {
+            event.eventMessage
+        }
+        Log.d(
+            TAG,
+            "Updating headless progress - Status: ${event.eventCode}, " +
+                "Message: $displayMessage, Data: ${event.data}"
+        )
+        updateProgress(event.eventCode, displayMessage)
+    }
+
+    /**
+     * Formats WAITING_CARD card types for user-facing progress text.
+     */
+    private fun formatWaitingCardTypes(cardTypes: List<String>): String {
+        if (cardTypes.isEmpty()) {
+            return ""
+        }
+        return "Card types: ${cardTypes.joinToString(", ")}"
     }
     
     /**
@@ -2133,6 +2174,14 @@ class TransactionProgressActivity : AppCompatActivity() {
             override fun onProgress(status: String, message: String) {
                 Log.d(TAG, "Payment callback - Progress: $status - $message")
                 updateProgress(status, message)
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                Log.d(
+                    TAG,
+                    "Payment callback - Headless progress: ${event.eventCode}, cardTypes=${event.waitingCardTypes}"
+                )
+                updateHeadlessProgress(event)
             }
         }
     }

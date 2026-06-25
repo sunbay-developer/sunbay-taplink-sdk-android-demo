@@ -277,6 +277,20 @@ class TransactionDetailViewModel(
                     TransactionType.REFUND -> amount ?: originalDisplayAmount
                     else -> amount ?: originalTransaction.amount
                 }
+                // POST_AUTH 需要在本地展示层就把“输入的附加金额”计入总额，
+                // 避免进度事件页在终端最终回包前只显示 base amount。
+                val postAuthAdditionalTotal = listOf(
+                    tipAmount,
+                    taxAmount,
+                    surchargeAmount
+                ).fold(BigDecimal.ZERO) { acc, value ->
+                    acc.add(value ?: BigDecimal.ZERO)
+                }
+                val postAuthDisplayTotal = if (operationType == TransactionType.POST_AUTH) {
+                    operationAmount.add(postAuthAdditionalTotal)
+                } else {
+                    operationAmount
+                }
                 // Record amount for display: VOID = full amount; REFUND = user-entered refund amount only
                 val recordAmount = when (operationType) {
                     TransactionType.VOID -> operationAmount
@@ -290,11 +304,19 @@ class TransactionDetailViewModel(
                     referenceOrderId = referenceOrderId,
                     type = operationType,
                     amount = recordAmount,
-                    totalAmount = if (operationType == TransactionType.VOID) recordAmount else null,
+                    totalAmount = when (operationType) {
+                        TransactionType.VOID -> recordAmount
+                        TransactionType.POST_AUTH -> postAuthDisplayTotal
+                        else -> null
+                    },
                     currency = originalTransaction.currency,
                     status = TransactionStatus.PENDING,
                     timestamp = System.currentTimeMillis(),
-                    originalTransactionId = originalTransactionId
+                    originalTransactionId = originalTransactionId,
+                    tipAmount = tipAmount,
+                    taxAmount = taxAmount,
+                    // UI 输入项目前命名是 surcharge，这里沿用现有 demo/service 映射到 serviceFee。
+                    serviceFee = surchargeAmount
                 )
                 
                 transactionRepository.addTransaction(newTransaction)
