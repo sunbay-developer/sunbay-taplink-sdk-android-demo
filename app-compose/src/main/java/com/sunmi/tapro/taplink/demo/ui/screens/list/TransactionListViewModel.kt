@@ -12,6 +12,7 @@ import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.model.groupTransactionsByOrder
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
+import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
@@ -400,7 +401,7 @@ class TransactionListViewModel(
                         .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
                 } catch (e: Exception) { false }
                 
-                // Execute batch close â€?in App-to-App mode, callback triggers navigation on final result
+                // Execute batch close ï¿½?in App-to-App mode, callback triggers navigation on final result
                 paymentService.executeBatchClose(
                     transactionRequestId = transactionRequestId,
                     description = "Batch Close",
@@ -506,11 +507,20 @@ class TransactionListViewModel(
                 transactionRepository.addTransaction(transaction)
 
                 // Check connection mode
-                val isAppToApp = try {
+                val (isAppToApp, isHeadlessAppToApp) = try {
                     val context = getApplication<android.app.Application>()
-                    com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
-                        .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
-                } catch (e: Exception) { false }
+                    val connectionMode = com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                        .getConnectionMode(context)
+                    val appToAppMode = com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+                        .getAppToAppMode(context)
+                    val appToApp = connectionMode ==
+                        com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
+                    val headlessAppToApp = appToApp &&
+                        appToAppMode == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.AppToAppMode.HEADLESS
+                    appToApp to headlessAppToApp
+                } catch (e: Exception) {
+                    false to false
+                }
                 
                 // Execute refund (unreferenced refund: both original IDs empty, referenceOrderId required)
                 // In App-to-App mode, callback triggers navigation on final result
@@ -523,11 +533,15 @@ class TransactionListViewModel(
                     currency = CURRENCY,
                     description = "Standalone Refund",
                     reason = "Standalone refund",
-                    callback = createNavigatingStandaloneRefundCallback(transactionRequestId, isAppToApp)
+                    callback = createNavigatingStandaloneRefundCallback(
+                        transactionRequestId = transactionRequestId,
+                        isAppToApp = isAppToApp,
+                        isHeadlessAppToApp = isHeadlessAppToApp
+                    )
                 )
                 
-                // Non-App-to-App: navigate to progress screen immediately
-                if (!isAppToApp) {
+                // Non-App-to-App and Headless App-to-App should both enter progress immediately.
+                if (!isAppToApp || isHeadlessAppToApp) {
                     _state.update { 
                         it.copy(
                             navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
@@ -799,7 +813,7 @@ class TransactionListViewModel(
             override fun onFailure(code: String, message: String) {
                 android.util.Log.e(TAG, "Query communication error: $queryId - $code: $message")
                 
-                // onFailure = communication/technical error â€?query could not reach terminal.
+                // onFailure = communication/technical error ï¿½?query could not reach terminal.
                 _state.update {
                     it.copy(
                         queryInProgress = false,
@@ -846,7 +860,7 @@ class TransactionListViewModel(
             }
             override fun onProgress(status: String, message: String) {
                 if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely â€?do not write
+                    // App-to-App: skip progress updates entirely ï¿½?do not write
                     // intermediate messages to the repository, so the progress
                     // screen won't flash stale progress on navigation.
                     return
@@ -969,7 +983,8 @@ class TransactionListViewModel(
      */
     private fun createNavigatingStandaloneRefundCallback(
         transactionRequestId: String,
-        isAppToApp: Boolean
+        isAppToApp: Boolean,
+        isHeadlessAppToApp: Boolean
     ): PaymentCallback {
         val inner = createStandaloneRefundCallback(transactionRequestId)
         var navigated = false
@@ -985,21 +1000,27 @@ class TransactionListViewModel(
         }
         return object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                if (isAppToApp) navigateOnce()
+                if (isAppToApp && !isHeadlessAppToApp) navigateOnce()
                 inner.onSuccess(result)
             }
             override fun onFailure(code: String, message: String) {
-                if (isAppToApp) navigateOnce()
+                if (isAppToApp && !isHeadlessAppToApp) navigateOnce()
                 inner.onFailure(code, message)
             }
             override fun onProgress(status: String, message: String) {
-                if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely â€?do not write
+                if (isAppToApp && !isHeadlessAppToApp) {
+                    // App-to-App: skip progress updates entirely ï¿½?do not write
                     // intermediate messages to the repository, so the progress
                     // screen won't flash stale progress on navigation.
                     return
                 }
+                navigateOnce()
                 inner.onProgress(status, message)
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                navigateOnce()
+                inner.onHeadlessProgress(event)
             }
         }
     }
@@ -1111,6 +1132,20 @@ class TransactionListViewModel(
                     transactionRequestId = transactionRequestId,
                     progressStatus = status,
                     progressMessage = message
+                )
+            }
+
+            override fun onHeadlessProgress(event: HeadlessProgressEvent) {
+                android.util.Log.d(
+                    TAG,
+                    "Standalone refund headless progress: $transactionRequestId - ${event.eventCode}, " +
+                        "id=${event.eventId}, waitingCardTypes=${event.waitingCardTypes}"
+                )
+                transactionRepository.updateTransactionProgress(
+                    transactionRequestId = transactionRequestId,
+                    progressStatus = event.eventCode,
+                    progressMessage = event.eventMessage,
+                    headlessProgressEvent = event
                 )
             }
         }

@@ -50,4 +50,13 @@ enum class PaymentOption(
     enum class TransactionType {
         SALE, AUTH, FORCED_AUTH
     }
+
+    val isEbt: Boolean
+        get() = category == PaymentCategory.EBT
+
+    val isQr: Boolean
+        get() = category == PaymentCategory.QR_MPM || category == PaymentCategory.QR_CPM
+
+    val isEbtAllowedInHeadless: Boolean
+        get() = this == EBT_BENEFIT || this == EBT_SNAP
 }
