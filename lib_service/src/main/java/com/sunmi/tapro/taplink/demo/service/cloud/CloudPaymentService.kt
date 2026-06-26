@@ -309,6 +309,7 @@ class CloudPaymentService : PaymentService {
         amount: BigDecimal, currency: String,
         description: String, reason: String?,
         paymentCategory: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory?,
+        cardNetworkType: String?,
         callback: PaymentCallback
     ) {
         // Referenced refund: provide originalTransactionId or originalTransactionRequestId.
@@ -328,9 +329,22 @@ class CloudPaymentService : PaymentService {
             put("description", description)
             put("printReceipt", printReceipt)
             applyNotifyUrl()
+            paymentCategory?.let { category ->
+                set<ObjectNode>("paymentMethod", objectMapper.createObjectNode().apply {
+                    put("category", category.name)
+                    if (category == PaymentCategory.EBT) {
+                        put("id", "EBT")
+                        put("subId", "SNAP")
+                    } else {
+                        putNull("id")
+                        putNull("subId")
+                    }
+                })
+            }
             if (isReferenced) {
                 applyPushToTerminal()
             }
+            cardNetworkType?.let { put("cardNetworkType", it) }
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [REFUND]: $body")

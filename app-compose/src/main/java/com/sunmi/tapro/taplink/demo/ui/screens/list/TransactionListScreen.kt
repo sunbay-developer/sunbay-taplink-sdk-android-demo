@@ -26,6 +26,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.list.components.EmptyState
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.QuickFilterChips
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 
 /**
  * Transaction List Screen - Toast POS style
@@ -299,8 +300,14 @@ fun TransactionListScreen(
     if (state.showStandaloneRefundDialog) {
         StandaloneRefundDialog(
             onDismiss = { viewModel.handleIntent(TransactionListIntent.HideStandaloneRefundDialog) },
-            onRefund = { amount ->
-                viewModel.handleIntent(TransactionListIntent.StandaloneRefund(amount))
+            onRefund = { amount, paymentCategory, cardNetworkType ->
+                viewModel.handleIntent(
+                    TransactionListIntent.StandaloneRefund(
+                        amount = amount,
+                        paymentCategory = paymentCategory,
+                        cardNetworkType = cardNetworkType
+                    )
+                )
             }
         )
     }
@@ -401,9 +408,11 @@ private fun BatchCloseDialog(
 @Composable
 private fun StandaloneRefundDialog(
     onDismiss: () -> Unit,
-    onRefund: (String) -> Unit
+    onRefund: (String, PaymentCategory, String?) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
+    var selectedPaymentCategory by remember { mutableStateOf(PaymentCategory.CARD) }
+    var selectedCardNetworkType by remember { mutableStateOf<String?>("CREDIT") }
 
     PosDialog(
         onDismissRequest = onDismiss,
@@ -415,7 +424,7 @@ private fun StandaloneRefundDialog(
         confirmText = "Refund",
         onConfirm = {
             if (amount.isNotBlank()) {
-                onRefund(amount)
+                onRefund(amount, selectedPaymentCategory, selectedCardNetworkType)
             }
         },
         confirmEnabled = amount.isNotBlank(),
@@ -436,6 +445,55 @@ private fun StandaloneRefundDialog(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Card network",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = selectedPaymentCategory == PaymentCategory.CARD &&
+                    selectedCardNetworkType == "CREDIT",
+                onClick = {
+                    selectedPaymentCategory = PaymentCategory.CARD
+                    selectedCardNetworkType = "CREDIT"
+                },
+                label = { Text("Credit") }
+            )
+            FilterChip(
+                selected = selectedPaymentCategory == PaymentCategory.CARD &&
+                    selectedCardNetworkType == "DEBIT",
+                onClick = {
+                    selectedPaymentCategory = PaymentCategory.CARD
+                    selectedCardNetworkType = "DEBIT"
+                },
+                label = { Text("Debit") }
+            )
+            FilterChip(
+                selected = selectedPaymentCategory == PaymentCategory.CARD &&
+                    selectedCardNetworkType == null,
+                onClick = {
+                    selectedPaymentCategory = PaymentCategory.CARD
+                    selectedCardNetworkType = null
+                },
+                label = { Text("Auto") }
+            )
+            FilterChip(
+                selected = selectedPaymentCategory == PaymentCategory.EBT,
+                onClick = {
+                    selectedPaymentCategory = PaymentCategory.EBT
+                    selectedCardNetworkType = null
+                },
+                label = { Text("EBT") }
+            )
+        }
     }
 }
 

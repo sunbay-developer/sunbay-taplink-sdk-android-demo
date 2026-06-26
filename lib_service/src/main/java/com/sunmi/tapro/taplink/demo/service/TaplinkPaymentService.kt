@@ -560,6 +560,7 @@ class TaplinkPaymentService : PaymentService {
         description: String,
         reason: String?,
         paymentCategory: PaymentCategory?,
+        cardNetworkType: String?,
         callback: PaymentCallback
     ) {
         val finalDescription = if (reason != null) {
@@ -571,9 +572,22 @@ class TaplinkPaymentService : PaymentService {
         // Unreferenced refund: both original IDs empty, referenceOrderId is REQUIRED.
         val isReferenced = originalTransactionId.isNotEmpty() || originalTransactionRequestId.isNotEmpty()
 
-        // Build paymentMethod from category when specified (needed for QR refund routing)
-        val paymentMethodInfo = paymentCategory?.let {
-            buildPaymentMethodInfo(category = it)
+        // Build paymentMethod from category when specified (needed for QR/EBT refund routing)
+        val paymentMethodInfo = paymentCategory?.let { category ->
+            if (category == PaymentCategory.EBT) {
+                buildPaymentMethodInfo(
+                    category = category,
+                    id = PaymentMethodId.EBT,
+                    subId = PaymentMethodSubId.SNAP
+                )
+            } else {
+                buildPaymentMethodInfo(category = category)
+            }
+        }
+        val explicitCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
+        val refundCardNetworkType = when (paymentCategory) {
+            null, PaymentCategory.CARD -> explicitCardNetworkType
+            else -> null
         }
 
         val refundRequest = RefundRequest(
@@ -584,6 +598,7 @@ class TaplinkPaymentService : PaymentService {
             originalTransactionRequestId = originalTransactionRequestId.takeIf { it.isNotEmpty() && originalTransactionId.isEmpty() },
             referenceOrderId = if (!isReferenced) referenceOrderId else null,
             paymentMethod = paymentMethodInfo,
+            cardNetworkType = refundCardNetworkType,
             printReceipt = printReceipt
         )
         logSdkRequest("REFUND", refundRequest)
