@@ -1,5 +1,7 @@
 package com.sunmi.tapro.taplink.demo.service
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
@@ -222,6 +224,7 @@ interface PaymentCallback {
  * state, de-duplicate events, and gate UI actions with the server-provided
  * cancelable flag.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class HeadlessProgressEvent(
     val eventCode: String,
     val eventMessage: String,
@@ -236,6 +239,7 @@ data class HeadlessProgressEvent(
     /**
      * Card types currently enabled by Tapro while WAITING_CARD is active.
      */
+    @get:JsonIgnore
     val waitingCardTypes: List<String>
         get() = data?.get(KEY_WAITING_CARD_TYPES)
             ?.split(",")
@@ -243,11 +247,43 @@ data class HeadlessProgressEvent(
             ?.filter { it.isNotEmpty() }
             .orEmpty()
 
+    /**
+     * True when this event indicates Tapro removed the surcharge from a debit-card
+     * transaction (and thus the displayed amount should be refreshed).
+     *
+     * Matches both the normalized code ("SURCHARGE_REMOVED" from newer SDKs) and the
+     * raw engine code ("SurchargeRemoved"), so it works regardless of SDK AAR version.
+     */
+    @get:JsonIgnore
+    val isSurchargeRemoved: Boolean
+        get() = listOfNotNull(rawEventCode, eventCode)
+            .any { it.replace("_", "").equals(RAW_EVENT_SURCHARGE_REMOVED, ignoreCase = true) }
+
+    /**
+     * Updated transaction total carried by a surcharge-removed event, in the smallest
+     * currency unit (cents). Null when absent or unparsable.
+     */
+    @get:JsonIgnore
+    val surchargeRemovedTotalAmountCents: java.math.BigDecimal?
+        get() = data?.get(KEY_SURCHARGE_REMOVED_TOTAL_AMOUNT)?.let {
+            runCatching { java.math.BigDecimal(it) }.getOrNull()
+        }
+
     companion object {
         /**
          * Headless WAITING_CARD data key for the currently enabled card types.
          */
         const val KEY_WAITING_CARD_TYPES = "cardTypes"
+
+        /**
+         * Headless SURCHARGE_REMOVED data key for the updated transaction total (cents).
+         */
+        const val KEY_SURCHARGE_REMOVED_TOTAL_AMOUNT = "totalAmount"
+
+        /**
+         * Raw engine event code (PascalCase) emitted by Tapro when the surcharge is removed.
+         */
+        const val RAW_EVENT_SURCHARGE_REMOVED = "SurchargeRemoved"
     }
 }
 

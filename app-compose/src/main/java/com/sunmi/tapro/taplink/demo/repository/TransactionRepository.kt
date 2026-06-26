@@ -36,9 +36,13 @@ import java.math.BigDecimal
 class TransactionRepository private constructor(context: Context) {
     
     companion object {
+        private const val TAG = "TransactionRepository"
         private const val PREFS_NAME = "transaction_repository"
         private const val KEY_TRANSACTIONS = "transactions"
         private const val KEY_ORDER_ITEMS = "order_items"
+
+        /** 金额最小单位(cents)转「元」时的小数位（cents → dollars 即左移 2 位）。 */
+        private const val CENTS_DECIMAL_PLACES = 2
         
         @Volatile
         private var instance: TransactionRepository? = null
@@ -345,11 +349,42 @@ class TransactionRepository private constructor(context: Context) {
         return updateTransaction(transactionRequestId) { transaction ->
             // Preserve the structured Headless payload when available so crash
             // recovery and UI gating can reason about the exact engine state.
-            transaction.copy(
+            val withProgress = transaction.copy(
                 progressStatus = progressStatus,
                 progressMessage = progressMessage,
                 headlessProgressEvent = headlessProgressEvent
             )
+
+            // Headless: when Tapro removes the surcharge from a debit-card transaction
+            // it pushes the updated amount via this intermediate event. Refresh the
+            // locally displayed amount so the progress/detail screens stay in sync.
+            // The event amount is in the smallest currency unit (cents); convert to the
+            // dollar unit used internally by the demo (mirrors lib_service toDollars).
+            if (headlessProgressEvent?.isSurchargeRemoved == true) {
+                val newTotalDollars = headlessProgressEvent.surchargeRemovedTotalAmountCents
+                    ?.movePointLeft(CENTS_DECIMAL_PLACES)
+                if (newTotalDollars != null) {
+                    android.util.Log.i(
+                        TAG,
+                        "Surcharge removed: refresh amount, txnReqId=$transactionRequestId, " +
+                            "newTotal=$newTotalDollars (was total=${transaction.totalAmount}, " +
+                            "surcharge=${transaction.surchargeAmount})"
+                    )
+                    withProgress.copy(
+                        surchargeAmount = BigDecimal.ZERO,
+                        totalAmount = newTotalDollars
+                    )
+                } else {
+                    android.util.Log.w(
+                        TAG,
+                        "Surcharge removed event missing/invalid totalAmount, txnReqId=$transactionRequestId, " +
+                            "data=${headlessProgressEvent.data}"
+                    )
+                    withProgress
+                }
+            } else {
+                withProgress
+            }
         }
     }
     
