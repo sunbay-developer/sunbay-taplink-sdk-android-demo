@@ -25,6 +25,7 @@ import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.components.*
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import java.math.BigDecimal
 
 /**
@@ -66,8 +67,22 @@ fun MainScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToProgress: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
+    val isAppToAppHeadless = remember(state.connectionStatus) {
+        ConnectionPreferences.getConnectionMode(context) == ConnectionPreferences.ConnectionMode.APP_TO_APP &&
+            ConnectionPreferences.getAppToAppMode(context) == ConnectionPreferences.AppToAppMode.HEADLESS
+    }
+    val isHiddenInHeadless: (PaymentOption) -> Boolean = { option ->
+        option.isQr || (option.isEbt && !option.isEbtAllowedInHeadless)
+    }
+
+    LaunchedEffect(isAppToAppHeadless, state.selectedPaymentOption) {
+        if (isAppToAppHeadless && isHiddenInHeadless(state.selectedPaymentOption)) {
+            viewModel.handleIntent(MainIntent.SelectPaymentOption(PaymentOption.CARD_SALE))
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -144,6 +159,7 @@ fun MainScreen(
                             enabled = state.canProcessPayment,
                             isLoading = state.isInitiatingPayment,
                             selectedOption = state.selectedPaymentOption,
+                            applyHeadlessOptionRule = isAppToAppHeadless,
                             onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
                             onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
                         )
@@ -206,6 +222,7 @@ fun MainScreen(
                         enabled = state.canProcessPayment,
                         isLoading = state.isInitiatingPayment,
                         selectedOption = state.selectedPaymentOption,
+                        applyHeadlessOptionRule = isAppToAppHeadless,
                         onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
                         onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
                     )
@@ -383,7 +400,8 @@ private fun EnhancedOrderSummary(
 
 /**
  * ModernPaymentButton - Single Pay button with dropdown to select payment option.
- * Options are grouped by Card (Sale/Auth/Forced Auth) and EBT (SNAP/VOUCHER; BENEFIT hidden, logic retained).
+ * Options are grouped by Card / EBT / QR.
+ * In App-to-App Headless mode, QR is hidden and EBT keeps only SNAP/BENEFIT.
  * Default: Card - Sale.
  */
 @Composable
@@ -391,13 +409,15 @@ private fun ModernPaymentButton(
     enabled: Boolean,
     isLoading: Boolean,
     selectedOption: PaymentOption,
+    applyHeadlessOptionRule: Boolean,
     onPay: () -> Unit,
     onSelectOption: (PaymentOption) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // Hide EBT - BENEFIT from UI for now; logic kept for later
     val groupedOptions = PaymentOption.entries
-        .filter { it != PaymentOption.EBT_BENEFIT }
+        .filterNot {
+            applyHeadlessOptionRule && (it.isQr || (it.isEbt && !it.isEbtAllowedInHeadless))
+        }
         .groupBy { it.group }
 
     Column(

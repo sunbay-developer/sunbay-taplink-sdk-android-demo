@@ -807,17 +807,17 @@ class MainViewModel(
                 // Only types pushed to terminal need polling. Types processed directly
                 // in cloud (VOID, TIP_ADJUST, QUERY, BATCH_CLOSE) are final on API success.
                 val isCloudMode = try {
-                    val context = getApplication<android.app.Application>()
+                    val context = getApplication<Application>()
                     com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
                         .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.CLOUD
                 } catch (e: Exception) { false }
                 
                 if (isCloudMode) {
                     val txn = transactionRepository.getTransactionByRequestId(transactionRequestId)
-                    val needsPolling = txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.VOID &&
-                                      txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.TIP_ADJUST &&
-                                      txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.QUERY &&
-                                      txn?.type != com.sunmi.tapro.taplink.demo.model.TransactionType.BATCH_CLOSE
+                    val needsPolling = txn?.type != TransactionType.VOID &&
+                                      txn?.type != TransactionType.TIP_ADJUST &&
+                                      txn?.type != TransactionType.QUERY &&
+                                      txn?.type != TransactionType.BATCH_CLOSE
                     
                     if (result.isFailed()) {
                         transactionRepository.updateTransactionStatus(

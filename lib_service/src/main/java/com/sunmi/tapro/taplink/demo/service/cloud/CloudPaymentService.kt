@@ -20,6 +20,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 /**
  * Cloud Payment Service implementation using OkHttp-based CloudHttpClient.
@@ -238,6 +241,12 @@ class CloudPaymentService : PaymentService {
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             put("printReceipt", printReceipt)
+            put(
+                "timeExpire",
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(
+                    Calendar.getInstance().apply { add(Calendar.MINUTE, 3) }.time
+                )
+            )
             applyNotifyUrl()
             set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
             cardNetworkType?.let { put("cardNetworkType", it) }
