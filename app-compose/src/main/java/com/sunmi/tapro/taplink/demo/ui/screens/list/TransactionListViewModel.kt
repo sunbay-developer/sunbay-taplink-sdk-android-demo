@@ -16,6 +16,7 @@ import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.util.Constants
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +93,11 @@ class TransactionListViewModel(
             is TransactionListIntent.BatchClose -> batchClose()
             is TransactionListIntent.ShowBatchCloseDialog -> showBatchCloseDialog()
             is TransactionListIntent.HideBatchCloseDialog -> hideBatchCloseDialog()
-            is TransactionListIntent.StandaloneRefund -> standaloneRefund(intent.amount)
+            is TransactionListIntent.StandaloneRefund -> standaloneRefund(
+                amount = intent.amount,
+                paymentCategory = intent.paymentCategory,
+                cardNetworkType = intent.cardNetworkType
+            )
             is TransactionListIntent.ShowStandaloneRefundDialog -> showStandaloneRefundDialog()
             is TransactionListIntent.HideStandaloneRefundDialog -> hideStandaloneRefundDialog()
             is TransactionListIntent.ClearAllTransactions -> clearAllTransactions()
@@ -451,8 +456,14 @@ class TransactionListViewModel(
      * then navigates to the progress screen.
      * 
      * @param amount Refund amount as string
+     * @param paymentCategory Payment category (CARD / EBT)
+     * @param cardNetworkType Card network type (CREDIT / DEBIT), null means auto
      */
-    private fun standaloneRefund(amount: String) {
+    private fun standaloneRefund(
+        amount: String,
+        paymentCategory: PaymentCategory,
+        cardNetworkType: String?
+    ) {
         viewModelScope.launch {
             try {
                 // Validate amount
@@ -540,6 +551,8 @@ class TransactionListViewModel(
                     currency = CURRENCY,
                     description = "Standalone Refund",
                     reason = "Standalone refund",
+                    paymentCategory = paymentCategory,
+                    cardNetworkType = cardNetworkType,
                     callback = createNavigatingStandaloneRefundCallback(
                         transactionRequestId = transactionRequestId,
                         isAppToApp = isAppToApp,

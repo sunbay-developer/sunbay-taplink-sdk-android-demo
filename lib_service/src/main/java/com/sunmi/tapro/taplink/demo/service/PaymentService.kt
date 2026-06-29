@@ -93,6 +93,8 @@ interface PaymentService {
      * @param paymentCategory Payment category for routing (CARD, QR_MPM, QR_CPM). When null,
      *   defaults to CARD. For referenced refunds of QR transactions, pass QR_MPM or QR_CPM
      *   so the terminal routes to the correct QR refund flow.
+     * @param cardNetworkType Optional card network for CARD refunds (e.g. CREDIT/DEBIT).
+     *   Used by standalone refund UI to force routing to a specific card network.
      * @see <a href="https://docs.sunbay.dev/zh/refspec/transaction/refund">Refund API</a>
      */
     fun executeRefund(
@@ -105,6 +107,7 @@ interface PaymentService {
         description: String,
         reason: String?,
         paymentCategory: PaymentCategory? = null,
+        cardNetworkType: String? = null,
         callback: PaymentCallback
     )
 
@@ -323,11 +326,13 @@ data class PaymentResult(
     /**
      * Check whether request-level result code indicates transport/gateway success.
      *
-     * In Taplink protocol, code="100" means the request itself is accepted successfully.
-     * Any non-100 code should be treated as a terminal failure even if transactionStatus
-     * is reported as PROCESSING by upstream.
+     * Cloud API commonly returns code="100" for accepted requests. Some SDK pathways may
+     * return other transport codes (for example "50") while still reporting a terminal
+     * transaction status like SUCCESS/FAILED. Status fields must take precedence when present.
      */
     private fun isRequestAccepted(): Boolean = code == "100"
+
+    private fun normalizedStatus(): String? = transactionStatus?.uppercase()
 
     /**
      * Cloud API returns single-letter status codes: I, P, S, F, C
@@ -341,18 +346,35 @@ data class PaymentResult(
      *   F = Failed - terminal (includes cancelled/aborted transactions)
      *   C = Cancelled - terminal (transaction was cancelled)
      */
-    fun isSuccess(): Boolean = isRequestAccepted() &&
-        (transactionStatus == "S" || transactionStatus == "SUCCESS")
+    fun isSuccess(): Boolean {
+        return when (normalizedStatus()) {
+            "S", "SUCCESS" -> true
+            else -> false
+        }
+    }
 
-    fun isProcessing(): Boolean = isRequestAccepted() &&
-        (transactionStatus == "P" || transactionStatus == "I" || transactionStatus == "PROCESSING")
+    fun isProcessing(): Boolean {
+        return when (normalizedStatus()) {
+            "P", "I", "PROCESSING" -> true
+            else -> false
+        }
+    }
 
-    fun isFailed(): Boolean = !isRequestAccepted() ||
-        transactionStatus == "F" ||
-        transactionStatus == "FAILED"
+    fun isFailed(): Boolean {
+        return when (normalizedStatus()) {
+            "F", "FAILED" -> true
+            "S", "SUCCESS", "P", "I", "PROCESSING", "C", "CANCELLED", "CANCELED" -> false
+            null, "" -> !isRequestAccepted()
+            else -> !isRequestAccepted()
+        }
+    }
 
-    fun isCancelled(): Boolean = isRequestAccepted() &&
-        (transactionStatus == "C" || transactionStatus == "CANCELLED")
+    fun isCancelled(): Boolean {
+        return when (normalizedStatus()) {
+            "C", "CANCELLED", "CANCELED" -> true
+            else -> false
+        }
+    }
 
     fun isTerminal(): Boolean = isSuccess() || isFailed() || isCancelled()
 }

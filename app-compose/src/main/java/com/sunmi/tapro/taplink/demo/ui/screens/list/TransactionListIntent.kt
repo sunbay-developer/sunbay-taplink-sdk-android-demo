@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.list
 
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 
 /**
  * Sealed class representing all possible user intents/actions on the Transaction List Screen
@@ -65,7 +66,11 @@ sealed class TransactionListIntent {
     /**
      * Perform standalone refund operation
      */
-    data class StandaloneRefund(val amount: String) : TransactionListIntent()
+    data class StandaloneRefund(
+        val amount: String,
+        val paymentCategory: PaymentCategory,
+        val cardNetworkType: String?
+    ) : TransactionListIntent()
     
     /**
      * Show standalone refund dialog

@@ -2059,6 +2059,7 @@ class TransactionProgressActivity : AppCompatActivity() {
                         currency = transaction.currency,
                         description = "Refund transaction from TransactionProgressActivity",
                         reason = "User requested refund",
+                        cardNetworkType = null,
                         callback = callback
                     )
                 }
