@@ -907,20 +907,17 @@ class TransactionListViewModel(
                                 cardBrand = sdkCard.cardBrand
                             )
                         }
-                        // Map SDK batch-close summary to the demo model. SDK amounts use the
-                        // smallest currency unit (cents) and individual fields may be null, so
-                        // convert to dollars and apply ZERO fallbacks to keep the dialog robust.
+                        // lib_service 已将金额从分换算为元，这里直接使用，避免重复换算导致显示偏小 100 倍。
                         val batchCloseInfo = result.batchCloseInfo?.let {
                             com.sunmi.tapro.taplink.demo.model.BatchCloseInfo(
-                                totalCount = it.totalCount ?: 0,
-                                totalAmount = it.totalAmount?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
-                                totalTip = it.totalTip?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
-                                totalTax = it.totalTax?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
-                                cashDiscount = it.cashDiscount?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
-                                // 已发布 SDK AAR 的 BatchCloseInfo 暂无 totalSurchargeAmount 字段，先置 0；
-                                // 升级到带该字段的 AAR 后改为 it.totalSurchargeAmount?.movePointLeft(2)。
-                                totalSurchargeAmount = java.math.BigDecimal.ZERO,
-                                closeTime = it.closeTime ?: ""
+                                totalCount = it.totalCount,
+                                totalAmount = it.totalAmount,
+                                totalTip = it.totalTip,
+                                totalTax = it.totalTax,
+                                cashDiscount = it.cashDiscount,
+                                totalSurchargeAmount = it.totalSurchargeAmount,
+                                totalServiceFee = it.totalServiceFee,
+                                closeTime = it.closeTime
                             )
                         }
                         transactionRepository.updateTransactionWithAmounts(

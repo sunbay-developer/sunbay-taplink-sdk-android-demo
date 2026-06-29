@@ -196,6 +196,7 @@ data class BatchCloseInfo(
     val totalTip: BigDecimal,
     val totalTax: BigDecimal,
     val totalSurchargeAmount: BigDecimal,
+    val totalServiceFee: BigDecimal,
     val cashDiscount: BigDecimal,
     val closeTime: String
 )

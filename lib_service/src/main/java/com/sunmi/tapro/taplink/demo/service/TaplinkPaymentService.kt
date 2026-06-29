@@ -434,6 +434,7 @@ class TaplinkPaymentService : PaymentService {
                     totalAmount = toDollars(bci.totalAmount) ?: BigDecimal.ZERO,
                     totalTip = toDollars(bci.totalTip) ?: BigDecimal.ZERO,
                     totalTax = toDollars(bci.totalTax) ?: BigDecimal.ZERO,
+                    totalSurchargeAmount = toDollars(bci.totalSurchargeAmount) ?: BigDecimal.ZERO,
                     totalServiceFee = toDollars(bci.totalServiceFee) ?: BigDecimal.ZERO,
                     cashDiscount = toDollars(bci.cashDiscount) ?: BigDecimal.ZERO,
                     closeTime = bci.closeTime ?: ""

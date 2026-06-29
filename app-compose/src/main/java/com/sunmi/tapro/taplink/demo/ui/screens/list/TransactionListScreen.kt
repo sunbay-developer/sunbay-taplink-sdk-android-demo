@@ -468,6 +468,8 @@ private fun BatchCloseResultDialog(
                     BatchCloseSummaryRow(label = "Total Amount", value = AmountFormatter.format(result.totalAmount))
                     BatchCloseSummaryRow(label = "Total Tip", value = AmountFormatter.format(result.totalTip))
                     BatchCloseSummaryRow(label = "Total Tax", value = AmountFormatter.format(result.totalTax))
+                    BatchCloseSummaryRow(label = "Total Surcharge", value = AmountFormatter.format(result.totalSurchargeAmount))
+                    BatchCloseSummaryRow(label = "Total Service Fee", value = AmountFormatter.format(result.totalServiceFee))
                     BatchCloseSummaryRow(label = "Cash Discount", value = AmountFormatter.format(result.cashDiscount))
                     if (result.closeTime.isNotBlank()) {
                         BatchCloseSummaryRow(label = "Close Time", value = result.closeTime)

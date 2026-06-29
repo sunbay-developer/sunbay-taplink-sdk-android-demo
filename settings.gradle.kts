@@ -32,4 +32,4 @@ rootProject.name = "TaplinkDemo"
 include(":app")
 include(":app-compose")
 include(":lib_service")
-//include(":lib_taplink_sdk")
+include(":lib_taplink_sdk")

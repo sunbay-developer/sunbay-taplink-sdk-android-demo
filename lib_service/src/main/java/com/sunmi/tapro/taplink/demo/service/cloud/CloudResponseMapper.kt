@@ -118,7 +118,8 @@ object CloudResponseMapper {
             totalAmount = cents("netAmount") ?: BigDecimal.ZERO,
             totalTip = cents("tipAmount") ?: BigDecimal.ZERO,
             totalTax = cents("taxAmount") ?: BigDecimal.ZERO,
-            totalServiceFee = cents("surchargeAmount") ?: BigDecimal.ZERO,
+            totalSurchargeAmount = cents("surchargeAmount") ?: BigDecimal.ZERO,
+            totalServiceFee = cents("serviceFeeAmount") ?: BigDecimal.ZERO,
             cashDiscount = BigDecimal.ZERO,
             closeTime = str("batchTime") ?: ""
         )
