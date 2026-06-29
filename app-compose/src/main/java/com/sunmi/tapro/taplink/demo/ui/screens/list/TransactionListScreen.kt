@@ -25,6 +25,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.detail.TransactionDetailScreen
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.EmptyState
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.QuickFilterChips
+import com.sunmi.tapro.taplink.demo.ui.screens.list.table.TransactionListTableScreen
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 
@@ -66,6 +67,27 @@ fun TransactionListScreen(
     var topBarMenuExpanded by remember { mutableStateOf(false) }
     val screenConfig = rememberScreenConfig()
     var selectedTransactionId by remember { mutableStateOf<String?>(null) }
+    val displayList = state.getDisplayList()
+
+    // In landscape master-detail mode, default to the first transaction and
+    // keep the selection valid when filters/data change.
+    LaunchedEffect(screenConfig.isLandscape, displayList, selectedTransactionId) {
+        if (!screenConfig.isLandscape) return@LaunchedEffect
+
+        val firstTransactionId = displayList
+            .firstOrNull()
+            ?.transactions
+            ?.firstOrNull()
+            ?.transactionRequestId
+
+        val selectedStillExists = selectedTransactionId != null && displayList.any { orderGroup ->
+            orderGroup.transactions.any { it.transactionRequestId == selectedTransactionId }
+        }
+
+        if (!selectedStillExists) {
+            selectedTransactionId = firstTransactionId
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -200,7 +222,7 @@ fun TransactionListScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(
-                                items = state.getDisplayList(),
+                                items = displayList,
                                 key = { orderGroup -> orderGroup.orderId }
                             ) { orderGroup ->
                                 val isSelected = screenConfig.isLandscape &&
@@ -226,33 +248,20 @@ fun TransactionListScreen(
                 }
             }
 
-            if (screenConfig.isLandscape && selectedTransactionId != null) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .weight(0.40f)
-                            .fillMaxSize()
-                    ) {
-                        ListContentColumn()
-                    }
-                    VerticalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(0.60f)
-                            .fillMaxSize()
-                    ) {
+            if (screenConfig.isLandscape) {
+                TransactionListTableScreen(
+                    selectedTransactionId = selectedTransactionId,
+                    listContent = { ListContentColumn() },
+                    detailContent = { transactionId ->
                         TransactionDetailScreen(
-                            transactionId = selectedTransactionId!!,
+                            transactionId = transactionId,
                             onNavigateBack = { selectedTransactionId = null },
                             onNavigateToProgress = onNavigateToProgress,
                             embeddedInMasterDetail = true,
                             onCloseDetail = { selectedTransactionId = null }
                         )
                     }
-                }
+                )
             } else {
                 ListContentColumn()
             }

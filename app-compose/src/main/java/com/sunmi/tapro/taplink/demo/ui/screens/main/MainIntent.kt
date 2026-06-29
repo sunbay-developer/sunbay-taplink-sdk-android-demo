@@ -30,6 +30,7 @@ sealed class MainIntent {
     
     // Payment Operations
     object ProcessPayment : MainIntent()
+    object BeginCheckoutFlow : MainIntent()
     data class SelectPaymentOption(val option: PaymentOption) : MainIntent()
     
     // Navigation

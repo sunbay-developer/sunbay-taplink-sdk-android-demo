@@ -59,6 +59,7 @@ import com.sunmi.tapro.taplink.demo.util.CloudPreferences
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
+import com.sunmi.tapro.taplink.demo.ui.screens.settings.table.SettingsTableScreen
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
@@ -126,40 +127,19 @@ fun SettingsScreen(
                 .padding(padding)
         ) {
             if (screenConfig.isLandscape) {
-                // Landscape: settings category sidebar + right detail panel
-                Row(modifier = Modifier.fillMaxSize()) {
-                    SettingsCategorySidebar(
-                        selectedSection = selectedSection,
-                        onSectionSelect = { selectedSection = it },
-                        isTesting = state.isTesting,
-                        isConfigValid = state.isConfigurationValid(),
-                        onConnect = { onIntent(SettingsIntent.TestConnection) },
-                        onExit = { onIntent(SettingsIntent.ExitApplication) }
-                    )
-                    VerticalDivider()
-                    // Right panel: selected section content
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp, vertical = 20.dp)
-                    ) {
-                        // Section title header
-                        Text(
-                            text = getSectionName(selectedSection).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                SettingsTableScreen(
+                    sectionTitle = getSectionName(selectedSection),
+                    sidebar = {
+                        SettingsCategorySidebar(
+                            selectedSection = selectedSection,
+                            onSectionSelect = { selectedSection = it },
+                            isTesting = state.isTesting,
+                            isConfigValid = state.isConfigurationValid(),
+                            onConnect = { onIntent(SettingsIntent.TestConnection) },
+                            onExit = { onIntent(SettingsIntent.ExitApplication) }
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = getSectionName(selectedSection),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(top = 12.dp, bottom = 20.dp))
+                    },
+                    detailContent = {
                         when (selectedSection) {
                             SettingsSection.CONFIGURATION -> {
                                 UnifiedConfigurationSectionContent(
@@ -174,11 +154,11 @@ fun SettingsScreen(
                                     )
                                 }
                             }
+
                             SettingsSection.DIAGNOSTICS -> CheckSectionContent()
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                }
+                )
             } else {
                 // Portrait: three section cards stacked + fixed bottom action bar
                 Column(modifier = Modifier.fillMaxSize()) {
