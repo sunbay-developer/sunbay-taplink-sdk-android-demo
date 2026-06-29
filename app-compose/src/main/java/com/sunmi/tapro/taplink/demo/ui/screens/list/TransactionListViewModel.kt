@@ -366,15 +366,22 @@ class TransactionListViewModel(
      * then navigates to the progress screen.
      */
     private fun batchClose() {
+        // 防重复批结：已有批结进行中时直接忽略本次请求，避免重复结算（财务风险）。
+        // 这是权威守卫——即使 UI 未及时禁用导致连点，也不会触发第二次结算。
+        if (_state.value.batchCloseInProgress) {
+            android.util.Log.w(TAG, "Batch close already in progress, ignoring duplicate request")
+            return
+        }
+        // 同步置位（在启动协程之前）：handleIntent 在主线程同步执行，连点时第二次会在此读到
+        // batchCloseInProgress=true 而被守卫拦截，避免「两次都在协程置位前通过守卫」的竞态。
+        _state.update {
+            it.copy(
+                batchCloseInProgress = true,
+                showBatchCloseDialog = false
+            )
+        }
         viewModelScope.launch {
             try {
-                _state.update { 
-                    it.copy(
-                        batchCloseInProgress = true,
-                        showBatchCloseDialog = false
-                    ) 
-                }
-                
                 // Generate transaction request ID for batch close
                 val timestamp = System.currentTimeMillis()
                 val transactionRequestId = "${Constants.TRANSACTION_REQUEST_ID_PREFIX}${timestamp}"
@@ -587,6 +594,11 @@ class TransactionListViewModel(
     }
     
     private fun showBatchCloseDialog() {
+        // 操作进行中（含批结/查询/退款）时不弹确认框，从源头避免重复结算入口。
+        if (_state.value.isAnyOperationInProgress()) {
+            android.util.Log.w(TAG, "An operation is in progress, ignoring batch close request")
+            return
+        }
         _state.update { it.copy(showBatchCloseDialog = true) }
     }
     
@@ -916,23 +928,29 @@ class TransactionListViewModel(
                                 cardBrand = sdkCard.cardBrand
                             )
                         }
+                        // Map SDK batch-close summary to the demo model. SDK amounts use the
+                        // smallest currency unit (cents) and individual fields may be null, so
+                        // convert to dollars and apply ZERO fallbacks to keep the dialog robust.
+                        val batchCloseInfo = result.batchCloseInfo?.let {
+                            com.sunmi.tapro.taplink.demo.model.BatchCloseInfo(
+                                totalCount = it.totalCount ?: 0,
+                                totalAmount = it.totalAmount?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
+                                totalTip = it.totalTip?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
+                                totalTax = it.totalTax?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
+                                cashDiscount = it.cashDiscount?.movePointLeft(2) ?: java.math.BigDecimal.ZERO,
+                                // 已发布 SDK AAR 的 BatchCloseInfo 暂无 totalSurchargeAmount 字段，先置 0；
+                                // 升级到带该字段的 AAR 后改为 it.totalSurchargeAmount?.movePointLeft(2)。
+                                totalSurchargeAmount = java.math.BigDecimal.ZERO,
+                                closeTime = it.closeTime ?: ""
+                            )
+                        }
                         transactionRepository.updateTransactionWithAmounts(
                             transactionRequestId = transactionRequestId,
                             status = TransactionStatus.SUCCESS,
                             transactionId = result.transactionId,
                             authCode = result.authCode,
                             batchNo = result.batchNo,
-                            batchCloseInfo = result.batchCloseInfo?.let {
-                                com.sunmi.tapro.taplink.demo.model.BatchCloseInfo(
-                                    totalCount = it.totalCount,
-                                    totalAmount = it.totalAmount,
-                                    totalTip = it.totalTip,
-                                    totalTax = it.totalTax,
-                                    cashDiscount = it.cashDiscount,
-                                    totalSurchargeAmount = it.totalTax,
-                                    closeTime = it.closeTime
-                                )
-                            },
+                            batchCloseInfo = batchCloseInfo,
                             completeTime = result.completeTime,
                             cardInfo = cardInfo
                         )

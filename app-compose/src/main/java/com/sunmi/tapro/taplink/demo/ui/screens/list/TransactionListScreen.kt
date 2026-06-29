@@ -92,7 +92,8 @@ fun TransactionListScreen(
                                 }
                                 TextButton(
                                     onClick = { viewModel.handleIntent(TransactionListIntent.ShowBatchCloseDialog) },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    enabled = !state.isAnyOperationInProgress()
                                 ) {
                                     Icon(Icons.Default.DoneAll, contentDescription = null, Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))
@@ -138,6 +139,7 @@ fun TransactionListScreen(
                                         topBarMenuExpanded = false
                                         viewModel.handleIntent(TransactionListIntent.ShowBatchCloseDialog)
                                     },
+                                    enabled = !state.isAnyOperationInProgress(),
                                     leadingIcon = { Icon(Icons.Default.DoneAll, contentDescription = null) }
                                 )
                                 DropdownMenuItem(
