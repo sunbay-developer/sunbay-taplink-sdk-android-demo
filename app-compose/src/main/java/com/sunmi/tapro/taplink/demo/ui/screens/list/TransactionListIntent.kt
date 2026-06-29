@@ -62,6 +62,11 @@ sealed class TransactionListIntent {
      * Hide batch close confirmation dialog
      */
     object HideBatchCloseDialog : TransactionListIntent()
+
+    /**
+     * Dismiss the batch close result dialog (shown after settlement finishes)
+     */
+    object DismissBatchCloseResult : TransactionListIntent()
     
     /**
      * Perform standalone refund operation

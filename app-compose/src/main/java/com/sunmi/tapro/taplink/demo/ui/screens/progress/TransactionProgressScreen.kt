@@ -34,9 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,12 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.model.MessageAction
-import com.sunmi.tapro.taplink.demo.model.BatchCloseInfo
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
-import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
@@ -91,10 +86,6 @@ fun TransactionProgressScreen(
     )
 ) {
     val state by viewModel.state.collectAsState()
-    
-    // Whether the user has dismissed the batch-close settlement summary dialog for this transaction.
-    // Keyed on transactionId so a new batch close shows its own summary again.
-    var batchSummaryDismissed by rememberSaveable(transactionId) { mutableStateOf(false) }
     
     // Load transaction on first composition
     LaunchedEffect(transactionId) {
@@ -544,94 +535,6 @@ fun TransactionProgressScreen(
                 )
             }
         }
-    }
-
-    // Batch close settlement summary dialog: shown once the BATCH_CLOSE transaction succeeds.
-    // This is where headless/app-to-app batch close lands after navigation, so the summary
-    // (batch number, transaction count, totals) is surfaced here rather than on the list screen.
-    val batchTransaction = state.transaction
-    if (batchTransaction != null &&
-        batchTransaction.type == TransactionType.BATCH_CLOSE &&
-        state.isSuccess() &&
-        !batchSummaryDismissed
-    ) {
-        BatchCloseResultDialog(
-            batchNo = batchTransaction.batchNo?.toString(),
-            result = batchTransaction.batchCloseInfo,
-            onDismiss = { batchSummaryDismissed = true }
-        )
-    }
-}
-
-/**
- * Batch Close Result Dialog - POS style.
- *
- * Shows the settlement summary returned by the terminal after a successful batch close
- * (batch number, transaction count, totals, etc.). Works for both cloud and headless modes.
- */
-@Composable
-private fun BatchCloseResultDialog(
-    batchNo: String?,
-    result: BatchCloseInfo?,
-    onDismiss: () -> Unit
-) {
-    PosDialog(
-        onDismissRequest = onDismiss,
-        title = "Batch Closed",
-        subtitle = if (result == null || result.totalCount == 0) {
-            "Settlement completed. No transactions were settled in this batch."
-        } else {
-            "Settlement completed successfully."
-        },
-        icon = Icons.Filled.CheckCircle,
-        iconTint = MaterialTheme.colorScheme.primary,
-        iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
-        confirmText = "Done",
-        onConfirm = onDismiss,
-        // Single acknowledge button — no cancel needed for a result dialog.
-        dismissText = null
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            if (!batchNo.isNullOrBlank()) {
-                BatchCloseSummaryRow(label = "Batch No.", value = batchNo)
-            }
-            if (result != null) {
-                BatchCloseSummaryRow(label = "Transactions", value = result.totalCount.toString())
-                BatchCloseSummaryRow(label = "Total Amount", value = AmountFormatter.format(result.totalAmount))
-                BatchCloseSummaryRow(label = "Total Tip", value = AmountFormatter.format(result.totalTip))
-                BatchCloseSummaryRow(label = "Total Tax", value = AmountFormatter.format(result.totalTax))
-                BatchCloseSummaryRow(label = "Surcharge", value = AmountFormatter.format(result.totalSurchargeAmount))
-                BatchCloseSummaryRow(label = "Cash Discount", value = AmountFormatter.format(result.cashDiscount))
-                if (result.closeTime.isNotBlank()) {
-                    BatchCloseSummaryRow(label = "Close Time", value = result.closeTime)
-                }
-            }
-        }
-    }
-}
-
-/**
- * A single label/value row used inside the batch close result dialog.
- */
-@Composable
-private fun BatchCloseSummaryRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 

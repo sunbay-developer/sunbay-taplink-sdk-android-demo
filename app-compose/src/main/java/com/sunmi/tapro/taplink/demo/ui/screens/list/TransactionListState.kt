@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.list
 
+import com.sunmi.tapro.taplink.demo.model.BatchCloseInfo
 import com.sunmi.tapro.taplink.demo.model.Message
 import com.sunmi.tapro.taplink.demo.model.OrderGroup
 import com.sunmi.tapro.taplink.demo.model.Transaction
@@ -66,6 +67,12 @@ data class TransactionListState(
     
     // Batch close state
     val batchCloseInProgress: Boolean = false,
+
+    // Batch close result dialog: shown while settling and updated when the result arrives.
+    val showBatchCloseResultDialog: Boolean = false,
+    val batchCloseResult: BatchCloseInfo? = null,
+    val batchCloseResultBatchNo: String? = null,
+    val batchCloseError: String? = null,
     
     // Standalone refund state
     val standaloneRefundInProgress: Boolean = false,

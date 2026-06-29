@@ -93,6 +93,7 @@ class TransactionListViewModel(
             is TransactionListIntent.BatchClose -> batchClose()
             is TransactionListIntent.ShowBatchCloseDialog -> showBatchCloseDialog()
             is TransactionListIntent.HideBatchCloseDialog -> hideBatchCloseDialog()
+            is TransactionListIntent.DismissBatchCloseResult -> dismissBatchCloseResult()
             is TransactionListIntent.StandaloneRefund -> standaloneRefund(
                 amount = intent.amount,
                 paymentCategory = intent.paymentCategory,
@@ -379,10 +380,15 @@ class TransactionListViewModel(
         }
         // 同步置位（在启动协程之前）：handleIntent 在主线程同步执行，连点时第二次会在此读到
         // batchCloseInProgress=true 而被守卫拦截，避免「两次都在协程置位前通过守卫」的竞态。
+        // 立即弹出结果弹框（进行中状态），结果回来后在弹框内更新成功/失败，不再跳转进度页。
         _state.update {
             it.copy(
                 batchCloseInProgress = true,
-                showBatchCloseDialog = false
+                showBatchCloseDialog = false,
+                showBatchCloseResultDialog = true,
+                batchCloseResult = null,
+                batchCloseResultBatchNo = null,
+                batchCloseError = null
             )
         }
         viewModelScope.launch {
@@ -406,40 +412,20 @@ class TransactionListViewModel(
                 // Add to repository
                 transactionRepository.addTransaction(transaction)
 
-                // Check connection mode
-                val isAppToApp = try {
-                    val context = getApplication<android.app.Application>()
-                    com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
-                        .getConnectionMode(context) == com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.APP_TO_APP
-                } catch (e: Exception) { false }
-                
-                // Execute batch close �?in App-to-App mode, callback triggers navigation on final result
+                // Execute batch close; the dialog stays on the list screen and is updated on result.
                 paymentService.executeBatchClose(
                     transactionRequestId = transactionRequestId,
                     description = "Batch Close",
-                    callback = createNavigatingBatchCloseCallback(transactionRequestId, isAppToApp)
+                    callback = createBatchCloseCallback(transactionRequestId)
                 )
-                
-                // Non-App-to-App: navigate to progress screen immediately
-                if (!isAppToApp) {
-                    _state.update { 
-                        it.copy(
-                            navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
-                        ) 
-                    }
-                }
                 
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Failed to execute batch close", e)
                 _state.update {
                     it.copy(
                         batchCloseInProgress = false,
-                        message = Message(
-                            type = MessageType.ERROR,
-                            title = "Batch Close Error",
-                            content = e.message ?: "Failed to execute batch close",
-                            actions = listOf(MessageAction.RETRY, MessageAction.DISMISS)
-                        )
+                        showBatchCloseResultDialog = true,
+                        batchCloseError = e.message ?: "Failed to execute batch close"
                     )
                 }
             }
@@ -617,6 +603,20 @@ class TransactionListViewModel(
     
     private fun hideBatchCloseDialog() {
         _state.update { it.copy(showBatchCloseDialog = false) }
+    }
+
+    /**
+     * Dismiss the batch close result dialog and clear its data.
+     */
+    private fun dismissBatchCloseResult() {
+        _state.update {
+            it.copy(
+                showBatchCloseResultDialog = false,
+                batchCloseResult = null,
+                batchCloseResultBatchNo = null,
+                batchCloseError = null
+            )
+        }
     }
     
     private fun showStandaloneRefundDialog() {
@@ -855,47 +855,6 @@ class TransactionListViewModel(
     }
     
     /**
-     * Create a batch close callback that navigates to the progress screen on final result
-     * when in App-to-App mode. Wraps the standard createBatchCloseCallback.
-     */
-    private fun createNavigatingBatchCloseCallback(
-        transactionRequestId: String,
-        isAppToApp: Boolean
-    ): PaymentCallback {
-        val inner = createBatchCloseCallback(transactionRequestId)
-        var navigated = false
-        val navigateOnce = {
-            if (!navigated) {
-                navigated = true
-                _state.update {
-                    it.copy(
-                        navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
-                    )
-                }
-            }
-        }
-        return object : PaymentCallback {
-            override fun onSuccess(result: PaymentResult) {
-                if (isAppToApp) navigateOnce()
-                inner.onSuccess(result)
-            }
-            override fun onFailure(code: String, message: String) {
-                if (isAppToApp) navigateOnce()
-                inner.onFailure(code, message)
-            }
-            override fun onProgress(status: String, message: String) {
-                if (isAppToApp) {
-                    // App-to-App: skip progress updates entirely �?do not write
-                    // intermediate messages to the repository, so the progress
-                    // screen won't flash stale progress on navigation.
-                    return
-                }
-                inner.onProgress(status, message)
-            }
-        }
-    }
-
-    /**
      * Create batch close callback
      * 
      * Creates a PaymentCallback for handling batch close results.
@@ -916,6 +875,13 @@ class TransactionListViewModel(
                             errorCode = result.transactionResultCode ?: result.code,
                             errorMessage = result.message
                         )
+                        _state.update {
+                            it.copy(
+                                showBatchCloseResultDialog = true,
+                                batchCloseResult = null,
+                                batchCloseError = result.message ?: "Batch close failed"
+                            )
+                        }
                     }
                     result.isProcessing() -> {
                         android.util.Log.d(TAG, "Batch close processing: $transactionRequestId")
@@ -967,6 +933,15 @@ class TransactionListViewModel(
                             completeTime = result.completeTime,
                             cardInfo = cardInfo
                         )
+                        // Update the in-progress dialog to show the settlement summary.
+                        _state.update {
+                            it.copy(
+                                showBatchCloseResultDialog = true,
+                                batchCloseResult = batchCloseInfo,
+                                batchCloseResultBatchNo = result.batchNo?.toString(),
+                                batchCloseError = null
+                            )
+                        }
                     }
                     else -> {
                         android.util.Log.w(TAG, "Batch close unknown status: $transactionRequestId, status=${result.transactionStatus}")
@@ -976,6 +951,13 @@ class TransactionListViewModel(
                             errorCode = result.transactionResultCode ?: result.code,
                             errorMessage = result.message ?: "Unknown transaction status"
                         )
+                        _state.update {
+                            it.copy(
+                                showBatchCloseResultDialog = true,
+                                batchCloseResult = null,
+                                batchCloseError = result.message ?: "Unknown transaction status"
+                            )
+                        }
                     }
                 }
                 _state.update { it.copy(batchCloseInProgress = false) }
@@ -992,7 +974,14 @@ class TransactionListViewModel(
                     errorMessage = message
                 )
                 
-                _state.update { it.copy(batchCloseInProgress = false) }
+                _state.update {
+                    it.copy(
+                        batchCloseInProgress = false,
+                        showBatchCloseResultDialog = true,
+                        batchCloseResult = null,
+                        batchCloseError = message
+                    )
+                }
             }
             
             override fun onProgress(status: String, message: String) {

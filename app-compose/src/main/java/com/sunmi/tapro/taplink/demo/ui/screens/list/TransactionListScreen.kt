@@ -18,9 +18,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.MessageAction
+import com.sunmi.tapro.taplink.demo.model.BatchCloseInfo
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.components.OrderCard
 import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
+import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.TransactionDetailScreen
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.EmptyState
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
@@ -298,6 +300,17 @@ fun TransactionListScreen(
         )
     }
     
+    // Batch Close Result Dialog (in-progress → success summary / failure)
+    if (state.showBatchCloseResultDialog) {
+        BatchCloseResultDialog(
+            inProgress = state.batchCloseInProgress,
+            batchNo = state.batchCloseResultBatchNo,
+            result = state.batchCloseResult,
+            error = state.batchCloseError,
+            onDismiss = { viewModel.handleIntent(TransactionListIntent.DismissBatchCloseResult) }
+        )
+    }
+
     // Standalone Refund Dialog
     if (state.showStandaloneRefundDialog) {
         StandaloneRefundDialog(
@@ -399,6 +412,94 @@ private fun BatchCloseDialog(
         onDismiss = onDismiss
     ) {
         // No extra content needed for confirmation
+    }
+}
+
+/**
+ * Batch Close Result Dialog - POS style.
+ *
+ * Opens immediately when batch close starts (showing a progress spinner) and is updated
+ * in place once the result arrives: settlement summary on success, error on failure.
+ */
+@Composable
+private fun BatchCloseResultDialog(
+    inProgress: Boolean,
+    batchNo: String?,
+    result: BatchCloseInfo?,
+    error: String?,
+    onDismiss: () -> Unit
+) {
+    PosDialog(
+        onDismissRequest = { if (!inProgress) onDismiss() },
+        title = when {
+            inProgress -> "Closing Batch..."
+            error != null -> "Batch Close Failed"
+            else -> "Batch Closed"
+        },
+        subtitle = when {
+            inProgress -> "Settling all pending transactions. Please wait."
+            error != null -> error
+            result == null || result.totalCount == 0 -> "Settlement completed. No transactions were settled in this batch."
+            else -> "Settlement completed successfully."
+        },
+        icon = when {
+            inProgress -> null
+            error != null -> Icons.Default.Error
+            else -> Icons.Default.CheckCircle
+        },
+        iconTint = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        iconBackgroundColor = if (error != null) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+        confirmText = "Done",
+        onConfirm = onDismiss,
+        confirmEnabled = !inProgress,
+        // Single acknowledge button; no cancel while a result dialog is showing.
+        dismissText = null
+    ) {
+        when {
+            inProgress -> {
+                CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+            }
+            result != null -> {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (!batchNo.isNullOrBlank()) {
+                        BatchCloseSummaryRow(label = "Batch No.", value = batchNo)
+                    }
+                    BatchCloseSummaryRow(label = "Transactions", value = result.totalCount.toString())
+                    BatchCloseSummaryRow(label = "Total Amount", value = AmountFormatter.format(result.totalAmount))
+                    BatchCloseSummaryRow(label = "Total Tip", value = AmountFormatter.format(result.totalTip))
+                    BatchCloseSummaryRow(label = "Total Tax", value = AmountFormatter.format(result.totalTax))
+                    BatchCloseSummaryRow(label = "Cash Discount", value = AmountFormatter.format(result.cashDiscount))
+                    if (result.closeTime.isNotBlank()) {
+                        BatchCloseSummaryRow(label = "Close Time", value = result.closeTime)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A single label/value row used inside the batch close result dialog.
+ */
+@Composable
+private fun BatchCloseSummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
