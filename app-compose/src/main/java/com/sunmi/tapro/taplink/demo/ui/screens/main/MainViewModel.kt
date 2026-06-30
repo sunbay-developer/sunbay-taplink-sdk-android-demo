@@ -495,8 +495,11 @@ class MainViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // Validate order
-                if (_state.value.orderItems.isEmpty()) {
+                val payableAmount = resolvePayableAmount(preferSubtotal = true)
+
+                // In portrait/direct-pay mode, there may be no product rows.
+                // As long as we have a positive payable amount, allow transaction start.
+                if (payableAmount <= BigDecimal.ZERO) {
                     _state.update {
                         it.copy(
                             message = Message(
@@ -521,8 +524,8 @@ class MainViewModel(
                     referenceOrderId = referenceOrderId,
                     type = TransactionType.SALE,
                     status = TransactionStatus.PENDING,
-                    amount = _state.value.getItemsSubtotal(),
-                    totalAmount = _state.value.totalAmount,
+                    amount = payableAmount,
+                    totalAmount = payableAmount,
                     currency = "USD",
                     timestamp = System.currentTimeMillis(),
                     tipAmount = _state.value.additionalAmounts["Tip"],
@@ -552,7 +555,7 @@ class MainViewModel(
                 paymentService.executeSale(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
-                    amount = _state.value.getItemsSubtotal(),
+                    amount = payableAmount,
                     currency = CURRENCY,
                     description = "Sale - ${_state.value.orderItems.size} items",
                     paymentCategory = paymentCategory,
@@ -605,14 +608,15 @@ class MainViewModel(
     private fun processAuth() {
         viewModelScope.launch {
             try {
-                // Validate order
-                if (_state.value.orderItems.isEmpty()) {
+                val payableAmount = resolvePayableAmount(preferSubtotal = false)
+
+                if (payableAmount <= BigDecimal.ZERO) {
                     _state.update {
                         it.copy(
                             message = Message(
                                 type = MessageType.WARNING,
-                                title = "Empty Order",
-                                content = "Please add items to the order before processing payment",
+                                title = "Invalid Amount",
+                                content = "Please enter a valid amount before processing payment",
                                 actions = listOf(MessageAction.DISMISS)
                             )
                         )
@@ -631,8 +635,8 @@ class MainViewModel(
                     referenceOrderId = referenceOrderId,
                     type = TransactionType.AUTH,
                     status = TransactionStatus.PENDING,
-                    amount = _state.value.totalAmount,
-                    totalAmount = _state.value.totalAmount,
+                    amount = payableAmount,
+                    totalAmount = payableAmount,
                     currency = "USD",
                     timestamp = System.currentTimeMillis()
                 )
@@ -649,7 +653,7 @@ class MainViewModel(
                 paymentService.executeAuth(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
-                    amount = _state.value.totalAmount,
+                    amount = payableAmount,
                     currency = CURRENCY,
                     description = "Auth - ${_state.value.orderItems.size} items",
                     callback = createNavigatingPaymentCallback(transactionRequestId)
@@ -693,14 +697,15 @@ class MainViewModel(
     private fun processForcedAuth() {
         viewModelScope.launch {
             try {
-                // Validate order
-                if (_state.value.orderItems.isEmpty()) {
+                val payableAmount = resolvePayableAmount(preferSubtotal = true)
+
+                if (payableAmount <= BigDecimal.ZERO) {
                     _state.update {
                         it.copy(
                             message = Message(
                                 type = MessageType.WARNING,
-                                title = "Empty Order",
-                                content = "Please add items to the order before processing payment",
+                                title = "Invalid Amount",
+                                content = "Please enter a valid amount before processing payment",
                                 actions = listOf(MessageAction.DISMISS)
                             )
                         )
@@ -719,8 +724,8 @@ class MainViewModel(
                     referenceOrderId = referenceOrderId,
                     type = TransactionType.FORCED_AUTH,
                     status = TransactionStatus.PENDING,
-                    amount = _state.value.getItemsSubtotal(),
-                    totalAmount = _state.value.totalAmount,
+                    amount = payableAmount,
+                    totalAmount = payableAmount,
                     currency = "USD",
                     timestamp = System.currentTimeMillis(),
                     tipAmount = _state.value.additionalAmounts["Tip"],
@@ -739,7 +744,7 @@ class MainViewModel(
                 paymentService.executeForcedAuth(
                     referenceOrderId = referenceOrderId,
                     transactionRequestId = transactionRequestId,
-                    amount = _state.value.getItemsSubtotal(),
+                    amount = payableAmount,
                     currency = CURRENCY,
                     description = "Forced Auth - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
@@ -1053,6 +1058,21 @@ class MainViewModel(
                 totalAmount = BigDecimal.ZERO,
                 canProcessPayment = true
             )
+        }
+    }
+
+    /**
+     * Resolve final payable amount for direct payment flows.
+     * preferSubtotal=true keeps existing SALE/FORCED_AUTH semantics when items exist,
+     * but still allows portrait direct-pay with totalAmount fallback.
+     */
+    private fun resolvePayableAmount(preferSubtotal: Boolean): BigDecimal {
+        val subtotal = _state.value.getItemsSubtotal()
+        val total = _state.value.totalAmount
+        return if (preferSubtotal) {
+            if (subtotal > BigDecimal.ZERO) subtotal else total
+        } else {
+            if (total > BigDecimal.ZERO) total else subtotal
         }
     }
 }

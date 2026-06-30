@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,6 +70,7 @@ import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
+import com.sunmi.tapro.taplink.demo.ui.components.CardReadAnimation
 import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
 import com.sunmi.tapro.taplink.demo.ui.screens.progress.table.TransactionProgressTableScreen
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
@@ -173,6 +175,13 @@ fun TransactionProgressScreen(
             }
         }
 
+        // Portrait safeguard: if a READY_TO_PAY draft is opened, start SDK payment immediately.
+        LaunchedEffect(screenConfig.isLandscape, state.isReadyForPaymentSelection(), state.isStartingPayment) {
+            if (!screenConfig.isLandscape && state.isReadyForPaymentSelection() && !state.isStartingPayment) {
+                viewModel.handleIntent(TransactionProgressIntent.StartSelectedPayment)
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -216,7 +225,8 @@ fun TransactionProgressScreen(
                     },
                     onCancelOrder = {
                         viewModel.handleIntent(TransactionProgressIntent.CancelOrder)
-                    }
+                    },
+                    onDone = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
                 )
             } else {
                 PortraitProgressLayout(
@@ -241,7 +251,8 @@ fun TransactionProgressScreen(
                     },
                     onRetry = { viewModel.handleIntent(TransactionProgressIntent.RetryTransaction) },
                     onQuery = { viewModel.handleIntent(TransactionProgressIntent.QueryTransaction) },
-                    onCheckOut = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
+                    onCheckOut = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) },
+                    onDone = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
                 )
             }
 
@@ -282,28 +293,24 @@ private fun PortraitProgressLayout(
     onRetry: () -> Unit,
     onQuery: () -> Unit,
     onCheckOut: () -> Unit,
+    onDone: () -> Unit,
     onSelectPaymentOption: (PaymentOption) -> Unit,
     onStartPayment: () -> Unit,
     onToggleSplit: () -> Unit,
     onSplitAmountChange: (String) -> Unit
 ) {
-    Column(
+    // Portrait: Show only progress panel, no product details
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(12.dp)
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            SettleLeftPanel(state = state)
-        }
-        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            shape = RoundedCornerShape(12.dp)
+                .fillMaxSize(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             SettleRightPanel(
                 state = state,
@@ -317,7 +324,9 @@ private fun PortraitProgressLayout(
                 onStartPayment = onStartPayment,
                 onToggleSplit = onToggleSplit,
                 onSplitAmountChange = onSplitAmountChange,
-                onCancelOrder = {}
+                onDone = onDone,
+                onCancelOrder = {},
+                useTableSplitUi = false,
             )
         }
     }
@@ -471,11 +480,13 @@ internal fun SettleRightPanel(
     onStartPayment: () -> Unit,
     onToggleSplit: () -> Unit,
     onSplitAmountChange: (String) -> Unit,
+    onDone: () -> Unit = {},
     onCancelOrder: () -> Unit = {},
     onSplitCountChange: (Int) -> Unit = {},
     onSplitLinePaymentOptionChange: (Int, PaymentOption) -> Unit = { _, _ -> },
     onSplitLineAmountChange: (Int, String) -> Unit = { _, _ -> },
-    onStartSplitLinePayment: (Int) -> Unit = {}
+    onStartSplitLinePayment: (Int) -> Unit = {},
+    useTableSplitUi: Boolean = false
 ) {
     val paymentLabel = state.transaction?.headlessPaymentMethodLabel()
         .takeUnless { it.isNullOrBlank() }
@@ -590,10 +601,10 @@ internal fun SettleRightPanel(
                                 }
                             }
 
-                            val allSplitPaid = state.isSplitMode &&
+                            val allSplitPaid = useTableSplitUi && state.isSplitMode &&
                                 state.splitLines.isNotEmpty() &&
                                 state.splitLines.all { it.isPaid }
-                            if (!allSplitPaid) {
+                            if (useTableSplitUi && !allSplitPaid) {
                                 OutlinedButton(
                                     onClick = onToggleSplit,
                                     modifier = Modifier.height(42.dp),
@@ -609,7 +620,7 @@ internal fun SettleRightPanel(
                             }
                         }
 
-                        if (state.isSplitMode) {
+                        if (useTableSplitUi && state.isSplitMode) {
                             // Split count control: - N +
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -676,7 +687,7 @@ internal fun SettleRightPanel(
                                 }
                             }
                         } else {
-                            // Non-split mode: amount centered, Cancel+Payment buttons at bottom
+                            // Non-split mode: keep portrait simple (Payment only), table shows Cancel+Payment.
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -689,30 +700,56 @@ internal fun SettleRightPanel(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.align(Alignment.Center)
                                 )
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .align(Alignment.BottomCenter),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = onCancelOrder,
+                                if (useTableSplitUi) {
+                                    Row(
                                         modifier = Modifier
-                                            .weight(1f)
-                                            .height(52.dp),
-                                        shape = RoundedCornerShape(10.dp)
+                                            .fillMaxWidth()
+                                            .align(Alignment.BottomCenter),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Text(
-                                            text = "Cancel",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        OutlinedButton(
+                                            onClick = onCancelOrder,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(52.dp),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Text(
+                                                text = "Cancel",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Button(
+                                            onClick = onStartPayment,
+                                            enabled = !state.isStartingPayment,
+                                            modifier = Modifier
+                                                .weight(2f)
+                                                .height(52.dp),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            if (state.isStartingPayment) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(18.dp),
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    strokeWidth = 2.dp
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                            }
+                                            Text(
+                                                text = if (state.isStartingPayment) "Starting..." else "Payment",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
+                                } else {
                                     Button(
                                         onClick = onStartPayment,
                                         enabled = !state.isStartingPayment,
                                         modifier = Modifier
-                                            .weight(2f)
+                                            .fillMaxWidth()
+                                            .align(Alignment.BottomCenter)
                                             .height(52.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -741,17 +778,38 @@ internal fun SettleRightPanel(
                 }
 
                 state.isPending() -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(68.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 6.dp
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = state.getStatusDisplayText(),
-                        style = MaterialTheme.typography.titleLarge,
-                        textAlign = TextAlign.Center
-                    )
+                    // Show card animation when waiting for card, otherwise show spinner
+                    val isWaitingCard = state.headlessProgressEvent?.eventCode
+                        ?.equals("WAITING_CARD", ignoreCase = true) == true ||
+                        state.progressStatus.equals("WAITING_CARD", ignoreCase = true)
+
+                    if (isWaitingCard) {
+                        val cardTypeStrings = state.headlessProgressEvent?.waitingCardTypes
+                            ?: emptyList()
+                        val animResId = com.sunmi.tapro.taplink.demo.device.getCardAnimationResIdFromStrings(cardTypeStrings)
+                        CardReadAnimation(
+                            animationResId = animResId,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = state.getStatusDisplayText(),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(68.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 6.dp
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = state.getStatusDisplayText(),
+                            style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 state.isSuccess() -> {
@@ -799,13 +857,13 @@ internal fun SettleRightPanel(
         }
 
         val canAbortPayment = state.isPending() && !state.isReadyForPaymentSelection()
-        if (canAbortPayment || state.canRetry || canSwitchToManualEntry) {
+        if (canAbortPayment || canSwitchToManualEntry) {
             Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
                 if (canAbortPayment) {
                     OutlinedButton(onClick = onAbort) { Text("Abort") }
@@ -813,13 +871,71 @@ internal fun SettleRightPanel(
                 if (canSwitchToManualEntry) {
                     OutlinedButton(onClick = onSwitchToManualEntry) { Text("Switch Manual") }
                 }
-                if (state.isComplete() && !state.isSuccess() && state.transaction?.type != TransactionType.BATCH_CLOSE) {
-                    OutlinedButton(onClick = onQuery, enabled = !state.isQuerying) {
-                        Text(if (state.isQuerying) "Querying..." else "Query")
+            }
+        }
+
+        // Action buttons when transaction is complete
+        if (state.isComplete()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!state.isSuccess() && state.transaction?.type != TransactionType.BATCH_CLOSE) {
+                    OutlinedButton(
+                        onClick = onQuery,
+                        enabled = !state.isQuerying,
+                        modifier = Modifier.height(48.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (state.isQuerying) "Querying..." else "Query",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
                 if (state.canRetry) {
-                    Button(onClick = onRetry) { Text("Retry") }
+                    OutlinedButton(
+                        onClick = onRetry,
+                        modifier = Modifier.height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Retry",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                Button(
+                    onClick = onDone,
+                    modifier = Modifier
+                        .width(160.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "Done",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

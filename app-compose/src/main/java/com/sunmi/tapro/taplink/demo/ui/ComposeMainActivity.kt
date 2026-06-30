@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sunmi.tapro.taplink.demo.device.DeviceProxy
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.navigation.NavGraph
@@ -42,6 +44,15 @@ class ComposeMainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Force screen orientation based on device type:
+        // Tablet devices (P3MIX, P2SmartPad, CPadPay3) use landscape layout,
+        // other devices use portrait layout.
+        requestedOrientation = if (DeviceProxy.device.isTabletDevice) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         setContent {
             TaplinkTheme {

@@ -12,6 +12,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
 import com.sunmi.tapro.taplink.demo.ui.screens.progress.SettleLeftPanel
@@ -35,6 +36,7 @@ fun TransactionProgressTableScreen(
     onSplitLinePaymentOptionChange: (Int, PaymentOption) -> Unit,
     onSplitLineAmountChange: (Int, String) -> Unit,
     onStartSplitLinePayment: (Int) -> Unit,
+    onDone: () -> Unit = {},
     onCancelOrder: () -> Unit = {}
 ) {
     Row(
@@ -48,11 +50,9 @@ fun TransactionProgressTableScreen(
                 .fillMaxHeight()
                 .weight(0.38f),
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             SettleLeftPanel(state = state)
         }
@@ -62,9 +62,9 @@ fun TransactionProgressTableScreen(
                 .fillMaxHeight()
                 .weight(0.62f),
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             SettleRightPanel(
                 state = state,
@@ -82,7 +82,9 @@ fun TransactionProgressTableScreen(
                 onSplitLinePaymentOptionChange = onSplitLinePaymentOptionChange,
                 onSplitLineAmountChange = onSplitLineAmountChange,
                 onStartSplitLinePayment = onStartSplitLinePayment,
-                onCancelOrder = onCancelOrder
+                onDone = onDone,
+                onCancelOrder = onCancelOrder,
+                useTableSplitUi = true
             )
         }
     }
