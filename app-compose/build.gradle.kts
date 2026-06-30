@@ -143,7 +143,8 @@ dependencies {
     // Compose ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
-    
+    implementation(libs.androidx.compose.material3.material3)
+
     // Compose debugging
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

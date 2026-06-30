@@ -15,12 +15,14 @@ import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
 import com.sunmi.tapro.taplink.demo.service.PaymentService
+import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.Constants
 import com.sunmi.tapro.taplink.demo.util.ErrorHandler
 import com.sunmi.tapro.taplink.demo.util.RetryManager
 import com.sunmi.tapro.taplink.demo.util.RetryManagerFactory
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
+import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,7 +96,120 @@ class TransactionProgressViewModel(
             is TransactionProgressIntent.ClearNavigationEvent -> clearNavigationEvent()
             is TransactionProgressIntent.QueryTransaction -> queryTransaction()
             is TransactionProgressIntent.SwitchToManualEntry -> switchToManualEntry()
+            is TransactionProgressIntent.SelectPaymentOption -> {
+                _state.update { it.copy(selectedPaymentOption = intent.option) }
+            }
+            is TransactionProgressIntent.StartSelectedPayment -> startSelectedPayment()
+            is TransactionProgressIntent.ToggleSplitMode -> {
+                _state.update { current ->
+                    if (current.isSplitMode) {
+                        current.copy(
+                            isSplitMode = false,
+                            splitAmountInput = "",
+                            splitLines = emptyList(),
+                            splitCount = 2,
+                            activeSplitLineIndex = null
+                        )
+                    } else {
+                        val count = 2
+                        val perAmount = current.amount.divide(BigDecimal(count), 2, java.math.RoundingMode.HALF_UP)
+                        val lines = List(count) { SplitLine(paymentOption = current.selectedPaymentOption, amountInput = perAmount.toPlainString()) }
+                        current.copy(
+                            isSplitMode = true,
+                            splitAmountInput = current.amount.toPlainString(),
+                            splitCount = count,
+                            splitLines = lines,
+                            activeSplitLineIndex = null
+                        )
+                    }
+                }
+            }
+            is TransactionProgressIntent.UpdateSplitAmount -> {
+                _state.update { it.copy(splitAmountInput = intent.input) }
+            }
+            is TransactionProgressIntent.UpdateSplitCount -> {
+                _state.update { current ->
+                    val newCount = intent.count.coerceIn(1, 10)
+                    val perAmount = current.amount.divide(BigDecimal(newCount), 2, java.math.RoundingMode.HALF_UP)
+                    val existingLines = current.splitLines
+                    val newLines = List(newCount) { index ->
+                        if (index < existingLines.size) {
+                            existingLines[index].copy(amountInput = perAmount.toPlainString())
+                        } else {
+                            SplitLine(paymentOption = current.selectedPaymentOption, amountInput = perAmount.toPlainString())
+                        }
+                    }
+                    current.copy(
+                        splitCount = newCount,
+                        splitLines = newLines,
+                        activeSplitLineIndex = current.activeSplitLineIndex?.takeIf { it in newLines.indices }
+                    )
+                }
+            }
+            is TransactionProgressIntent.UpdateSplitLinePaymentOption -> {
+                _state.update { current ->
+                    val updatedLines = current.splitLines.toMutableList()
+                    if (intent.index in updatedLines.indices) {
+                        updatedLines[intent.index] = updatedLines[intent.index].copy(paymentOption = intent.option)
+                    }
+                    current.copy(splitLines = updatedLines)
+                }
+            }
+            is TransactionProgressIntent.UpdateSplitLineAmount -> {
+                _state.update { current ->
+                    val updatedLines = current.splitLines.toMutableList()
+                    if (intent.index in updatedLines.indices) {
+                        updatedLines[intent.index] = updatedLines[intent.index].copy(amountInput = intent.input)
+                    }
+                    current.copy(splitLines = updatedLines)
+                }
+            }
+            is TransactionProgressIntent.StartSplitLinePayment -> {
+                startSplitLinePayment(intent.index)
+            }
+            is TransactionProgressIntent.CancelOrder -> cancelOrder()
         }
+    }
+
+    /**
+     * Cancel the current order from READY_TO_PAY state.
+     * Marks the transaction as cancelled locally and navigates back immediately;
+     * sends abort to SDK as fire-and-forget so the terminal session is cleaned up.
+     * The underlying order (referenceOrderId) is preserved so the user can edit and retry.
+     */
+    private fun cancelOrder() {
+        val transaction = currentTransaction ?: run {
+            navigateBack()
+            return
+        }
+
+        // Mark cancelled locally so the repository is consistent.
+        transactionRepository.updateTransactionStatus(
+            transactionRequestId = transaction.transactionRequestId,
+            status = TransactionStatus.FAILED,
+            errorCode = "USER_CANCELLED",
+            errorMessage = "Transaction cancelled by user"
+        )
+
+        // Fire-and-forget abort so the terminal/SDK cleans up without blocking navigation.
+        try {
+            paymentService.executeAbort(
+                originalTransactionId = transaction.transactionId,
+                originalTransactionRequestId = transaction.transactionRequestId,
+                description = "Transaction cancelled by user",
+                callback = object : PaymentCallback {
+                    override fun onSuccess(result: PaymentResult) { /* no-op */ }
+                    override fun onFailure(code: String, message: String) {
+                        Log.w(TAG, "cancelOrder abort failed: $code $message")
+                    }
+                    override fun onProgress(status: String, message: String) { /* no-op */ }
+                }
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelOrder abort threw: ${e.message}")
+        }
+
+        navigateBack()
     }
     
     /**
@@ -145,6 +260,9 @@ class TransactionProgressViewModel(
     private fun updateStateFromTransaction(transaction: Transaction) {
         val isComplete = transaction.status == TransactionStatus.SUCCESS ||
                         transaction.status == TransactionStatus.FAILED
+        val orderItems = transaction.referenceOrderId
+            ?.let { transactionRepository.getOrderItems(it) }
+            .orEmpty()
         
         // Cloud mode: when transaction enters PROCESSING, start polling for final status.
         // pollingJob == null ensures we only start once.
@@ -178,22 +296,115 @@ class TransactionProgressViewModel(
         }
         
         val displayAmount = transaction.getDisplayAmount()
-        
-        _state.update {
-            it.copy(
+        val isReadyToPay = transaction.progressStatus.equals("READY_TO_PAY", ignoreCase = true)
+
+        _state.update { current ->
+            val selectedOption = if (current.transactionId == transaction.transactionRequestId) {
+                current.selectedPaymentOption
+            } else {
+                inferPaymentOption(transaction)
+            }
+            current.copy(
                 transaction = transaction,
+                orderItems = orderItems,
                 transactionType = transaction.getDisplayName(),
                 amount = displayAmount,
                 status = transaction.status,
                 progressStatus = transaction.progressStatus,
                 progressMessage = transaction.progressMessage,
                 headlessProgressEvent = transaction.headlessProgressEvent,
-                isLoading = !isComplete,
-                canNavigateBack = isComplete,
+                isLoading = !isComplete && !isReadyToPay,
+                isStartingPayment = if (isReadyToPay) current.isStartingPayment else false,
+                selectedPaymentOption = selectedOption,
+                canNavigateBack = isComplete || isReadyToPay,
                 canRetry = canRetry,
                 showViewDetailsButton = transaction.status == TransactionStatus.SUCCESS,
                 errorMessage = transaction.errorMessage ?: "",
                 message = createMessageFromTransaction(transaction, canRetry)
+            )
+        }
+
+        // In split mode, after a successful payment, auto-return to READY_TO_PAY
+        // so the user can continue paying the remaining split lines.
+        if (transaction.status == TransactionStatus.SUCCESS && _state.value.isSplitMode) {
+            viewModelScope.launch {
+                delay(1500L) // Brief delay to show success feedback
+                resetToReadyForNextSplit(transaction)
+            }
+        }
+    }
+
+    /**
+     * After a split line payment succeeds, reset the transaction back to READY_TO_PAY
+     * so the user can continue paying the remaining split lines.
+     * Updates the remaining amount and resets UI state.
+     */
+    private fun resetToReadyForNextSplit(transaction: Transaction) {
+        val stateValue = _state.value
+        val updatedLines = stateValue.splitLines.toMutableList()
+        val activeIndex = stateValue.activeSplitLineIndex
+
+        if (activeIndex != null && activeIndex in updatedLines.indices && !updatedLines[activeIndex].isPaid) {
+            updatedLines[activeIndex] = updatedLines[activeIndex].copy(isPaid = true)
+        }
+
+        val remaining = updatedLines
+            .filterNot { it.isPaid }
+            .mapNotNull { it.amountInput.toBigDecimalOrNull() }
+            .fold(BigDecimal.ZERO) { acc, value -> acc + value }
+
+        if (remaining <= BigDecimal.ZERO) {
+            // All split lines have been paid. Keep split page visible with all lines marked as paid.
+            transactionRepository.updateTransaction(transaction.transactionRequestId) { txn ->
+                txn.copy(
+                    status = TransactionStatus.SUCCESS,
+                    progressStatus = "READY_TO_PAY",
+                    progressMessage = "All split orders have been paid",
+                    errorMessage = null,
+                    errorCode = null
+                )
+            }
+
+            _state.update {
+                it.copy(
+                    splitLines = updatedLines,
+                    status = TransactionStatus.SUCCESS,
+                    progressStatus = "READY_TO_PAY",
+                    progressMessage = "All split orders have been paid",
+                    activeSplitLineIndex = null,
+                    isStartingPayment = false,
+                    canNavigateBack = true,
+                    canRetry = false,
+                    showViewDetailsButton = true,
+                    errorMessage = ""
+                )
+            }
+            return
+        }
+
+        // Reset the transaction progress back to READY_TO_PAY
+        transactionRepository.updateTransaction(transaction.transactionRequestId) { txn ->
+            txn.copy(
+                status = TransactionStatus.PROCESSING,
+                progressStatus = "READY_TO_PAY",
+                progressMessage = "Ready for next split payment",
+                errorMessage = null,
+                errorCode = null
+            )
+        }
+
+        _state.update {
+            it.copy(
+                splitLines = updatedLines,
+                status = TransactionStatus.PROCESSING,
+                progressStatus = "READY_TO_PAY",
+                progressMessage = "Ready for next split payment",
+                isStartingPayment = false,
+                activeSplitLineIndex = null,
+                canNavigateBack = true,
+                canRetry = false,
+                showViewDetailsButton = false,
+                errorMessage = ""
             )
         }
     }
@@ -214,6 +425,205 @@ class TransactionProgressViewModel(
                 null
             }
             else -> null
+        }
+    }
+
+    private fun inferPaymentOption(transaction: Transaction): PaymentOption {
+        return PaymentOption.entries.firstOrNull { option ->
+            option.transactionType.name == transaction.type.name &&
+                option.category == (transaction.paymentCategory ?: PaymentCategory.CARD) &&
+                option.paymentMethodId == transaction.paymentMethodId &&
+                option.subPaymentMethodId == transaction.subPaymentMethodId &&
+                option.cardNetworkType == transaction.cardNetworkType
+        } ?: PaymentOption.CARD_SALE
+    }
+
+    /**
+     * Start payment for a specific split line by temporarily overriding selectedPaymentOption
+     * and splitAmountInput, then delegating to startSelectedPayment.
+     */
+    private fun startSplitLinePayment(index: Int) {
+        val stateValue = _state.value
+        val lines = stateValue.splitLines
+        if (index !in lines.indices) return
+        val line = lines[index]
+        if (line.isPaid) return
+        // Temporarily set the selected option and split amount from the specific line
+        _state.update {
+            it.copy(
+                selectedPaymentOption = line.paymentOption,
+                splitAmountInput = line.amountInput,
+                activeSplitLineIndex = index
+            )
+        }
+        startSelectedPayment()
+    }
+
+    private fun startSelectedPayment() {
+        val transaction = currentTransaction ?: return
+        if (!transaction.progressStatus.equals("READY_TO_PAY", ignoreCase = true)) {
+            return
+        }
+
+        val selected = _state.value.selectedPaymentOption
+        val stateValue = _state.value
+        val splitAmount = if (stateValue.isSplitMode) {
+            stateValue.splitAmountInput.toBigDecimalOrNull()
+        } else {
+            null
+        }
+
+        if (stateValue.isSplitMode) {
+            val maxAllowed = stateValue.splitRemaining()
+            if (splitAmount == null || splitAmount <= BigDecimal.ZERO || splitAmount > maxAllowed) {
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.WARNING,
+                            title = "Invalid Split Amount",
+                            content = "Enter a valid amount between 0 and $maxAllowed.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+                return
+            }
+        }
+
+        val requestedAmount = splitAmount ?: stateValue.amount
+        var transactionForRequest = transaction
+        if (stateValue.isSplitMode) {
+            val splitRequestId = generateRetryTransactionRequestId()
+            val splitTransaction = transaction.copy(
+                transactionRequestId = splitRequestId,
+                status = TransactionStatus.PENDING,
+                timestamp = System.currentTimeMillis(),
+                transactionId = null,
+                authCode = null,
+                errorCode = null,
+                errorMessage = null,
+                progressStatus = "READY_TO_PAY",
+                progressMessage = "Preparing split payment",
+                headlessProgressEvent = null,
+                completeTime = null,
+                cardInfo = null
+            )
+            if (!transactionRepository.addTransaction(splitTransaction)) {
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Split Payment Error",
+                            content = "Failed to create split transaction ID. Please try again.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+                return
+            }
+            transactionForRequest = splitTransaction
+            currentTransaction = splitTransaction
+            observeTransaction(splitRequestId)
+        }
+
+        _state.update { it.copy(isStartingPayment = true) }
+
+        transactionRepository.updateTransaction(transactionForRequest.transactionRequestId) { txn ->
+            txn.copy(
+                type = when (selected.transactionType) {
+                    PaymentOption.TransactionType.SALE -> TransactionType.SALE
+                    PaymentOption.TransactionType.AUTH -> TransactionType.AUTH
+                    PaymentOption.TransactionType.FORCED_AUTH -> TransactionType.FORCED_AUTH
+                },
+                paymentCategory = selected.category,
+                paymentMethodId = selected.paymentMethodId,
+                subPaymentMethodId = selected.subPaymentMethodId,
+                cardNetworkType = selected.cardNetworkType,
+                amount = requestedAmount,
+                totalAmount = requestedAmount,
+                tipAmount = if (stateValue.isSplitMode) null else txn.tipAmount,
+                taxAmount = if (stateValue.isSplitMode) null else txn.taxAmount,
+                serviceFee = if (stateValue.isSplitMode) null else txn.serviceFee,
+                surchargeAmount = if (stateValue.isSplitMode) null else txn.surchargeAmount,
+                progressStatus = "INITIATING_PAYMENT",
+                progressMessage = if (stateValue.isSplitMode) {
+                    "Initiating split payment..."
+                } else {
+                    "Initiating payment..."
+                }
+            )
+        }
+
+        val callback = createPaymentCallback(transactionForRequest.transactionRequestId)
+
+        try {
+            when (selected.transactionType) {
+                PaymentOption.TransactionType.SALE -> {
+                    val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
+                        DependencyProvider.requireContext()
+                    )
+                    paymentService.executeSale(
+                        referenceOrderId = transactionForRequest.referenceOrderId ?: "",
+                        transactionRequestId = transactionForRequest.transactionRequestId,
+                        amount = requestedAmount,
+                        currency = transactionForRequest.currency,
+                        description = "Sale - ${_state.value.orderItems.size} items",
+                        paymentCategory = selected.category,
+                        paymentMethodId = selected.paymentMethodId,
+                        subPaymentMethodId = selected.subPaymentMethodId,
+                        cardNetworkType = selected.cardNetworkType,
+                        tipAmount = if (stateValue.isSplitMode) null else transactionForRequest.tipAmount,
+                        taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
+                        serviceFee = if (stateValue.isSplitMode) null else transactionForRequest.serviceFee,
+                        surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
+                        tipConfig = tipConfig,
+                        callback = callback
+                    )
+                }
+
+                PaymentOption.TransactionType.AUTH -> {
+                    paymentService.executeAuth(
+                        referenceOrderId = transactionForRequest.referenceOrderId ?: "",
+                        transactionRequestId = transactionForRequest.transactionRequestId,
+                        amount = requestedAmount,
+                        currency = transactionForRequest.currency,
+                        description = "Auth - ${_state.value.orderItems.size} items",
+                        callback = callback
+                    )
+                }
+
+                PaymentOption.TransactionType.FORCED_AUTH -> {
+                    paymentService.executeForcedAuth(
+                        referenceOrderId = transactionForRequest.referenceOrderId ?: "",
+                        transactionRequestId = transactionForRequest.transactionRequestId,
+                        amount = requestedAmount,
+                        currency = transactionForRequest.currency,
+                        description = "Forced Auth - ${_state.value.orderItems.size} items",
+                        tipAmount = if (stateValue.isSplitMode) null else transactionForRequest.tipAmount,
+                        taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
+                        callback = callback
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start selected payment", e)
+            _state.update {
+                it.copy(
+                    isStartingPayment = false,
+                    message = Message(
+                        type = MessageType.ERROR,
+                        title = "Payment Error",
+                        content = e.message ?: "Failed to start payment",
+                        actions = listOf(MessageAction.DISMISS)
+                    )
+                )
+            }
+            transactionRepository.updateTransactionStatus(
+                transactionRequestId = transactionForRequest.transactionRequestId,
+                status = TransactionStatus.FAILED,
+                errorCode = "START_PAYMENT_ERROR",
+                errorMessage = e.message ?: "Failed to start payment"
+            )
         }
     }
     
@@ -870,16 +1280,11 @@ class TransactionProgressViewModel(
             return
         }
 
-        _state.update {
-            it.copy(
-                message = Message(
-                    type = MessageType.INFO,
-                    title = "Switching Input Mode",
-                    content = "Requesting terminal to switch to manual card entry...",
-                    actions = emptyList()
-                )
-            )
-        }
+        transactionRepository.updateTransactionProgress(
+            transactionRequestId = transaction.transactionRequestId,
+            progressStatus = "SWITCHING_MANUAL_ENTRY",
+            progressMessage = "Requesting terminal to switch to manual card entry..."
+        )
 
         paymentService.executeSwitchToManualEntry(
             originalTransactionRequestId = transaction.transactionRequestId,

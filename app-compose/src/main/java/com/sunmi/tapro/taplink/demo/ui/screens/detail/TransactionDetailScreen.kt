@@ -25,6 +25,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OrderInfoSectio
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.PaymentInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.CardInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OperationPanel
+import com.sunmi.tapro.taplink.demo.ui.screens.detail.table.TransactionDetailTableScreen
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import java.text.SimpleDateFormat
@@ -231,73 +232,20 @@ private fun TransactionDetailContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (screenConfig.isLandscape) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TransactionHeader(transaction = transaction, compact = true)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(0.48f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OrderInfoSection(
-                                transaction = transaction,
-                                orderItems = state.orderItems,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        VerticalDivider(
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        )
-                        Column(
-                            modifier = Modifier.weight(0.52f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            PaymentInfoSection(
-                                transaction = transaction,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            transaction.cardInfo?.let {
-                                CardInfoSection(
-                                    transaction = transaction,
-                                    isExpanded = state.isCardInfoExpanded,
-                                    onToggleExpanded = {
-                                        viewModel.handleIntent(
-                                            TransactionDetailIntent.ToggleCardInfoExpanded
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            // Only show OperationPanel if there are operations or query button
-                            val shouldShowOperations = state.availableOperations.isNotEmpty() || 
-                                                      transaction.type != TransactionType.BATCH_CLOSE
-                            if (shouldShowOperations) {
-                                OperationPanel(
-                                    availableOperations = state.availableOperations,
-                                    isQuerying = state.isQuerying,
-                                    isEnabled = !state.isLoading && !state.isQuerying,
-                                    showQueryButton = transaction.type != TransactionType.BATCH_CLOSE,
-                                    labelOverrides = buildTipLabelOverride(transaction),
-                                    onPerformOperation = onPerformOperation,
-                                    onQueryClick = onQueryTransaction,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
+            TransactionDetailTableScreen(
+                transaction = transaction,
+                orderItems = state.orderItems,
+                isCardInfoExpanded = state.isCardInfoExpanded,
+                availableOperations = state.availableOperations,
+                isLoading = state.isLoading,
+                isQuerying = state.isQuerying,
+                labelOverrides = buildTipLabelOverride(transaction),
+                onToggleCardInfo = {
+                    viewModel.handleIntent(TransactionDetailIntent.ToggleCardInfoExpanded)
+                },
+                onPerformOperation = onPerformOperation,
+                onQueryTransaction = onQueryTransaction
+            )
         } else {
             Column(
                 modifier = Modifier

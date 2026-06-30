@@ -23,8 +23,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.components.*
+import com.sunmi.tapro.taplink.demo.ui.screens.main.table.MainTableScreen
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import java.math.BigDecimal
 
@@ -100,71 +102,37 @@ fun MainScreen(
                 .padding(paddingValues)
         ) {
             if (screenConfig.isLandscape) {
-                // Landscape: left 60% product grid, right 40% order summary + payment buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                    MaterialTheme.colorScheme.surface
-                                )
-                            )
-                        )
-                ) {
-                    Box(modifier = Modifier.fillMaxHeight().weight(0.6f)) {
-                        ProductGrid(
-                            products = state.products,
-                            onProductClick = { product ->
-                                viewModel.handleIntent(MainIntent.AddProduct(product))
-                            },
-                            onAddProductClick = {
-                                viewModel.handleIntent(MainIntent.ShowAddProductDialog)
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(0.4f)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            EnhancedOrderSummary(
-                                orderItems = state.orderItems,
-                                subtotalAmount = state.getItemsSubtotal(),
-                                totalAmount = state.totalAmount,
-                                additionalAmounts = state.additionalAmounts,
-                                isEditingSubtotal = state.isEditingSubtotal,
-                                onRemoveItem = { item ->
-                                    viewModel.handleIntent(MainIntent.RemoveOrderItem(item))
-                                },
-                                onAdditionalAmounts = {
-                                    viewModel.handleIntent(MainIntent.ShowAdditionalAmountsDialog)
-                                },
-                                onStartEditingSubtotal = {
-                                    viewModel.handleIntent(MainIntent.StartEditingSubtotal)
-                                },
-                                onStopEditingSubtotal = {
-                                    viewModel.handleIntent(MainIntent.StopEditingSubtotal)
-                                },
-                                onAddCustomAmount = { amount ->
-                                    viewModel.handleIntent(MainIntent.AddCustomAmount(amount))
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        ModernPaymentButton(
-                            enabled = state.canProcessPayment,
-                            isLoading = state.isInitiatingPayment,
-                            selectedOption = state.selectedPaymentOption,
-                            applyHeadlessOptionRule = isAppToAppHeadless,
-                            onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
-                            onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
-                        )
-                    }
-                }
+                MainTableScreen(
+                    products = state.products,
+                    orderItems = state.orderItems,
+                    subtotalAmount = state.getItemsSubtotal(),
+                    totalAmount = state.totalAmount,
+                    additionalAmounts = state.additionalAmounts,
+                    isEditingSubtotal = state.isEditingSubtotal,
+                    canProcessPayment = state.canProcessPayment,
+                    onProductClick = { product ->
+                        viewModel.handleIntent(MainIntent.AddProduct(product))
+                    },
+                    onAddProductClick = {
+                        viewModel.handleIntent(MainIntent.ShowAddProductDialog)
+                    },
+                    onRemoveItem = { item ->
+                        viewModel.handleIntent(MainIntent.RemoveOrderItem(item))
+                    },
+                    onAdditionalAmounts = {
+                        viewModel.handleIntent(MainIntent.ShowAdditionalAmountsDialog)
+                    },
+                    onStartEditingSubtotal = {
+                        viewModel.handleIntent(MainIntent.StartEditingSubtotal)
+                    },
+                    onStopEditingSubtotal = {
+                        viewModel.handleIntent(MainIntent.StopEditingSubtotal)
+                    },
+                    onAddCustomAmount = { amount ->
+                        viewModel.handleIntent(MainIntent.AddCustomAmount(amount))
+                    },
+                    onPay = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) }
+                )
             } else {
                 // Portrait: unchanged layout (column with grid, summary, buttons)
                 Column(
@@ -360,7 +328,7 @@ private fun ModernTopBar(
  * EnhancedOrderSummary - Modern order summary with improved styling
  */
 @Composable
-private fun EnhancedOrderSummary(
+internal fun EnhancedOrderSummary(
     orderItems: List<OrderItem>,
     subtotalAmount: BigDecimal,
     totalAmount: BigDecimal,

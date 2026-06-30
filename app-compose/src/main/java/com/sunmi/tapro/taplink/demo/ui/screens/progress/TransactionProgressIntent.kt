@@ -1,5 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.progress
 
+import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
+
 /**
  * Sealed class representing all possible user intents/actions on the Transaction Progress Screen
  * Following MVI pattern for unidirectional data flow
@@ -49,4 +51,50 @@ sealed class TransactionProgressIntent {
      * Switch current Headless transaction to manual card entry.
      */
     object SwitchToManualEntry : TransactionProgressIntent()
+
+    /**
+     * Select payment option before starting SDK request.
+     */
+    data class SelectPaymentOption(val option: PaymentOption) : TransactionProgressIntent()
+
+    /**
+     * Start SDK payment request with selected option.
+     */
+    object StartSelectedPayment : TransactionProgressIntent()
+
+    /**
+     * Toggle split mode for partial payment.
+     */
+    object ToggleSplitMode : TransactionProgressIntent()
+
+    /**
+     * Update split amount input (legacy single-line).
+     */
+    data class UpdateSplitAmount(val input: String) : TransactionProgressIntent()
+
+    /**
+     * Update split line count (+/-).
+     */
+    data class UpdateSplitCount(val count: Int) : TransactionProgressIntent()
+
+    /**
+     * Update the payment option for a specific split line.
+     */
+    data class UpdateSplitLinePaymentOption(val index: Int, val option: PaymentOption) : TransactionProgressIntent()
+
+    /**
+     * Update the amount input for a specific split line.
+     */
+    data class UpdateSplitLineAmount(val index: Int, val input: String) : TransactionProgressIntent()
+
+    /**
+     * Start payment for a specific split line.
+     */
+    data class StartSplitLinePayment(val index: Int) : TransactionProgressIntent()
+
+    /**
+     * Cancel the current order from READY_TO_PAY state, abort SDK session,
+     * and navigate back to main so the user can continue editing the order.
+     */
+    object CancelOrder : TransactionProgressIntent()
 }

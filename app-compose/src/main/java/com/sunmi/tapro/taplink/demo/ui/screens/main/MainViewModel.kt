@@ -101,6 +101,7 @@ class MainViewModel(
             is MainIntent.StartEditingSubtotal -> startEditingSubtotal()
             is MainIntent.StopEditingSubtotal -> stopEditingSubtotal()
             is MainIntent.ProcessPayment -> processPayment()
+            is MainIntent.BeginCheckoutFlow -> beginCheckoutFlow()
             is MainIntent.SelectPaymentOption -> selectPaymentOption(intent.option)
             is MainIntent.NavigateToTransactionList -> navigateToTransactionList()
             is MainIntent.NavigateToSettings -> navigateToSettings()
@@ -390,6 +391,88 @@ class MainViewModel(
             PaymentOption.TransactionType.FORCED_AUTH -> processForcedAuth()
         }
     }
+
+    /**
+     * Landscape checkout flow: create a draft transaction and navigate to progress
+     * screen for payment-method selection before starting SDK request.
+     */
+    private fun beginCheckoutFlow() {
+        viewModelScope.launch {
+            try {
+                if (_state.value.orderItems.isEmpty()) {
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.WARNING,
+                                title = "Empty Order",
+                                content = "Please add items to the order before checkout",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return@launch
+                }
+
+                val timestamp = System.currentTimeMillis()
+                val referenceOrderId = "${com.sunmi.tapro.taplink.demo.util.Constants.ORDER_ID_PREFIX}$timestamp"
+                val transactionRequestId = "${com.sunmi.tapro.taplink.demo.util.Constants.TRANSACTION_REQUEST_ID_PREFIX}${timestamp}"
+
+                val draftTransaction = Transaction(
+                    transactionRequestId = transactionRequestId,
+                    referenceOrderId = referenceOrderId,
+                    type = TransactionType.SALE,
+                    status = TransactionStatus.PENDING,
+                    amount = _state.value.getItemsSubtotal(),
+                    totalAmount = _state.value.totalAmount,
+                    currency = CURRENCY,
+                    timestamp = timestamp,
+                    tipAmount = _state.value.additionalAmounts["Tip"],
+                    taxAmount = _state.value.additionalAmounts["Tax"],
+                    serviceFee = _state.value.additionalAmounts["Service Fee"],
+                    surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    paymentCategory = PaymentCategory.CARD,
+                    progressStatus = "READY_TO_PAY",
+                    progressMessage = "Select payment method to continue"
+                )
+
+                if (!transactionRepository.addTransaction(draftTransaction)) {
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.ERROR,
+                                title = "Checkout Error",
+                                content = "Failed to create checkout session. Please try again.",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return@launch
+                }
+
+                transactionRepository.saveOrderItems(referenceOrderId, _state.value.orderItems)
+
+                _state.update {
+                    it.copy(
+                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
+
+                clearOrder()
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Failed to begin checkout flow", e)
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Checkout Error",
+                            content = e.message ?: "Failed to open checkout screen",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+            }
+        }
+    }
     
     /**
      * Process SALE transaction
@@ -483,6 +566,13 @@ class MainViewModel(
                     tipConfig = tipConfig,
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
+
+                _state.update {
+                    it.copy(
+                        isInitiatingPayment = false,
+                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
                 
                 // Clear order after initiating payment
                 clearOrder()
@@ -564,6 +654,13 @@ class MainViewModel(
                     description = "Auth - ${_state.value.orderItems.size} items",
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
+
+                _state.update {
+                    it.copy(
+                        isInitiatingPayment = false,
+                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
                 
                 // Clear order after initiating payment
                 clearOrder()
@@ -649,6 +746,13 @@ class MainViewModel(
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
+
+                _state.update {
+                    it.copy(
+                        isInitiatingPayment = false,
+                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
+                    )
+                }
                 
                 // Clear order after initiating payment
                 clearOrder()
