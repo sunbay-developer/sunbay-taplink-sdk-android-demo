@@ -33,6 +33,8 @@ object CloudResponseMapper {
             referenceOrderId = data?.str("referenceOrderId"),
             transactionRequestId = data?.str("transactionRequestId"),
             transactionStatus = data?.str("transactionStatus"),
+            transactionBatchStatus = data?.str("transactionBatchStatus"),
+            relatedTransactionStatus = data?.str("relatedTransactionStatus"),
             transactionType = data?.str("transactionType") ?: transactionType,
             amount = data?.mapAmount(),
             createTime = data?.str("createTime"),

@@ -334,18 +334,19 @@ private fun PortraitProgressLayout(
 
 @Composable
 internal fun SettleLeftPanel(state: TransactionProgressState) {
-    val goodsAmount = state.transaction?.amount ?: state.amount
+    val goodsAmount = resolveGoodsAmount(state)
     val tipAmount = state.transaction?.tipAmount ?: BigDecimal.ZERO
     val taxAmount = state.transaction?.taxAmount ?: BigDecimal.ZERO
     val surchargeAmount = state.transaction?.surchargeAmount ?: BigDecimal.ZERO
     val valueAddedFee = state.transaction?.serviceFee ?: BigDecimal.ZERO
-    val receivableAmount = state.amount
+    val receivableAmount = state.transaction?.totalAmount ?: state.amount
     val paidAmount = if (state.isSuccess()) receivableAmount else BigDecimal.ZERO
     val remainingAmount = when {
         state.isSuccess() -> BigDecimal.ZERO
         state.isSplitMode -> state.splitRemaining()
         else -> receivableAmount
     }
+
     val paymentLabel = state.transaction?.headlessPaymentMethodLabel()
         .takeUnless { it.isNullOrBlank() }
         ?: state.transactionType
@@ -408,6 +409,28 @@ internal fun SettleLeftPanel(state: TransactionProgressState) {
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         AmountLine("Remaining", remainingAmount, emphasize = true, highlight = true)
     }
+}
+
+private fun resolveGoodsAmount(state: TransactionProgressState): BigDecimal {
+    if (state.orderItems.isNotEmpty()) {
+        return state.orderItems.fold(BigDecimal.ZERO) { acc, item -> acc + item.calculateSubtotal() }
+    }
+    val transaction = state.transaction ?: return state.amount
+    if (
+        transaction.type != TransactionType.SALE &&
+        transaction.type != TransactionType.FORCED_AUTH &&
+        transaction.type != TransactionType.POST_AUTH
+    ) {
+        return transaction.amount
+    }
+    val extrasTotal = (transaction.tipAmount ?: BigDecimal.ZERO)
+        .add(transaction.taxAmount ?: BigDecimal.ZERO)
+        .add(transaction.serviceFee ?: BigDecimal.ZERO)
+        .add(transaction.surchargeAmount ?: BigDecimal.ZERO)
+    val derivedGoodsAmount = transaction.totalAmount
+        ?.subtract(extrasTotal)
+        ?.takeIf { it > BigDecimal.ZERO }
+    return derivedGoodsAmount ?: transaction.amount
 }
 
 @Composable

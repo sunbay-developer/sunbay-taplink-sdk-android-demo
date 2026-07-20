@@ -66,7 +66,9 @@ data class Transaction(
     val paymentCategory: PaymentCategory? = null,
     val paymentMethodId: String? = null,
     val subPaymentMethodId: String? = null,
-    val cardNetworkType: String? = null
+    val cardNetworkType: String? = null,
+    val transactionBatchStatus: String? = null,
+    val relatedTransactionStatus: String? = null
 ) {
     /**
      * Check if transaction is successful

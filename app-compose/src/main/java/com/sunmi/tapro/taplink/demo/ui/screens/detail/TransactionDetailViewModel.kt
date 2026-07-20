@@ -723,7 +723,9 @@ class TransactionDetailViewModel(
                                 cashbackAmount = result.amount?.cashbackAmount,
                                 serviceFee = result.amount?.serviceFee,
                                 completeTime = result.completeTime,
-                                cardInfo = cardInfo
+                                cardInfo = cardInfo,
+                                transactionBatchStatus = result.transactionBatchStatus,
+                                relatedTransactionStatus = result.relatedTransactionStatus
                             )
                             
                             // Reload transaction to show updated data

@@ -59,6 +59,53 @@ interface PaymentService {
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
         callback: PaymentCallback
+    ) {
+        executeSale(
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amount,
+            currency = currency,
+            description = description,
+            paymentCategory = paymentCategory,
+            paymentMethodId = paymentMethodId,
+            subPaymentMethodId = subPaymentMethodId,
+            cardNetworkType = cardNetworkType,
+            tipAmount = tipAmount,
+            taxAmount = taxAmount,
+            cashbackAmount = cashbackAmount,
+            serviceFee = serviceFee,
+            surchargeAmount = surchargeAmount,
+            staffInfo = staffInfo,
+            tipConfig = tipConfig,
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    /**
+     * Execute sale transaction with explicit signature routing (Sale only).
+     *
+     * @param signatureEntryLocation Optional signature routing: ON_SCREEN / ON_RECEIPT.
+     */
+    fun executeSale(
+        referenceOrderId: String,
+        transactionRequestId: String,
+        amount: BigDecimal,
+        currency: String,
+        description: String,
+        paymentCategory: PaymentCategory = PaymentCategory.CARD,
+        paymentMethodId: String? = null,
+        subPaymentMethodId: String? = null,
+        cardNetworkType: String? = null,
+        tipAmount: BigDecimal? = null,
+        taxAmount: BigDecimal? = null,
+        cashbackAmount: BigDecimal? = null,
+        serviceFee: BigDecimal? = null,
+        surchargeAmount: BigDecimal? = null,
+        staffInfo: StaffInfo? = null,
+        tipConfig: TipConfig? = null,
+        callback: PaymentCallback,
+        signatureEntryLocation: String?
     )
 
     fun executeAuth(
@@ -68,6 +115,31 @@ interface PaymentService {
         currency: String,
         description: String,
         callback: PaymentCallback
+    ) {
+        executeAuth(
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amount,
+            currency = currency,
+            description = description,
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    /**
+     * Execute auth transaction with explicit signature routing (Auth only).
+     *
+     * @param signatureEntryLocation Optional signature routing: ON_SCREEN / ON_RECEIPT.
+     */
+    fun executeAuth(
+        referenceOrderId: String,
+        transactionRequestId: String,
+        amount: BigDecimal,
+        currency: String,
+        description: String,
+        callback: PaymentCallback,
+        signatureEntryLocation: String?
     )
 
     fun executeForcedAuth(
@@ -301,6 +373,8 @@ data class PaymentResult(
     val referenceOrderId: String?,
     val transactionRequestId: String?,
     val transactionStatus: String?,
+    val transactionBatchStatus: String?,
+    val relatedTransactionStatus: String?,
     val transactionType: String?,
     val amount: TransactionAmount?,
     val createTime: String?,
@@ -349,6 +423,9 @@ data class PaymentResult(
     fun isSuccess(): Boolean {
         return when (normalizedStatus()) {
             "S", "SUCCESS" -> true
+            // BATCH_CLOSE cloud response has no transactionStatus field;
+            // treat as success when request is accepted and batchCloseInfo is present.
+            null, "" -> isRequestAccepted() && batchCloseInfo != null
             else -> false
         }
     }

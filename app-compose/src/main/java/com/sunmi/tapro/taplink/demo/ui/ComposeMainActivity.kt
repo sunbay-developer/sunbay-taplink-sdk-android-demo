@@ -47,11 +47,13 @@ class ComposeMainActivity : ComponentActivity() {
 
         // Force screen orientation based on device type:
         // Tablet devices (P3MIX, P2SmartPad, CPadPay3) use landscape layout,
-        // other devices use portrait layout.
-        requestedOrientation = if (DeviceProxy.device.isTabletDevice) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        // known non-tablet devices use portrait layout,
+        // unknown devices fall back to sensor (system default orientation).
+        requestedOrientation = when {
+            DeviceProxy.device.isTabletDevice -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            DeviceProxy.device is com.sunmi.tapro.taplink.demo.device.UnknownDevice ->
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
 
         setContent {

@@ -21,6 +21,9 @@ object TipConfigPreferences {
     private const val KEY_SUGGESTION_VALUE_1 = "suggestion_value_1"
     private const val KEY_SUGGESTION_VALUE_2 = "suggestion_value_2"
     private const val KEY_SUGGESTION_VALUE_3 = "suggestion_value_3"
+    private const val KEY_SUGGESTION_NAME_1 = "suggestion_name_1"
+    private const val KEY_SUGGESTION_NAME_2 = "suggestion_name_2"
+    private const val KEY_SUGGESTION_NAME_3 = "suggestion_name_3"
 
     /** Tip mode: ON_SALE or AFTER_SALE */
     enum class TipMode {
@@ -43,7 +46,10 @@ object TipConfigPreferences {
         val feeMode: FeeMode = FeeMode.RATE,
         val suggestionValue1: Int = 15,
         val suggestionValue2: Int = 18,
-        val suggestionValue3: Int = 20
+        val suggestionValue3: Int = 20,
+        val suggestionName1: String = "",
+        val suggestionName2: String = "",
+        val suggestionName3: String = ""
     ) {
         /** Validate suggestion values: must be non-negative */
         fun areSuggestionsValid(): Boolean {
@@ -53,6 +59,12 @@ object TipConfigPreferences {
         /** Get suggestion values as a list */
         fun getSuggestionValues(): List<Int> {
             return listOf(suggestionValue1, suggestionValue2, suggestionValue3)
+        }
+
+        /** Get suggestion names as a list, or null if all are empty */
+        fun getSuggestionNames(): List<String>? {
+            val names = listOf(suggestionName1, suggestionName2, suggestionName3)
+            return if (names.any { it.isNotEmpty() }) names else null
         }
     }
 
@@ -71,6 +83,9 @@ object TipConfigPreferences {
             putInt(KEY_SUGGESTION_VALUE_1, config.suggestionValue1)
             putInt(KEY_SUGGESTION_VALUE_2, config.suggestionValue2)
             putInt(KEY_SUGGESTION_VALUE_3, config.suggestionValue3)
+            putString(KEY_SUGGESTION_NAME_1, config.suggestionName1)
+            putString(KEY_SUGGESTION_NAME_2, config.suggestionName2)
+            putString(KEY_SUGGESTION_NAME_3, config.suggestionName3)
         }
     }
 
@@ -93,7 +108,10 @@ object TipConfigPreferences {
             },
             suggestionValue1 = prefs.getInt(KEY_SUGGESTION_VALUE_1, 15),
             suggestionValue2 = prefs.getInt(KEY_SUGGESTION_VALUE_2, 18),
-            suggestionValue3 = prefs.getInt(KEY_SUGGESTION_VALUE_3, 20)
+            suggestionValue3 = prefs.getInt(KEY_SUGGESTION_VALUE_3, 20),
+            suggestionName1 = prefs.getString(KEY_SUGGESTION_NAME_1, "") ?: "",
+            suggestionName2 = prefs.getString(KEY_SUGGESTION_NAME_2, "") ?: "",
+            suggestionName3 = prefs.getString(KEY_SUGGESTION_NAME_3, "") ?: ""
         )
     }
 }

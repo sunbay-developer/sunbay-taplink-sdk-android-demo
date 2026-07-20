@@ -236,20 +236,56 @@ class CloudPaymentService : PaymentService {
         surchargeAmount: BigDecimal?,
         staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback
     ) {
+        executeSale(
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amount,
+            currency = currency,
+            description = description,
+            paymentCategory = paymentCategory,
+            paymentMethodId = paymentMethodId,
+            subPaymentMethodId = subPaymentMethodId,
+            cardNetworkType = cardNetworkType,
+            tipAmount = tipAmount,
+            taxAmount = taxAmount,
+            cashbackAmount = cashbackAmount,
+            serviceFee = serviceFee,
+            surchargeAmount = surchargeAmount,
+            staffInfo = staffInfo,
+            tipConfig = tipConfig,
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    override fun executeSale(
+        referenceOrderId: String, transactionRequestId: String,
+        amount: BigDecimal, currency: String, description: String,
+        paymentCategory: PaymentCategory,
+        paymentMethodId: String?,
+        subPaymentMethodId: String?,
+        cardNetworkType: String?,
+        tipAmount: BigDecimal?, taxAmount: BigDecimal?,
+        cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
+        surchargeAmount: BigDecimal?,
+        staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback,
+        signatureEntryLocation: String?
+    ) {
         val body = baseJson().apply {
             put("referenceOrderId", referenceOrderId)
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             put("printReceipt", printReceipt)
-            put(
-                "timeExpire",
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(
-                    Calendar.getInstance().apply { add(Calendar.MINUTE, 3) }.time
-                )
-            )
+//            put(
+//                "timeExpire",
+//                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(
+//                    Calendar.getInstance().apply { add(Calendar.MINUTE, 3) }.time
+//                )
+//            )
             applyNotifyUrl()
             set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
             cardNetworkType?.let { put("cardNetworkType", it) }
+            signatureEntryLocation?.let { put("signatureEntryLocation", it) }
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
                 tipAmount?.let { put("tipAmount", AmountConverter.toCents(it)) }
                 taxAmount?.let { put("taxAmount", AmountConverter.toCents(it)) }
@@ -273,11 +309,29 @@ class CloudPaymentService : PaymentService {
         amount: BigDecimal, currency: String, description: String,
         callback: PaymentCallback
     ) {
+        executeAuth(
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amount,
+            currency = currency,
+            description = description,
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    override fun executeAuth(
+        referenceOrderId: String, transactionRequestId: String,
+        amount: BigDecimal, currency: String, description: String,
+        callback: PaymentCallback,
+        signatureEntryLocation: String?
+    ) {
         val body = baseJson().apply {
             put("referenceOrderId", referenceOrderId)
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             put("printReceipt", printReceipt)
+            signatureEntryLocation?.let { put("signatureEntryLocation", it) }
             applyNotifyUrl()
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }

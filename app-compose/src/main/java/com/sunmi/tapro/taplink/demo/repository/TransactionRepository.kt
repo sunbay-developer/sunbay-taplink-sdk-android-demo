@@ -421,7 +421,9 @@ class TransactionRepository private constructor(context: Context) {
         batchNo: Int? = null,
         batchCloseInfo: BatchCloseInfo? = null,
         completeTime: String? = null,
-        cardInfo: com.sunmi.tapro.taplink.demo.model.CardInfo? = null
+        cardInfo: com.sunmi.tapro.taplink.demo.model.CardInfo? = null,
+        transactionBatchStatus: String? = null,
+        relatedTransactionStatus: String? = null
     ): Boolean {
         return updateTransaction(transactionRequestId) { transaction ->
             transaction.copy(
@@ -440,7 +442,9 @@ class TransactionRepository private constructor(context: Context) {
                 batchNo = batchNo ?: transaction.batchNo,
                 batchCloseInfo = batchCloseInfo ?: transaction.batchCloseInfo,
                 completeTime = completeTime ?: transaction.completeTime,
-                cardInfo = cardInfo ?: transaction.cardInfo
+                cardInfo = cardInfo ?: transaction.cardInfo,
+                transactionBatchStatus = transactionBatchStatus ?: transaction.transactionBatchStatus,
+                relatedTransactionStatus = relatedTransactionStatus ?: transaction.relatedTransactionStatus
             )
         }
     }

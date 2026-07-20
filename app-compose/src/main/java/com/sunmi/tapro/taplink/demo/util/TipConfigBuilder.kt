@@ -44,7 +44,8 @@ object TipConfigBuilder {
             }
             TipSuggestions(
                 feeMode = feeMode,
-                values = config.getSuggestionValues()
+                values = config.getSuggestionValues(),
+                names = config.getSuggestionNames()
             )
         } else {
             null
@@ -59,7 +60,7 @@ object TipConfigBuilder {
 
         Log.d(TAG, "TipConfig is enabled, built: onScreenTip=${config.onScreenTip}, " +
                 "tipMode=${tipMode.name}, tipWithTax=${config.tipWithTax}, " +
-                "suggestions=${if (suggestions != null) "feeMode=${suggestions.feeMode.name}, values=${config.getSuggestionValues()}" else "none"}")
+                "suggestions=${if (suggestions != null) "feeMode=${suggestions.feeMode.name}, values=${config.getSuggestionValues()}, names=${config.getSuggestionNames()}" else "none"}")
 
         return tipConfig
     }

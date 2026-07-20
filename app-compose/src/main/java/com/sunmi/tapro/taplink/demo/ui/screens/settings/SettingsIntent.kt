@@ -18,6 +18,8 @@ sealed class SettingsIntent {
     data class UpdateIpAddress(val ipAddress: String) : SettingsIntent()
     data class UpdatePort(val port: String) : SettingsIntent()
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
+    data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateSignatureMode(val mode: SignatureMode) : SettingsIntent()
 
     // SDK Initialization Parameters
     data class UpdateSdkAppId(val appId: String) : SettingsIntent()
@@ -45,6 +47,7 @@ sealed class SettingsIntent {
     data class UpdateTipSuggestionsEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipFeeMode(val mode: TipConfigPreferences.FeeMode) : SettingsIntent()
     data class UpdateTipSuggestionValue(val index: Int, val value: Int) : SettingsIntent()
+    data class UpdateTipSuggestionName(val index: Int, val name: String) : SettingsIntent()
     object SaveTipConfig : SettingsIntent()
 
     // Tax Configuration

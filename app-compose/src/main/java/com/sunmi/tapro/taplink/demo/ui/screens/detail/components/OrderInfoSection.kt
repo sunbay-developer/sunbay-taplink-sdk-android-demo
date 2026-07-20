@@ -121,6 +121,36 @@ fun OrderInfoSection(
                     value = transaction.batchNo.toString()
                 )
             }
+
+            // Transaction Batch Status
+            if (transaction.transactionBatchStatus != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                DetailRow(
+                    label = "Batch Status",
+                    value = when (transaction.transactionBatchStatus) {
+                        "N" -> "No need batch"
+                        "U" -> "Unfinished batch"
+                        "C" -> "Completed batch"
+                        else -> transaction.transactionBatchStatus
+                    }
+                )
+            }
+
+            // Related Transaction Status
+            if (transaction.relatedTransactionStatus != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                DetailRow(
+                    label = "Related Status",
+                    value = when (transaction.relatedTransactionStatus) {
+                        "VOIDED" -> "Voided"
+                        "INCREMENTAL" -> "Incremental authorization applied"
+                        "REFUNDED" -> "Fully refunded"
+                        "CAPTURE" -> "Captured"
+                        "PART_REFUNDED" -> "Partially refunded"
+                        else -> transaction.relatedTransactionStatus
+                    }
+                )
+            }
             
             // Original Transaction ID (for follow-up operations)
             if (transaction.originalTransactionId != null) {

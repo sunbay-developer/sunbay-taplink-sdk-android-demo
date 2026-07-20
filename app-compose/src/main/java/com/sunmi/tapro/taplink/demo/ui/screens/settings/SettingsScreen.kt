@@ -289,6 +289,10 @@ private fun UnifiedConfigurationSectionContent(
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(modifier = Modifier.height(16.dp))
+        SignatureSectionContent(state = state, onIntent = onIntent)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
         TipConfigSectionContent(state = state, onIntent = onIntent)
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -792,6 +796,93 @@ private fun PrintingSectionContent(
     }
 }
 
+@Composable
+private fun SignatureSectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Text(
+        text = "Signature (Sale/Auth)",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "When enabled, Sale/Auth requests include signature with ON_SCREEN or ON_RECEIPT.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Enable Signature Field", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Disabled = do not send signature",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = state.signatureEnabled,
+            onCheckedChange = { onIntent(SettingsIntent.UpdateSignatureEnabled(it)) }
+        )
+    }
+
+    AnimatedVisibility(
+        visible = state.signatureEnabled,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        Column {
+            Spacer(modifier = Modifier.height(8.dp))
+            SignatureMode.values().forEach { option ->
+                val isSelected = state.signatureMode == option
+                Surface(
+                    onClick = { onIntent(SettingsIntent.UpdateSignatureMode(option)) },
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    } else {
+                        Color.Transparent
+                    },
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = { onIntent(SettingsIntent.UpdateSignatureMode(option)) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = getSignatureModeLabel(option),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+                            )
+                            Text(
+                                text = getSignatureModeDescription(option),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Tip Configuration section: enable/disable tipConfig for SALE and POST_AUTH transactions.
  * Allows configuring on-screen tip, tip mode, tip with tax, and suggestion values.
@@ -1021,6 +1112,30 @@ private fun TipConfigSectionContent(
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Three suggestion name fields
+                    val nameLabels = listOf("Name 1", "Name 2", "Name 3")
+                    val names = listOf(state.tipSuggestionName1, state.tipSuggestionName2, state.tipSuggestionName3)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        names.forEachIndexed { index, name ->
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = { text ->
+                                    onIntent(SettingsIntent.UpdateTipSuggestionName(index, text.take(50)))
+                                },
+                                label = { Text(nameLabels[index], fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
                                 shape = MaterialTheme.shapes.medium
                             )
                         }
@@ -1400,6 +1515,16 @@ private fun getPrintReceiptDescription(option: PrintReceipt): String = when (opt
     PrintReceipt.MERCHANT -> "Print merchant copy only"
     PrintReceipt.CUSTOMER -> "Print customer copy only"
     PrintReceipt.BOTH -> "Print both merchant and customer copies"
+}
+
+private fun getSignatureModeLabel(option: SignatureMode): String = when (option) {
+    SignatureMode.ON_SCREEN -> "ON_SCREEN"
+    SignatureMode.ON_RECEIPT -> "ON_RECEIPT"
+}
+
+private fun getSignatureModeDescription(option: SignatureMode): String = when (option) {
+    SignatureMode.ON_SCREEN -> "Collect signature on terminal screen"
+    SignatureMode.ON_RECEIPT -> "Collect signature on printed receipt"
 }
 
 @Composable

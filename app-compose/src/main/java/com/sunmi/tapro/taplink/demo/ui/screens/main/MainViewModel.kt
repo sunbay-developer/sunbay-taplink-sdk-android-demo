@@ -567,7 +567,8 @@ class MainViewModel(
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
                     tipConfig = tipConfig,
-                    callback = createNavigatingPaymentCallback(transactionRequestId)
+                    callback = createNavigatingPaymentCallback(transactionRequestId),
+                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
 
                 _state.update {
@@ -656,7 +657,8 @@ class MainViewModel(
                     amount = payableAmount,
                     currency = CURRENCY,
                     description = "Auth - ${_state.value.orderItems.size} items",
-                    callback = createNavigatingPaymentCallback(transactionRequestId)
+                    callback = createNavigatingPaymentCallback(transactionRequestId),
+                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
 
                 _state.update {
@@ -840,6 +842,14 @@ class MainViewModel(
         }
     }
     
+    private fun resolveSignatureForSaleOrAuth(): String? {
+        val context = getApplication<Application>()
+        if (!com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.isSignatureEnabled(context)) {
+            return null
+        }
+        return com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.getSignatureMode(context).name
+    }
+
     /**
      * Create a payment callback that navigates to the progress screen and resets
      * the isInitiatingPayment loading state.

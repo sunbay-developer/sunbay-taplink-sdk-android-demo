@@ -88,6 +88,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateIpAddress -> updateIpAddress(intent.ipAddress)
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
+            is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
+            is SettingsIntent.UpdateSignatureMode -> updateSignatureMode(intent.mode)
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
@@ -108,6 +110,7 @@ class SettingsViewModel(
             is SettingsIntent.UpdateTipSuggestionsEnabled -> updateTipSuggestionsEnabled(intent.enabled)
             is SettingsIntent.UpdateTipFeeMode -> updateTipFeeMode(intent.mode)
             is SettingsIntent.UpdateTipSuggestionValue -> updateTipSuggestionValue(intent.index, intent.value)
+            is SettingsIntent.UpdateTipSuggestionName -> updateTipSuggestionName(intent.index, intent.name)
             is SettingsIntent.SaveTipConfig -> saveTipConfig()
             is SettingsIntent.UpdateTaxConfigEnabled -> updateTaxConfigEnabled(intent.enabled)
             is SettingsIntent.UpdateTaxRate -> updateTaxRate(intent.rate)
@@ -147,6 +150,8 @@ class SettingsViewModel(
                 
                 // Load print receipt configuration
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
+                val savedSignatureEnabled = ConnectionPreferences.isSignatureEnabled(context)
+                val savedSignatureMode = ConnectionPreferences.getSignatureMode(context)
                 // Sync to payment service (from :service module)
                 TaplinkPaymentService.getInstance().setPrintReceipt(PrintReceiptMapping.toSdk(savedPrintReceipt))
                 // Sync to cloud payment service (uses string name directly)
@@ -191,6 +196,8 @@ class SettingsViewModel(
                         ipAddress = savedIp ?: DEFAULT_IP_ADDRESS,
                         port = savedPort.toString(),
                         printReceipt = savedPrintReceipt,
+                        signatureEnabled = savedSignatureEnabled,
+                        signatureMode = savedSignatureMode,
                         cloudApiKey = cloudConfig.apiKey,
                         cloudBaseUrl = cloudConfig.baseUrl,
                         cloudTerminalSn = cloudConfig.terminalSn,
@@ -219,6 +226,9 @@ class SettingsViewModel(
                         tipSuggestionValue1 = tipConfig.suggestionValue1,
                         tipSuggestionValue2 = tipConfig.suggestionValue2,
                         tipSuggestionValue3 = tipConfig.suggestionValue3,
+                        tipSuggestionName1 = tipConfig.suggestionName1,
+                        tipSuggestionName2 = tipConfig.suggestionName2,
+                        tipSuggestionName3 = tipConfig.suggestionName3,
                         taxConfigEnabled = taxConfig.enabled,
                         taxRate = taxConfig.taxRate,
                         isLoading = false
@@ -304,6 +314,18 @@ class SettingsViewModel(
             // Sync to cloud payment service (uses string name directly)
             com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setPrintReceipt(printReceipt.name)
         }
+    }
+
+    private fun updateSignatureEnabled(enabled: Boolean) {
+        _state.update { it.copy(signatureEnabled = enabled) }
+        val context = getApplication<Application>()
+        ConnectionPreferences.saveSignatureEnabled(context, enabled)
+    }
+
+    private fun updateSignatureMode(mode: SignatureMode) {
+        _state.update { it.copy(signatureMode = mode) }
+        val context = getApplication<Application>()
+        ConnectionPreferences.saveSignatureMode(context, mode)
     }
 
     private fun updateSdkAppId(appId: String) {
@@ -504,7 +526,10 @@ class SettingsViewModel(
             feeMode = currentState.tipFeeMode,
             suggestionValue1 = currentState.tipSuggestionValue1,
             suggestionValue2 = currentState.tipSuggestionValue2,
-            suggestionValue3 = currentState.tipSuggestionValue3
+            suggestionValue3 = currentState.tipSuggestionValue3,
+            suggestionName1 = currentState.tipSuggestionName1,
+            suggestionName2 = currentState.tipSuggestionName2,
+            suggestionName3 = currentState.tipSuggestionName3
         )
         val context = getApplication<Application>()
         TipConfigPreferences.saveConfig(context, config)
@@ -555,6 +580,18 @@ class SettingsViewModel(
         persistTipConfig()
     }
 
+    private fun updateTipSuggestionName(index: Int, name: String) {
+        _state.update {
+            when (index) {
+                0 -> it.copy(tipSuggestionName1 = name)
+                1 -> it.copy(tipSuggestionName2 = name)
+                2 -> it.copy(tipSuggestionName3 = name)
+                else -> it
+            }
+        }
+        persistTipConfig()
+    }
+
     /**
      * Explicit save action for tip config.
      * Validates suggestion values and shows confirmation message.
@@ -573,7 +610,10 @@ class SettingsViewModel(
                 feeMode = currentState.tipFeeMode,
                 suggestionValue1 = currentState.tipSuggestionValue1,
                 suggestionValue2 = currentState.tipSuggestionValue2,
-                suggestionValue3 = currentState.tipSuggestionValue3
+                suggestionValue3 = currentState.tipSuggestionValue3,
+                suggestionName1 = currentState.tipSuggestionName1,
+                suggestionName2 = currentState.tipSuggestionName2,
+                suggestionName3 = currentState.tipSuggestionName3
             )
 
             if (currentState.tipSuggestionsEnabled && !config.areSuggestionsValid()) {

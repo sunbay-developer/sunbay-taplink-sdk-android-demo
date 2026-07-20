@@ -15,12 +15,15 @@ object ConnectionPreferences {
     private const val KEY_CABLE_PROTOCOL = "cable_protocol"
     private const val KEY_APP_TO_APP_MODE = "app_to_app_mode"
     private const val KEY_PRINT_RECEIPT = "print_receipt"
+    private const val KEY_SIGNATURE_ENABLED = "signature_enabled"
+    private const val KEY_SIGNATURE_MODE = "signature_mode"
 
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
     private const val DEFAULT_CABLE_PROTOCOL = "AUTO"
     private const val DEFAULT_APP_TO_APP_MODE = "CUSTOM"
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
+    private const val DEFAULT_SIGNATURE_MODE = "ON_SCREEN"
 
     enum class ConnectionMode {
         APP_TO_APP,
@@ -114,6 +117,32 @@ object ConnectionPreferences {
             )
         } catch (_: IllegalArgumentException) {
             com.sunmi.tapro.taplink.demo.ui.screens.settings.PrintReceipt.NONE
+        }
+    }
+
+    fun saveSignatureEnabled(context: Context, enabled: Boolean) {
+        getPreferences(context).edit(commit = true) { putBoolean(KEY_SIGNATURE_ENABLED, enabled) }
+    }
+
+    fun isSignatureEnabled(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_SIGNATURE_ENABLED, false)
+    }
+
+    fun saveSignatureMode(
+        context: Context,
+        mode: com.sunmi.tapro.taplink.demo.ui.screens.settings.SignatureMode
+    ) {
+        getPreferences(context).edit(commit = true) { putString(KEY_SIGNATURE_MODE, mode.name) }
+    }
+
+    fun getSignatureMode(context: Context): com.sunmi.tapro.taplink.demo.ui.screens.settings.SignatureMode {
+        val modeName = getPreferences(context).getString(KEY_SIGNATURE_MODE, DEFAULT_SIGNATURE_MODE)
+        return try {
+            com.sunmi.tapro.taplink.demo.ui.screens.settings.SignatureMode.valueOf(
+                modeName ?: DEFAULT_SIGNATURE_MODE
+            )
+        } catch (_: IllegalArgumentException) {
+            com.sunmi.tapro.taplink.demo.ui.screens.settings.SignatureMode.ON_SCREEN
         }
     }
 }

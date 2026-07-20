@@ -9,6 +9,7 @@ import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.CardNetworkType
 import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
+import com.sunmi.tapro.taplink.sdk.enums.Signature
 import com.sunmi.tapro.taplink.sdk.model.common.AmountInfo
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodId
@@ -385,6 +386,8 @@ class TaplinkPaymentService : PaymentService {
             referenceOrderId = sdkResult.referenceOrderId,
             transactionRequestId = sdkResult.transactionRequestId,
             transactionStatus = sdkResult.transactionStatus,
+            transactionBatchStatus = sdkResult.transactionBatchStatus,
+            relatedTransactionStatus = sdkResult.relatedTransactionStatus,
             transactionType = sdkResult.transactionType,
             amount = sdkResult.amount?.let { amt ->
                 TransactionAmount(
@@ -471,10 +474,53 @@ class TaplinkPaymentService : PaymentService {
         tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
+        executeSale(
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amount,
+            currency = currency,
+            description = description,
+            paymentCategory = paymentCategory,
+            paymentMethodId = paymentMethodId,
+            subPaymentMethodId = subPaymentMethodId,
+            cardNetworkType = cardNetworkType,
+            tipAmount = tipAmount,
+            taxAmount = taxAmount,
+            cashbackAmount = cashbackAmount,
+            serviceFee = serviceFee,
+            surchargeAmount = surchargeAmount,
+            staffInfo = staffInfo,
+            tipConfig = tipConfig,
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    override fun executeSale(
+        referenceOrderId: String,
+        transactionRequestId: String,
+        amount: BigDecimal,
+        currency: String,
+        description: String,
+        paymentCategory: PaymentCategory,
+        paymentMethodId: String?,
+        subPaymentMethodId: String?,
+        cardNetworkType: String?,
+        tipAmount: BigDecimal?,
+        taxAmount: BigDecimal?,
+        cashbackAmount: BigDecimal?,
+        serviceFee: BigDecimal?,
+        surchargeAmount: BigDecimal?,
+        staffInfo: StaffInfo?,
+        tipConfig: TipConfig?,
+        callback: PaymentCallback,
+        signatureEntryLocation: String?
+    ) {
         // Convert String? to SDK types for Taplink SDK
         val sdkPaymentMethodId = paymentMethodId?.let { PaymentMethodId.valueOf(it) }
         val sdkSubPaymentMethodId = subPaymentMethodId?.let { PaymentMethodSubId.valueOf(it) }
         val sdkCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
+        val sdkSignature = signatureEntryLocation?.let { Signature.fromValue(it) }
         val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount)
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=$tipConfig")
@@ -485,15 +531,19 @@ class TaplinkPaymentService : PaymentService {
             emitTipProcessing(callback)
         }
         val saleRequest = SaleRequest(
-            referenceOrderId = referenceOrderId,
-            transactionRequestId = transactionRequestId,
-            amount = amountInfo,
-            description = description,
-            paymentMethod = buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
-            cardNetworkType = sdkCardNetworkType,
-//            requestTimeout = 200,
-            tipConfig = tipConfig,
-            printReceipt = printReceipt
+            referenceOrderId,
+            transactionRequestId,
+            amountInfo,
+            description,
+            buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
+            sdkCardNetworkType,
+            null,
+            null,
+            null,
+            staffInfo,
+            tipConfig,
+            printReceipt,
+            sdkSignature,
         )
         logSdkRequest("SALE", saleRequest)
         getClient().sale(saleRequest, object : SdkPaymentCallback {
@@ -511,12 +561,39 @@ class TaplinkPaymentService : PaymentService {
         description: String,
         callback: PaymentCallback
     ) {
-        val authRequest = AuthRequest(
+        executeAuth(
             referenceOrderId = referenceOrderId,
             transactionRequestId = transactionRequestId,
-            amount = buildAuthAmountInfo(amount, currency),
+            amount = amount,
+            currency = currency,
             description = description,
-            printReceipt = printReceipt
+            callback = callback,
+            signatureEntryLocation = null
+        )
+    }
+
+    override fun executeAuth(
+        referenceOrderId: String,
+        transactionRequestId: String,
+        amount: BigDecimal,
+        currency: String,
+        description: String,
+        callback: PaymentCallback,
+        signatureEntryLocation: String?
+    ) {
+        val sdkSignature = signatureEntryLocation?.let { Signature.fromValue(it) }
+        val authRequest = AuthRequest(
+            referenceOrderId,
+            transactionRequestId,
+            buildAuthAmountInfo(amount, currency),
+            description,
+            null,
+            null,
+            null,
+            null,
+            null,
+            printReceipt,
+            sdkSignature,
         )
         logSdkRequest("AUTH", authRequest)
         getClient().auth(authRequest, object : SdkPaymentCallback {

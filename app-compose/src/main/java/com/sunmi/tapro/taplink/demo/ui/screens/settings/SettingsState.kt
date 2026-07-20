@@ -17,6 +17,11 @@ enum class PrintReceipt {
     BOTH       // Print both copies
 }
 
+enum class SignatureMode {
+    ON_SCREEN,
+    ON_RECEIPT
+}
+
 enum class SdkEnvironment {
     UAT,
     PROD
@@ -47,6 +52,8 @@ data class SettingsState(
     
     // Print Receipt Configuration
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
+    val signatureEnabled: Boolean = false,
+    val signatureMode: SignatureMode = SignatureMode.ON_SCREEN,
 
     // Cloud Configuration
     val cloudApiKey: String = EnvironmentDefaults.Prod.CLOUD_API_KEY,
@@ -80,6 +87,9 @@ data class SettingsState(
     val tipSuggestionValue1: Int = 15,
     val tipSuggestionValue2: Int = 18,
     val tipSuggestionValue3: Int = 20,
+    val tipSuggestionName1: String = "",
+    val tipSuggestionName2: String = "",
+    val tipSuggestionName3: String = "",
 
     // SDK Init Configuration (TaplinkSDK.init)
     val sdkEnvironment: SdkEnvironment = SdkEnvironment.UAT,

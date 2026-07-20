@@ -490,7 +490,24 @@ class TransactionProgressViewModel(
             }
         }
 
-        val requestedAmount = splitAmount ?: stateValue.amount
+        val extrasTotal = (transaction.tipAmount ?: BigDecimal.ZERO)
+            .add(transaction.taxAmount ?: BigDecimal.ZERO)
+            .add(transaction.serviceFee ?: BigDecimal.ZERO)
+            .add(transaction.surchargeAmount ?: BigDecimal.ZERO)
+        val saleBaseAmount = transaction.totalAmount
+            ?.subtract(extrasTotal)
+            ?.takeIf { it > BigDecimal.ZERO }
+            ?: transaction.amount
+
+        val requestedAmount = splitAmount ?: when (selected.transactionType) {
+            // Keep checkout parity with MainScreen flows:
+            // - SALE/FORCED_AUTH must send goods(subtotal) as base amount; extras are passed separately.
+            //   Derive from total-extras when available to avoid subtotal/total mix-ups.
+            // - AUTH keeps total amount semantics.
+            PaymentOption.TransactionType.SALE,
+            PaymentOption.TransactionType.FORCED_AUTH -> saleBaseAmount
+            PaymentOption.TransactionType.AUTH -> transaction.totalAmount ?: transaction.amount
+        }
         var transactionForRequest = transaction
         if (stateValue.isSplitMode) {
             val splitRequestId = generateRetryTransactionRequestId()
@@ -540,7 +557,11 @@ class TransactionProgressViewModel(
                 subPaymentMethodId = selected.subPaymentMethodId,
                 cardNetworkType = selected.cardNetworkType,
                 amount = requestedAmount,
-                totalAmount = requestedAmount,
+                totalAmount = if (stateValue.isSplitMode) {
+                    requestedAmount
+                } else {
+                    txn.totalAmount ?: requestedAmount
+                },
                 tipAmount = if (stateValue.isSplitMode) null else txn.tipAmount,
                 taxAmount = if (stateValue.isSplitMode) null else txn.taxAmount,
                 serviceFee = if (stateValue.isSplitMode) null else txn.serviceFee,
@@ -577,7 +598,8 @@ class TransactionProgressViewModel(
                         serviceFee = if (stateValue.isSplitMode) null else transactionForRequest.serviceFee,
                         surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
                         tipConfig = tipConfig,
-                        callback = callback
+                        callback = callback,
+                        signatureEntryLocation = resolveSignatureForSaleOrAuth()
                     )
                 }
 
@@ -588,7 +610,8 @@ class TransactionProgressViewModel(
                         amount = requestedAmount,
                         currency = transactionForRequest.currency,
                         description = "Auth - ${_state.value.orderItems.size} items",
-                        callback = callback
+                        callback = callback,
+                        signatureEntryLocation = resolveSignatureForSaleOrAuth()
                     )
                 }
 
@@ -806,7 +829,8 @@ class TransactionProgressViewModel(
                     cashbackAmount = transaction.cashbackAmount,
                     serviceFee = transaction.serviceFee,
                     tipConfig = tipConfig,
-                    callback = callback
+                    callback = callback,
+                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
             }
             TransactionType.AUTH -> {
@@ -816,7 +840,8 @@ class TransactionProgressViewModel(
                     amount = transaction.amount,
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
-                    callback = callback
+                    callback = callback,
+                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
             }
             TransactionType.FORCED_AUTH -> {
@@ -874,6 +899,14 @@ class TransactionProgressViewModel(
             "QR_CPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
             else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
         }
+    }
+
+    private fun resolveSignatureForSaleOrAuth(): String? {
+        val context = DependencyProvider.requireContext()
+        if (!ConnectionPreferences.isSignatureEnabled(context)) {
+            return null
+        }
+        return ConnectionPreferences.getSignatureMode(context).name
     }
 
     /**
