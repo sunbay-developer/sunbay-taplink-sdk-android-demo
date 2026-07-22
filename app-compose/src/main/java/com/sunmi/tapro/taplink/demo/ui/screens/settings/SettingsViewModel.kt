@@ -115,6 +115,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateTaxConfigEnabled -> updateTaxConfigEnabled(intent.enabled)
             is SettingsIntent.UpdateTaxRate -> updateTaxRate(intent.rate)
             is SettingsIntent.TestConnection -> testConnection()
+            is SettingsIntent.AutoDiscoverAndConnect -> autoDiscoverAndConnect()
+            is SettingsIntent.ScanQrAndConnect -> scanQrAndConnect()
             is SettingsIntent.ExitApplication -> exitApplication()
             is SettingsIntent.DismissMessage -> dismissMessage()
             is SettingsIntent.NavigationConsumed -> navigationConsumed()
@@ -881,6 +883,204 @@ class SettingsViewModel(
                         )
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * LAN: auto-discover Taplink services via mDNS, back-fill the discovered address,
+     * then connect.
+     *
+     * The SDK performs discovery only and returns the resolved host/port list. The
+     * first service is written into the IP/Port fields and persisted, then a normal
+     * LAN connection is established — so the user sees exactly which terminal was found.
+     */
+    private fun autoDiscoverAndConnect() {
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isAutoDiscovering = true, message = null) }
+
+                // Step 1: discover (no connection yet)
+                val services = connectionManager.discoverLanServices()
+
+                if (services.isEmpty()) {
+                    _state.update {
+                        it.copy(
+                            isAutoDiscovering = false,
+                            message = Message(
+                                type = MessageType.WARNING,
+                                title = "No Service Found",
+                                content = "No Taplink service was found on the local network. Ensure the terminal is on the same network with LAN mode enabled, then try again.",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return@launch
+                }
+
+                // Step 2: back-fill the first discovered service into the LAN fields
+                val service = services.first()
+                android.util.Log.d(TAG, "Auto-discovered ${services.size} service(s); using ${service.host}:${service.port}")
+                _state.update {
+                    it.copy(
+                        selectedMode = ConnectionMode.LAN,
+                        ipAddress = service.host,
+                        port = service.port.toString()
+                    )
+                }
+
+                // Step 3: persist the back-filled config, then connect normally
+                saveSettingsInternal()
+                connectionManager.reconnect()
+
+                val finalState = withTimeoutOrNull(15_000L) {
+                    connectionManager.connectionState.first { state ->
+                        state is ConnectionState.Connected || state is ConnectionState.Error
+                    }
+                }
+                handleLanActionResult(
+                    finalState = finalState,
+                    isDiscovering = true,
+                    failureTitle = "Auto-Connect Failed",
+                    timeoutContent = "Discovered ${service.host}:${service.port} but the connection attempt timed out. Please try again."
+                )
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Auto-discovery failed", e)
+                _state.update {
+                    it.copy(
+                        isAutoDiscovering = false,
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Auto-Discovery Error",
+                            content = "Failed to auto-discover: ${e.message}",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * LAN: launch the SDK QR scanner, back-fill the scanned address, then connect.
+     *
+     * The SDK scans only and returns the parsed host/port. The scanned values are
+     * written into the IP/Port fields and persisted, then a normal LAN connection is
+     * established — so the user sees exactly which terminal was scanned.
+     */
+    private fun scanQrAndConnect() {
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isQrScanning = true, message = null) }
+
+                // Step 1: scan (no connection yet)
+                val services = connectionManager.scanLanQrCode()
+
+                if (services.isEmpty()) {
+                    _state.update {
+                        it.copy(
+                            isQrScanning = false,
+                            message = Message(
+                                type = MessageType.WARNING,
+                                title = "No QR Scanned",
+                                content = "The QR scan was cancelled or the code was invalid. Please scan a valid lan://ip/port Taplink QR code.",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return@launch
+                }
+
+                // Step 2: back-fill the scanned service into the LAN fields
+                val service = services.first()
+                android.util.Log.d(TAG, "Scanned service ${service.host}:${service.port}")
+                _state.update {
+                    it.copy(
+                        selectedMode = ConnectionMode.LAN,
+                        ipAddress = service.host,
+                        port = service.port.toString()
+                    )
+                }
+
+                // Step 3: persist the back-filled config, then connect normally
+                saveSettingsInternal()
+                connectionManager.reconnect()
+
+                val finalState = withTimeoutOrNull(15_000L) {
+                    connectionManager.connectionState.first { state ->
+                        state is ConnectionState.Connected || state is ConnectionState.Error
+                    }
+                }
+                handleLanActionResult(
+                    finalState = finalState,
+                    isDiscovering = false,
+                    failureTitle = "QR Connect Failed",
+                    timeoutContent = "Scanned ${service.host}:${service.port} but the connection attempt timed out. Please try again."
+                )
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "QR scan connect failed", e)
+                _state.update {
+                    it.copy(
+                        isQrScanning = false,
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "QR Scan Error",
+                            content = "Failed to scan and connect: ${e.message}",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply the result of a LAN auto-discovery / QR scan connect action to the state.
+     */
+    private fun handleLanActionResult(
+        finalState: ConnectionState?,
+        isDiscovering: Boolean,
+        failureTitle: String,
+        timeoutContent: String
+    ) {
+        fun clearBusy(state: SettingsState): SettingsState =
+            if (isDiscovering) state.copy(isAutoDiscovering = false)
+            else state.copy(isQrScanning = false)
+
+        when (finalState) {
+            is ConnectionState.Connected -> {
+                _state.update {
+                    clearBusy(it).copy(testSuccess = true, shouldNavigateBack = true)
+                }
+            }
+            is ConnectionState.Error -> {
+                _state.update {
+                    clearBusy(it).copy(
+                        testSuccess = false,
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = failureTitle,
+                            content = finalState.message,
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+            }
+            null -> {
+                _state.update {
+                    clearBusy(it).copy(
+                        testSuccess = false,
+                        message = Message(
+                            type = MessageType.WARNING,
+                            title = "Connection Timeout",
+                            content = timeoutContent,
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+            }
+            else -> {
+                _state.update { clearBusy(it) }
             }
         }
     }

@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Connection Manager
@@ -97,7 +99,20 @@ class ConnectionManager(
                 if (!ensureSdkInitializedForLocalModes()) {
                     return@launch
                 }
-                
+
+                // LAN mode requires a configured IP. If it is missing (e.g. first launch
+                // before the user runs auto-discovery), stay disconnected quietly instead
+                // of surfacing a "LAN IP address not configured" error.
+                if (mode == ConnectionMode.LAN) {
+                    val (lanIp, _) = ConnectionPreferences.getLanConfig(context)
+                    if (lanIp.isNullOrBlank()) {
+                        Log.d(TAG, "LAN mode selected but no IP configured; skipping auto-connect")
+                        _connectionState.value = ConnectionState.Disconnected
+                        currentMode = null
+                        return@launch
+                    }
+                }
+
                 // Create connection config based on mode
                 val config = createConnectionConfig(mode)
                 
@@ -164,6 +179,151 @@ class ConnectionManager(
                     message = e.message ?: "Unknown error"
                 )
             }
+        }
+    }
+
+    /**
+     * Discover LAN Taplink services via mDNS WITHOUT connecting.
+     *
+     * Ensures the SDK is initialized (required for discovery), then delegates to the
+     * SDK's discover-only API and returns the resolved services. The caller decides
+     * which service to use (typically auto-fill the address and then [connect]).
+     *
+     * @return List of discovered services (empty on failure or when none are found)
+     */
+    suspend fun discoverLanServices(): List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService> {
+        if (!ensureSdkInitializedForLocalModes()) {
+            return emptyList()
+        }
+        val paymentService =
+            com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService
+        return suspendCancellableCoroutine { cont ->
+            try {
+                paymentService.discoverLanServices(
+                    onResult = { services ->
+                        if (cont.isActive) cont.resume(services)
+                    },
+                    onError = { code, message ->
+                        Log.w(TAG, "Discovery error [$code]: $message")
+                        if (cont.isActive) cont.resume(emptyList())
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Discovery failed with exception", e)
+                if (cont.isActive) cont.resume(emptyList())
+            }
+        }
+    }
+
+    /**
+     * Launch the SDK QR scanner and return the scanned LAN host/port WITHOUT
+     * connecting.
+     *
+     * Ensures the SDK is initialized, then delegates to the SDK's scan-only API. The
+     * caller decides what to do with the result (typically auto-fill the address and
+     * then [connect]).
+     *
+     * @return List with the scanned service (empty on cancel / failure)
+     */
+    suspend fun scanLanQrCode(): List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService> {
+        if (!ensureSdkInitializedForLocalModes()) {
+            return emptyList()
+        }
+        val paymentService =
+            com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService
+        return suspendCancellableCoroutine { cont ->
+            try {
+                paymentService.scanLanQrCode(
+                    onResult = { services ->
+                        if (cont.isActive) cont.resume(services)
+                    },
+                    onError = { code, message ->
+                        Log.w(TAG, "QR scan error [$code]: $message")
+                        if (cont.isActive) cont.resume(emptyList())
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "QR scan failed with exception", e)
+                if (cont.isActive) cont.resume(emptyList())
+            }
+        }
+    }
+
+    /**
+     * Launch the SDK QR scanner and connect using the scanned LAN Taplink QR code.
+     *
+     * Requires valid SDK credentials and a completed SDK init (same as other local
+     * modes). Updates connection state through StateFlow using the generation guard
+     * to ignore stale callbacks.
+     */
+    fun scanAndConnect() {
+        scope.launch {
+            try {
+                Log.d(TAG, "Starting QR scan connect...")
+                _connectionState.value = ConnectionState.Connecting
+                val generation = ++connectionGeneration
+
+                if (!ensureSdkInitializedForLocalModes()) {
+                    return@launch
+                }
+
+                val paymentService =
+                    com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService
+                paymentService.scanAndConnect(
+                    buildLanConnectionListener(generation, "QR scan connect")
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "QR scan connect failed with exception", e)
+                _connectionState.value = ConnectionState.Error(
+                    code = "EXCEPTION",
+                    message = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    /**
+     * Build a ConnectionListener for LAN auto-discovery / QR scan connect that
+     * updates connection state while guarding against stale callbacks.
+     */
+    private fun buildLanConnectionListener(
+        generation: Int,
+        source: String
+    ): ConnectionListener = object : ConnectionListener {
+        override fun onConnected(deviceId: String, taproVersion: String) {
+            if (generation != connectionGeneration) {
+                Log.d(TAG, "Ignoring stale onConnected from $source (gen $generation, current $connectionGeneration)")
+                return
+            }
+            Log.d(TAG, "Connected via $source - Device: $deviceId, Version: $taproVersion")
+            currentMode = ConnectionMode.LAN
+            _connectionState.value = ConnectionState.Connected(
+                mode = ConnectionMode.LAN,
+                deviceId = deviceId,
+                version = taproVersion
+            )
+        }
+
+        override fun onDisconnected(reason: String) {
+            if (generation != connectionGeneration) {
+                Log.d(TAG, "Ignoring stale onDisconnected from $source (gen $generation, current $connectionGeneration) - Reason: $reason")
+                return
+            }
+            Log.d(TAG, "Disconnected via $source - Reason: $reason")
+            _connectionState.value = ConnectionState.Disconnected
+            currentMode = null
+        }
+
+        override fun onError(code: String, message: String) {
+            if (generation != connectionGeneration) {
+                Log.d(TAG, "Ignoring stale onError from $source (gen $generation, current $connectionGeneration) - Code: $code")
+                return
+            }
+            Log.e(TAG, "Connection error via $source - Code: $code, Message: $message")
+            _connectionState.value = ConnectionState.Error(
+                code = code,
+                message = message
+            )
         }
     }
 

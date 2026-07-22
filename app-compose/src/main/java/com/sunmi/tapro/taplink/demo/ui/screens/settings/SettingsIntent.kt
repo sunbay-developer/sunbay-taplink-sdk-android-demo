@@ -56,6 +56,10 @@ sealed class SettingsIntent {
     
     // Actions
     object TestConnection : SettingsIntent()
+    /** LAN: auto-discover Taplink services via mDNS and connect to the first available */
+    object AutoDiscoverAndConnect : SettingsIntent()
+    /** LAN: launch the SDK QR scanner and connect using the scanned code */
+    object ScanQrAndConnect : SettingsIntent()
     object ExitApplication : SettingsIntent()
     
     // Message Handling

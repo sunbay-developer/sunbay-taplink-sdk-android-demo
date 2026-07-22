@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
@@ -713,8 +714,12 @@ private fun ConnectionSectionContent(
         ConnectionMode.LAN -> LanConfiguration(
             ipAddress = state.ipAddress,
             port = state.port,
+            isAutoDiscovering = state.isAutoDiscovering,
+            isQrScanning = state.isQrScanning,
             onIpAddressChange = { onIntent(SettingsIntent.UpdateIpAddress(it)) },
-            onPortChange = { onIntent(SettingsIntent.UpdatePort(it)) }
+            onPortChange = { onIntent(SettingsIntent.UpdatePort(it)) },
+            onAutoDiscover = { onIntent(SettingsIntent.AutoDiscoverAndConnect) },
+            onScanQr = { onIntent(SettingsIntent.ScanQrAndConnect) }
         )
         ConnectionMode.CLOUD -> CloudConfiguration(
             state = state,
@@ -1721,8 +1726,12 @@ private fun getCableProtocolDescription(protocol: ConnectionPreferences.CablePro
 fun LanConfiguration(
     ipAddress: String,
     port: String,
+    isAutoDiscovering: Boolean,
+    isQrScanning: Boolean,
     onIpAddressChange: (String) -> Unit,
-    onPortChange: (String) -> Unit
+    onPortChange: (String) -> Unit,
+    onAutoDiscover: () -> Unit,
+    onScanQr: () -> Unit
 ) {
     Column {
         Text("LAN Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1730,12 +1739,48 @@ fun LanConfiguration(
         OutlinedTextField(value = ipAddress, onValueChange = onIpAddressChange, label = { Text("IP Address") }, placeholder = { Text("") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), supportingText = { Text("IP address of the payment terminal") })
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(value = port, onValueChange = onPortChange, label = { Text("Port") }, placeholder = { Text("8080") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), supportingText = { Text("Port number (8443-8463)") })
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── New SDK features: auto-discover & QR scan connect ──────────────────
+        val actionInProgress = isAutoDiscovering || isQrScanning
+        Text("Quick Connect", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = onAutoDiscover,
+                enabled = !actionInProgress,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (isAutoDiscovering) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Wifi, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Auto Discover")
+            }
+            OutlinedButton(
+                onClick = onScanQr,
+                enabled = !actionInProgress,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (isQrScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Scan QR")
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text("ℹ️ LAN Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("This mode connects to the payment terminal over a local area network. Ensure both devices are on the same network.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("• Auto Discover: finds Taplink services on the LAN and connects automatically.\n• Scan QR: scans the QR code shown on the terminal's LAN screen to connect.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

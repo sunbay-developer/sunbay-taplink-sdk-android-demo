@@ -27,6 +27,59 @@ interface PaymentService {
     fun connect(connectionConfig: ConnectionConfig, listener: ConnectionListener)
 
     /**
+     * Auto-discover LAN Taplink services (mDNS) and connect to the first available.
+     *
+     * Only supported by the local Taplink SDK service. Other implementations report
+     * an error through the listener.
+     */
+    fun autoDiscoverAndConnect(listener: ConnectionListener) {
+        listener.onError("UNSUPPORTED", "Auto-discover is not supported in this connection mode")
+    }
+
+    /**
+     * Discover LAN Taplink services (mDNS) WITHOUT connecting.
+     *
+     * Returns the resolved host/port list so the caller can auto-fill the address and
+     * then connect. Only supported by the local Taplink SDK service.
+     *
+     * @param onResult Called with the discovered services (may be empty)
+     * @param onError Called with (code, message) on failure
+     */
+    fun discoverLanServices(
+        onResult: (List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) -> Unit,
+        onError: (String, String) -> Unit
+    ) {
+        onError("UNSUPPORTED", "Discovery is not supported in this connection mode")
+    }
+
+    /**
+     * Launch the SDK QR scanner and connect using the scanned LAN Taplink QR code.
+     *
+     * Only supported by the local Taplink SDK service. Other implementations report
+     * an error through the listener.
+     */
+    fun scanAndConnect(listener: ConnectionListener) {
+        listener.onError("UNSUPPORTED", "QR scan connect is not supported in this connection mode")
+    }
+
+    /**
+     * Launch the SDK QR scanner and return the scanned lan:// host/port WITHOUT
+     * connecting.
+     *
+     * Returns the scanned service so the caller can auto-fill the address and then
+     * connect. Only supported by the local Taplink SDK service.
+     *
+     * @param onResult Called with the scanned services (single-element list on success)
+     * @param onError Called with (code, message) on cancel / failure
+     */
+    fun scanLanQrCode(
+        onResult: (List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) -> Unit,
+        onError: (String, String) -> Unit
+    ) {
+        onError("UNSUPPORTED", "QR scan is not supported in this connection mode")
+    }
+
+    /**
      * Disconnect from the payment terminal
      */
     fun disconnect()

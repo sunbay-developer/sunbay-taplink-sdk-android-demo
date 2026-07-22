@@ -158,6 +158,16 @@ dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
     implementation("com.github.mik3y:usb-serial-for-android:3.9.0")
 
+    // CameraX + ZXing runtime deps required by the Taplink SDK's built-in QR
+    // scanner (QrScannerActivity). The SDK is consumed as an AAR whose POM does
+    // not surface these transitively, so declare them here to package the
+    // classes (e.g. androidx.camera.view.PreviewView) into the APK.
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.zxing:core:3.5.3")
+
     // Coil - Image loading with animated WebP support
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)

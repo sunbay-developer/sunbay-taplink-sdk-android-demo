@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sunmi.tapro.taplink.sdk.callback.ConnectionListener as SdkConnectionListener
+import com.sunmi.tapro.taplink.sdk.callback.DiscoveryListener as SdkDiscoveryListener
 import com.sunmi.tapro.taplink.sdk.callback.PaymentCallback as SdkPaymentCallback
 import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
 import com.sunmi.tapro.taplink.sdk.error.PaymentError as SdkPaymentError
@@ -275,6 +276,132 @@ class TaplinkPaymentService : PaymentService {
             handleConnectionError(
                 "CONNECTION_EXCEPTION",
                 "Connection failed: ${e.message ?: "Unknown error"}"
+            )
+        }
+    }
+
+    override fun autoDiscoverAndConnect(listener: ConnectionListener) {
+        this.connectionListener = listener
+        Log.d(TAG, "SDK_REQUEST [AUTO_DISCOVER]: starting mDNS auto-discovery")
+        try {
+            TaplinkSDK.autoDiscoverAndConnect(object : SdkConnectionListener {
+                override fun onConnected(deviceId: String, taproVersion: String) {
+                    Log.d(TAG, "SDK_RESULT [AUTO_DISCOVER]: success, deviceId=$deviceId, taproVersion=$taproVersion")
+                    connecting = false
+                    handleConnected(deviceId, taproVersion)
+                }
+                override fun onDisconnected(reason: String) {
+                    Log.d(TAG, "SDK_RESULT [AUTO_DISCOVER]: disconnected, reason=$reason")
+                    connecting = false
+                    handleDisconnected(reason)
+                }
+                override fun onError(error: SdkConnectionError) {
+                    Log.e(TAG, "SDK_FAILURE [AUTO_DISCOVER]: $error")
+                    connecting = false
+                    handleConnectionError(error.code, error.message)
+                }
+            })
+        } catch (e: NoSuchMethodError) {
+            Log.e(TAG, "SDK API incompatibility detected", e)
+            connecting = false
+            handleConnectionError(
+                "SDK_INCOMPATIBLE",
+                "SDK version mismatch. Please check SDK integration: ${e.message}"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during auto-discovery", e)
+            connecting = false
+            handleConnectionError(
+                "DISCOVER_EXCEPTION",
+                "Auto-discovery failed: ${e.message ?: "Unknown error"}"
+            )
+        }
+    }
+
+    override fun discoverLanServices(
+        onResult: (List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) -> Unit,
+        onError: (String, String) -> Unit
+    ) {
+        Log.d(TAG, "SDK_REQUEST [DISCOVER]: starting mDNS discovery (discover-only)")
+        try {
+            TaplinkSDK.discoverLanServices(object : SdkDiscoveryListener {
+                override fun onDiscovered(services: List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) {
+                    Log.d(TAG, "SDK_RESULT [DISCOVER]: found ${services.size} services")
+                    onResult(services)
+                }
+                override fun onError(error: SdkConnectionError) {
+                    Log.e(TAG, "SDK_FAILURE [DISCOVER]: $error")
+                    onError(error.code, error.message)
+                }
+            })
+        } catch (e: NoSuchMethodError) {
+            Log.e(TAG, "SDK API incompatibility detected", e)
+            onError("SDK_INCOMPATIBLE", "SDK version mismatch. Please check SDK integration: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during discovery", e)
+            onError("DISCOVER_EXCEPTION", "Discovery failed: ${e.message ?: "Unknown error"}")
+        }
+    }
+
+    override fun scanLanQrCode(
+        onResult: (List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) -> Unit,
+        onError: (String, String) -> Unit
+    ) {
+        Log.d(TAG, "SDK_REQUEST [SCAN]: launching QR scanner (scan-only)")
+        try {
+            TaplinkSDK.scanLanQrCode(object : SdkDiscoveryListener {
+                override fun onDiscovered(services: List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>) {
+                    Log.d(TAG, "SDK_RESULT [SCAN]: scanned ${services.size} service(s)")
+                    onResult(services)
+                }
+                override fun onError(error: SdkConnectionError) {
+                    Log.e(TAG, "SDK_FAILURE [SCAN]: $error")
+                    onError(error.code, error.message)
+                }
+            })
+        } catch (e: NoSuchMethodError) {
+            Log.e(TAG, "SDK API incompatibility detected", e)
+            onError("SDK_INCOMPATIBLE", "SDK version mismatch. Please check SDK integration: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during scan", e)
+            onError("SCAN_EXCEPTION", "QR scan failed: ${e.message ?: "Unknown error"}")
+        }
+    }
+
+    override fun scanAndConnect(listener: ConnectionListener) {
+        this.connectionListener = listener
+        Log.d(TAG, "SDK_REQUEST [SCAN_CONNECT]: launching QR scanner")
+        try {
+            TaplinkSDK.scanAndConnect(object : SdkConnectionListener {
+                override fun onConnected(deviceId: String, taproVersion: String) {
+                    Log.d(TAG, "SDK_RESULT [SCAN_CONNECT]: success, deviceId=$deviceId, taproVersion=$taproVersion")
+                    connecting = false
+                    handleConnected(deviceId, taproVersion)
+                }
+                override fun onDisconnected(reason: String) {
+                    Log.d(TAG, "SDK_RESULT [SCAN_CONNECT]: disconnected, reason=$reason")
+                    connecting = false
+                    handleDisconnected(reason)
+                }
+                override fun onError(error: SdkConnectionError) {
+                    Log.e(TAG, "SDK_FAILURE [SCAN_CONNECT]: $error")
+                    connecting = false
+                    handleConnectionError(error.code, error.message)
+                }
+            })
+        } catch (e: NoSuchMethodError) {
+            Log.e(TAG, "SDK API incompatibility detected", e)
+            connecting = false
+            handleConnectionError(
+                "SDK_INCOMPATIBLE",
+                "SDK version mismatch. Please check SDK integration: ${e.message}"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during scan connect", e)
+            connecting = false
+            handleConnectionError(
+                "SCAN_EXCEPTION",
+                "QR scan connect failed: ${e.message ?: "Unknown error"}"
             )
         }
     }

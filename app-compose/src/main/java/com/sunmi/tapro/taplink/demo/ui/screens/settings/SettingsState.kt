@@ -103,6 +103,9 @@ data class SettingsState(
     // UI State
     val isLoading: Boolean = false,
     val isTesting: Boolean = false,
+    // LAN new-feature demo actions in progress
+    val isAutoDiscovering: Boolean = false,
+    val isQrScanning: Boolean = false,
     
     // Connection Test Result
     val testResult: String? = null,
