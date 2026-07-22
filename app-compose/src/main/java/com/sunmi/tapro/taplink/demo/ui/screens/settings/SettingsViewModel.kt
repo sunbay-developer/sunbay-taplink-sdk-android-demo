@@ -974,8 +974,32 @@ class SettingsViewModel(
                 _state.update { it.copy(isQrScanning = true, message = null) }
 
                 // Step 1: scan (no connection yet)
-                val services = connectionManager.scanLanQrCode()
+                val result = connectionManager.scanLanQrCode()
 
+                if (result is ConnectionManager.ScanResult.Failure) {
+                    // User cancelled (back button) — reset quietly, no misleading dialog.
+                    // Any other failure (no camera, permission denied, etc.) surfaces the
+                    // real SDK message so the user is not misdirected.
+                    val isUserCancel = result.code == "E504"
+                    _state.update {
+                        it.copy(
+                            isQrScanning = false,
+                            message = if (isUserCancel) {
+                                null
+                            } else {
+                                Message(
+                                    type = MessageType.ERROR,
+                                    title = "QR Scan Failed",
+                                    content = result.message,
+                                    actions = listOf(MessageAction.DISMISS)
+                                )
+                            }
+                        )
+                    }
+                    return@launch
+                }
+
+                val services = (result as ConnectionManager.ScanResult.Success).services
                 if (services.isEmpty()) {
                     _state.update {
                         it.copy(
@@ -983,7 +1007,7 @@ class SettingsViewModel(
                             message = Message(
                                 type = MessageType.WARNING,
                                 title = "No QR Scanned",
-                                content = "The QR scan was cancelled or the code was invalid. Please scan a valid lan://ip/port Taplink QR code.",
+                                content = "No valid lan://ip/port Taplink QR code was scanned. Please try again.",
                                 actions = listOf(MessageAction.DISMISS)
                             )
                         )

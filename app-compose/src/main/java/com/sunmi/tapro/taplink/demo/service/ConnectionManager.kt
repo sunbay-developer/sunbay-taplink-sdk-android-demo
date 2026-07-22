@@ -216,6 +216,17 @@ class ConnectionManager(
     }
 
     /**
+     * Result of a scan-only QR request.
+     */
+    sealed class ScanResult {
+        data class Success(
+            val services: List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService>
+        ) : ScanResult()
+
+        data class Failure(val code: String, val message: String) : ScanResult()
+    }
+
+    /**
      * Launch the SDK QR scanner and return the scanned LAN host/port WITHOUT
      * connecting.
      *
@@ -223,11 +234,12 @@ class ConnectionManager(
      * caller decides what to do with the result (typically auto-fill the address and
      * then [connect]).
      *
-     * @return List with the scanned service (empty on cancel / failure)
+     * @return [ScanResult.Success] with the scanned service(s), or [ScanResult.Failure]
+     *   carrying the SDK error code/message (e.g. no camera, permission denied, cancelled).
      */
-    suspend fun scanLanQrCode(): List<com.sunmi.tapro.taplink.sdk.model.DiscoveredService> {
+    suspend fun scanLanQrCode(): ScanResult {
         if (!ensureSdkInitializedForLocalModes()) {
-            return emptyList()
+            return ScanResult.Failure("SDK_NOT_INITIALIZED", "SDK is not initialized")
         }
         val paymentService =
             com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService
@@ -235,16 +247,18 @@ class ConnectionManager(
             try {
                 paymentService.scanLanQrCode(
                     onResult = { services ->
-                        if (cont.isActive) cont.resume(services)
+                        if (cont.isActive) cont.resume(ScanResult.Success(services))
                     },
                     onError = { code, message ->
                         Log.w(TAG, "QR scan error [$code]: $message")
-                        if (cont.isActive) cont.resume(emptyList())
+                        if (cont.isActive) cont.resume(ScanResult.Failure(code, message))
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "QR scan failed with exception", e)
-                if (cont.isActive) cont.resume(emptyList())
+                if (cont.isActive) {
+                    cont.resume(ScanResult.Failure("SCAN_EXCEPTION", e.message ?: "Unknown error"))
+                }
             }
         }
     }
