@@ -571,13 +571,6 @@ class MainViewModel(
                     signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
 
-                _state.update {
-                    it.copy(
-                        isInitiatingPayment = false,
-                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
-                    )
-                }
-                
                 // Clear order after initiating payment
                 clearOrder()
                 
@@ -661,13 +654,6 @@ class MainViewModel(
                     signatureEntryLocation = resolveSignatureForSaleOrAuth()
                 )
 
-                _state.update {
-                    it.copy(
-                        isInitiatingPayment = false,
-                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
-                    )
-                }
-                
                 // Clear order after initiating payment
                 clearOrder()
                 
@@ -754,13 +740,6 @@ class MainViewModel(
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
 
-                _state.update {
-                    it.copy(
-                        isInitiatingPayment = false,
-                        navigationEvent = NavigationEvent.ToProgress(transactionRequestId)
-                    )
-                }
-                
                 // Clear order after initiating payment
                 clearOrder()
                 

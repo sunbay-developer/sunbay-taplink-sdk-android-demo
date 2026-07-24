@@ -546,15 +546,6 @@ class TransactionListViewModel(
                     )
                 )
                 
-                // Non-App-to-App and Headless App-to-App should both enter progress immediately.
-                if (!isAppToApp || isHeadlessAppToApp) {
-                    _state.update { 
-                        it.copy(
-                            navigationEvent = TransactionListNavigationEvent.ToProgress(transactionRequestId)
-                        ) 
-                    }
-                }
-                
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Failed to execute standalone refund", e)
                 _state.update {
