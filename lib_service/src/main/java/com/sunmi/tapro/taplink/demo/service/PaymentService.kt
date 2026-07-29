@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.service
 
+import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
@@ -293,6 +294,7 @@ interface PaymentService {
     fun executeBatchClose(
         transactionRequestId: String,
         description: String,
+        printReceipt: PrintReceipt = PrintReceipt.AUTO,
         callback: PaymentCallback
     )
 

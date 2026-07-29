@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.service.cloud
 
+import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -506,7 +507,10 @@ class CloudPaymentService : PaymentService {
     }
 
     override fun executeBatchClose(
-        transactionRequestId: String, description: String, callback: PaymentCallback
+        transactionRequestId: String,
+        description: String,
+        printReceipt: PrintReceipt,
+        callback: PaymentCallback
     ) {
         if (!configured) {
             mainHandler.post { callback.onFailure("CLOUD_NOT_INITIALIZED", "Cloud service not configured") }
@@ -568,6 +572,7 @@ class CloudPaymentService : PaymentService {
                         put("transactionRequestId", closeRequestId)
                         put("channelCode", channelCode)
                         put("description", description)
+                        put("printReceipt", printReceipt.name)
                     }
                     Log.d(TAG, "SDK_REQ [BATCH_CLOSE ${index + 1}/${channelCodes.size}] channelCode=$channelCode: $body")
                     mainHandler.post {

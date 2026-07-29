@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.list
 
+import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -90,7 +91,7 @@ class TransactionListViewModel(
             is TransactionListIntent.QueryTransaction -> queryTransaction(intent.queryId)
             is TransactionListIntent.ShowQueryDialog -> showQueryDialog()
             is TransactionListIntent.HideQueryDialog -> hideQueryDialog()
-            is TransactionListIntent.BatchClose -> batchClose()
+            is TransactionListIntent.BatchClose -> batchClose(intent.printReceipt)
             is TransactionListIntent.ShowBatchCloseDialog -> showBatchCloseDialog()
             is TransactionListIntent.HideBatchCloseDialog -> hideBatchCloseDialog()
             is TransactionListIntent.DismissBatchCloseResult -> dismissBatchCloseResult()
@@ -371,7 +372,7 @@ class TransactionListViewModel(
      * In App-to-App mode, stays on the list screen until the final result arrives,
      * then navigates to the progress screen.
      */
-    private fun batchClose() {
+    private fun batchClose(printReceipt: PrintReceipt) {
         // 防重复批结：已有批结进行中时直接忽略本次请求，避免重复结算（财务风险）。
         // 这是权威守卫——即使 UI 未及时禁用导致连点，也不会触发第二次结算。
         if (_state.value.batchCloseInProgress) {
@@ -416,6 +417,7 @@ class TransactionListViewModel(
                 paymentService.executeBatchClose(
                     transactionRequestId = transactionRequestId,
                     description = "Batch Close",
+                    printReceipt = printReceipt,
                     callback = createBatchCloseCallback(transactionRequestId)
                 )
                 

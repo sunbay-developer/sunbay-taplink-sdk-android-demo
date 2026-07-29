@@ -950,9 +950,14 @@ class TaplinkPaymentService : PaymentService {
     override fun executeBatchClose(
         transactionRequestId: String,
         description: String,
+        printReceipt: PrintReceipt,
         callback: PaymentCallback
     ) {
-        val batchCloseRequest = BatchCloseRequest(transactionRequestId = transactionRequestId, description = description)
+        val batchCloseRequest = BatchCloseRequest(
+            transactionRequestId = transactionRequestId,
+            description = description,
+            printReceipt = printReceipt
+        )
         logSdkRequest("BATCH_CLOSE", batchCloseRequest)
         getClient().batchClose(batchCloseRequest, object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }

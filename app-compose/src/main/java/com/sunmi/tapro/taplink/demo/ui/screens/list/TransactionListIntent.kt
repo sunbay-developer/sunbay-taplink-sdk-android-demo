@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.list
 
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
+import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 
 /**
@@ -51,7 +52,7 @@ sealed class TransactionListIntent {
     /**
      * Perform batch close operation
      */
-    object BatchClose : TransactionListIntent()
+    data class BatchClose(val printReceipt: PrintReceipt) : TransactionListIntent()
     
     /**
      * Show batch close confirmation dialog

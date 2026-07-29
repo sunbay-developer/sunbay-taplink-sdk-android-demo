@@ -1,5 +1,3 @@
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Properties
 
 plugins {
@@ -34,7 +32,7 @@ android {
         applicationId = "com.sunmi.taplink.demo"
         minSdk = Integer.parseInt(libs.versions.minSdk.get())
         targetSdk = Integer.parseInt(libs.versions.compileSdk.get())
-        val buildVersionCode = secret("VERSION_CODE", "10").toInt()
+        val buildVersionCode = secret("VERSION_CODE", "12").toInt()
         versionCode = buildVersionCode
         versionName = secret("VERSION_NAME", "1.0.${buildVersionCode}")
 

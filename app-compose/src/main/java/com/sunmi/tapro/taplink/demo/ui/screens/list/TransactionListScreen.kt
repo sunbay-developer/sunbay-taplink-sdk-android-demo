@@ -29,6 +29,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.QuickFilterChips
 import com.sunmi.tapro.taplink.demo.ui.screens.list.table.TransactionListTableScreen
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 
 /**
@@ -305,7 +306,9 @@ fun TransactionListScreen(
     if (state.showBatchCloseDialog) {
         BatchCloseDialog(
             onDismiss = { viewModel.handleIntent(TransactionListIntent.HideBatchCloseDialog) },
-            onConfirm = { viewModel.handleIntent(TransactionListIntent.BatchClose) }
+            onConfirm = { printReceipt ->
+                viewModel.handleIntent(TransactionListIntent.BatchClose(printReceipt))
+            }
         )
     }
     
@@ -406,8 +409,16 @@ private fun QueryTransactionDialog(
 @Composable
 private fun BatchCloseDialog(
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: (PrintReceipt) -> Unit
 ) {
+    var selectedReceipt by remember { mutableStateOf(PrintReceipt.AUTO) }
+    val receiptOptions = listOf(
+        PrintReceipt.AUTO to "Use terminal batch report setting",
+        PrintReceipt.BOTH to "Print total and detail",
+        PrintReceipt.TOTAL to "Print total only",
+        PrintReceipt.DETAIL to "Print detail only",
+        PrintReceipt.NONE to "Do not print"
+    )
     PosDialog(
         onDismissRequest = onDismiss,
         title = "Batch Close",
@@ -416,11 +427,24 @@ private fun BatchCloseDialog(
         iconTint = MaterialTheme.colorScheme.secondary,
         iconBackgroundColor = MaterialTheme.colorScheme.secondaryContainer,
         confirmText = "Close Batch",
-        onConfirm = onConfirm,
+        onConfirm = { onConfirm(selectedReceipt) },
         dismissText = "Cancel",
         onDismiss = onDismiss
     ) {
-        // No extra content needed for confirmation
+        Column {
+            receiptOptions.forEach { (receipt, label) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedReceipt == receipt,
+                        onClick = { selectedReceipt = receipt }
+                    )
+                    Text(text = "${receipt.name} - $label")
+                }
+            }
+        }
     }
 }
 
