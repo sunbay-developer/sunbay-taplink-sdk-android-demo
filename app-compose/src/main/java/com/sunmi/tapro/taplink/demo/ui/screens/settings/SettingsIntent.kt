@@ -43,6 +43,7 @@ sealed class SettingsIntent {
     data class UpdateTipConfigEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipOnScreenTip(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipMode(val mode: TipConfigPreferences.TipMode) : SettingsIntent()
+    data class UpdateTipIncludeModeField(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipWithTax(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipSuggestionsEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipFeeMode(val mode: TipConfigPreferences.FeeMode) : SettingsIntent()

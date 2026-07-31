@@ -106,6 +106,7 @@ class SettingsViewModel(
             is SettingsIntent.UpdateTipConfigEnabled -> updateTipConfigEnabled(intent.enabled)
             is SettingsIntent.UpdateTipOnScreenTip -> updateTipOnScreenTip(intent.enabled)
             is SettingsIntent.UpdateTipMode -> updateTipMode(intent.mode)
+            is SettingsIntent.UpdateTipIncludeModeField -> updateTipIncludeModeField(intent.enabled)
             is SettingsIntent.UpdateTipWithTax -> updateTipWithTax(intent.enabled)
             is SettingsIntent.UpdateTipSuggestionsEnabled -> updateTipSuggestionsEnabled(intent.enabled)
             is SettingsIntent.UpdateTipFeeMode -> updateTipFeeMode(intent.mode)
@@ -179,6 +180,8 @@ class SettingsViewModel(
 
                 // Load Tip Configuration
                 val tipConfig = TipConfigPreferences.getConfig(context)
+                com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
+                    .setTipModeFieldEnabled(tipConfig.includeTipMode)
 
                 // Load Tax Configuration
                 val taxConfig = TaxConfigPreferences.getConfig(context)
@@ -222,6 +225,7 @@ class SettingsViewModel(
                         tipConfigEnabled = tipConfig.enabled,
                         tipOnScreenTip = tipConfig.onScreenTip,
                         tipMode = tipConfig.tipMode,
+                        tipIncludeModeField = tipConfig.includeTipMode,
                         tipWithTax = tipConfig.tipWithTax,
                         tipSuggestionsEnabled = tipConfig.suggestionsEnabled,
                         tipFeeMode = tipConfig.feeMode,
@@ -523,6 +527,7 @@ class SettingsViewModel(
             enabled = currentState.tipConfigEnabled,
             onScreenTip = currentState.tipOnScreenTip,
             tipMode = currentState.tipMode,
+            includeTipMode = currentState.tipIncludeModeField,
             tipWithTax = currentState.tipWithTax,
             suggestionsEnabled = currentState.tipSuggestionsEnabled,
             feeMode = currentState.tipFeeMode,
@@ -552,6 +557,13 @@ class SettingsViewModel(
 
     private fun updateTipMode(mode: TipConfigPreferences.TipMode) {
         _state.update { it.copy(tipMode = mode) }
+        persistTipConfig()
+    }
+
+    private fun updateTipIncludeModeField(enabled: Boolean) {
+        _state.update { it.copy(tipIncludeModeField = enabled) }
+        com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
+            .setTipModeFieldEnabled(enabled)
         persistTipConfig()
     }
 
@@ -607,6 +619,7 @@ class SettingsViewModel(
                 enabled = currentState.tipConfigEnabled,
                 onScreenTip = currentState.tipOnScreenTip,
                 tipMode = currentState.tipMode,
+                includeTipMode = currentState.tipIncludeModeField,
                 tipWithTax = currentState.tipWithTax,
                 suggestionsEnabled = currentState.tipSuggestionsEnabled,
                 feeMode = currentState.tipFeeMode,
@@ -1292,6 +1305,7 @@ class SettingsViewModel(
                     // Sync notifyUrl and pushToTerminal to cloud payment service
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setNotifyUrl(currentState.cloudNotifyUrl.trim())
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setPushToTerminal(currentState.cloudPushToTerminal)
+                    com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setTipModeFieldEnabled(currentState.tipIncludeModeField)
                 }
                 else -> { /* App-to-App: no extra config */ }
             }

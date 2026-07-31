@@ -81,6 +81,7 @@ data class SettingsState(
     val tipConfigEnabled: Boolean = false,
     val tipOnScreenTip: Boolean = true,
     val tipMode: TipConfigPreferences.TipMode = TipConfigPreferences.TipMode.ON_SALE,
+    val tipIncludeModeField: Boolean = true,
     val tipWithTax: Boolean = false,
     val tipSuggestionsEnabled: Boolean = false,
     val tipFeeMode: TipConfigPreferences.FeeMode = TipConfigPreferences.FeeMode.RATE,

@@ -15,6 +15,7 @@ object TipConfigPreferences {
     private const val KEY_ENABLED = "tip_config_enabled"
     private const val KEY_ON_SCREEN_TIP = "on_screen_tip"
     private const val KEY_TIP_MODE = "tip_mode"
+    private const val KEY_INCLUDE_TIP_MODE = "include_tip_mode"
     private const val KEY_TIP_WITH_TAX = "tip_with_tax"
     private const val KEY_SUGGESTIONS_ENABLED = "suggestions_enabled"
     private const val KEY_FEE_MODE = "fee_mode"
@@ -41,6 +42,7 @@ object TipConfigPreferences {
         val enabled: Boolean = false,
         val onScreenTip: Boolean = true,
         val tipMode: TipMode = TipMode.ON_SALE,
+        val includeTipMode: Boolean = true,
         val tipWithTax: Boolean = false,
         val suggestionsEnabled: Boolean = false,
         val feeMode: FeeMode = FeeMode.RATE,
@@ -77,6 +79,7 @@ object TipConfigPreferences {
             putBoolean(KEY_ENABLED, config.enabled)
             putBoolean(KEY_ON_SCREEN_TIP, config.onScreenTip)
             putString(KEY_TIP_MODE, config.tipMode.name)
+            putBoolean(KEY_INCLUDE_TIP_MODE, config.includeTipMode)
             putBoolean(KEY_TIP_WITH_TAX, config.tipWithTax)
             putBoolean(KEY_SUGGESTIONS_ENABLED, config.suggestionsEnabled)
             putString(KEY_FEE_MODE, config.feeMode.name)
@@ -99,6 +102,7 @@ object TipConfigPreferences {
             } catch (_: IllegalArgumentException) {
                 TipMode.ON_SALE
             },
+            includeTipMode = prefs.getBoolean(KEY_INCLUDE_TIP_MODE, true),
             tipWithTax = prefs.getBoolean(KEY_TIP_WITH_TAX, false),
             suggestionsEnabled = prefs.getBoolean(KEY_SUGGESTIONS_ENABLED, false),
             feeMode = try {

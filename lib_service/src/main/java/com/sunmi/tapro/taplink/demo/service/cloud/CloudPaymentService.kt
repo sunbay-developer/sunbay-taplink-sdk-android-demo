@@ -141,7 +141,9 @@ class CloudPaymentService : PaymentService {
     /** Build tipConfig JSON object from SDK TipConfig for cloud requests */
     private fun buildTipConfigJson(tipConfig: TipConfig): ObjectNode = objectMapper.createObjectNode().apply {
         put("onScreenTip", tipConfig.onScreenTip)
-        put("tipMode", tipConfig.tipMode.name)
+        if (includeTipModeField) {
+            put("tipMode", tipConfig.tipMode.name)
+        }
         put("tipWithTax", tipConfig.tipWithTax)
         tipConfig.suggestions?.let { suggestions ->
             set<ObjectNode>("suggestions", objectMapper.createObjectNode().apply {
@@ -149,6 +151,11 @@ class CloudPaymentService : PaymentService {
                 val valuesArray: ArrayNode = objectMapper.createArrayNode()
                 suggestions.values.forEach { valuesArray.add(it) }
                 set<ObjectNode>("values", valuesArray)
+                suggestions.names?.let { names ->
+                    val namesArray: ArrayNode = objectMapper.createArrayNode()
+                    names.forEach { namesArray.add(it) }
+                    set<ObjectNode>("names", namesArray)
+                }
             })
         }
     }
@@ -161,6 +168,8 @@ class CloudPaymentService : PaymentService {
 
     /** Whether to push transaction to terminal device. Set from app layer settings toggle. */
     private var pushToTerminal: Boolean = true
+    /** Whether to include tipMode field under tipConfig in Cloud requests. */
+    private var includeTipModeField: Boolean = true
 
     fun setPrintReceipt(receipt: String) {
         this.printReceipt = receipt
@@ -175,6 +184,11 @@ class CloudPaymentService : PaymentService {
     fun setPushToTerminal(enabled: Boolean) {
         this.pushToTerminal = enabled
         Log.d(TAG, "Push to terminal set to: $enabled")
+    }
+
+    fun setTipModeFieldEnabled(enabled: Boolean) {
+        this.includeTipModeField = enabled
+        Log.d(TAG, "tipConfig.tipMode field enabled: $enabled")
     }
 
     /**

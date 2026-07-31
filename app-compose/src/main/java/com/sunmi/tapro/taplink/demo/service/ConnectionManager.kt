@@ -10,6 +10,7 @@ import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.ErrorMessageConverter
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
+import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.AppToAppMode
 import kotlinx.coroutines.CoroutineScope
@@ -393,6 +394,8 @@ class ConnectionManager(
             paymentService.setPushToTerminal(cloudConfig.pushToTerminal)
             val printReceipt = ConnectionPreferences.getPrintReceipt(context)
             paymentService.setPrintReceipt(printReceipt.name)
+            val tipConfig = TipConfigPreferences.getConfig(context)
+            paymentService.setTipModeFieldEnabled(tipConfig.includeTipMode)
 
             // Report connected — CloudHttpClient will be initialized lazily on first transaction
             Log.d(TAG, "Cloud connected (config validated): terminalSn=${cloudConfig.terminalSn}, appId=$appId")

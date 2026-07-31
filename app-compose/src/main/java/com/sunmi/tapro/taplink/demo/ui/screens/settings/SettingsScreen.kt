@@ -964,6 +964,28 @@ private fun TipConfigSectionContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Include tipMode Field", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "When off, tipConfig will omit tipMode in Cloud request body",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.tipIncludeModeField,
+                    onCheckedChange = { onIntent(SettingsIntent.UpdateTipIncludeModeField(it)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Tip Mode selection
             Text(
                 text = "Tip Mode",
