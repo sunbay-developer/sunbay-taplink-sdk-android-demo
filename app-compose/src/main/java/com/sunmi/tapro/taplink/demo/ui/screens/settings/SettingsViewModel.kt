@@ -90,6 +90,10 @@ class SettingsViewModel(
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
             is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
             is SettingsIntent.UpdateSignatureMode -> updateSignatureMode(intent.mode)
+            is SettingsIntent.UpdateSignatureThresholdEnabled ->
+                updateSignatureThresholdEnabled(intent.enabled)
+            is SettingsIntent.UpdateSignatureThreshold ->
+                updateSignatureThreshold(intent.threshold)
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
@@ -155,6 +159,9 @@ class SettingsViewModel(
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
                 val savedSignatureEnabled = ConnectionPreferences.isSignatureEnabled(context)
                 val savedSignatureMode = ConnectionPreferences.getSignatureMode(context)
+                val savedSignatureThresholdEnabled =
+                    ConnectionPreferences.isSignatureThresholdEnabled(context)
+                val savedSignatureThreshold = ConnectionPreferences.getSignatureThreshold(context)
                 // Sync to payment service (from :service module)
                 TaplinkPaymentService.getInstance().setPrintReceipt(PrintReceiptMapping.toSdk(savedPrintReceipt))
                 // Sync to cloud payment service (uses string name directly)
@@ -203,6 +210,8 @@ class SettingsViewModel(
                         printReceipt = savedPrintReceipt,
                         signatureEnabled = savedSignatureEnabled,
                         signatureMode = savedSignatureMode,
+                        signatureThresholdEnabled = savedSignatureThresholdEnabled,
+                        signatureThreshold = savedSignatureThreshold,
                         cloudApiKey = cloudConfig.apiKey,
                         cloudBaseUrl = cloudConfig.baseUrl,
                         cloudTerminalSn = cloudConfig.terminalSn,
@@ -329,9 +338,38 @@ class SettingsViewModel(
     }
 
     private fun updateSignatureMode(mode: SignatureMode) {
-        _state.update { it.copy(signatureMode = mode) }
+        _state.update {
+            it.copy(
+                signatureMode = mode,
+                signatureThresholdEnabled = if (mode == SignatureMode.NONE) {
+                    false
+                } else {
+                    it.signatureThresholdEnabled
+                }
+            )
+        }
         val context = getApplication<Application>()
         ConnectionPreferences.saveSignatureMode(context, mode)
+        if (mode == SignatureMode.NONE) {
+            ConnectionPreferences.saveSignatureThresholdEnabled(context, false)
+        }
+    }
+
+    private fun updateSignatureThresholdEnabled(enabled: Boolean) {
+        _state.update { it.copy(signatureThresholdEnabled = enabled) }
+        ConnectionPreferences.saveSignatureThresholdEnabled(
+            getApplication<Application>(),
+            enabled
+        )
+    }
+
+    private fun updateSignatureThreshold(threshold: String) {
+        val normalized = threshold.filter { it.isDigit() }
+        _state.update { it.copy(signatureThreshold = normalized) }
+        ConnectionPreferences.saveSignatureThreshold(
+            getApplication<Application>(),
+            normalized
+        )
     }
 
     private fun updateSdkAppId(appId: String) {

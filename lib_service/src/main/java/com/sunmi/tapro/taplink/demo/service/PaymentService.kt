@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
+import com.sunmi.tapro.taplink.sdk.model.common.SignatureConfig
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import java.math.BigDecimal
@@ -132,14 +133,14 @@ interface PaymentService {
             staffInfo = staffInfo,
             tipConfig = tipConfig,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
     /**
-     * Execute sale transaction with explicit signature routing (Sale only).
+     * Execute sale transaction with per-transaction signature configuration.
      *
-     * @param signatureEntryLocation Optional signature routing: ON_SCREEN / ON_RECEIPT.
+     * @param signatureConfig Optional signature location and amount threshold.
      */
     fun executeSale(
         referenceOrderId: String,
@@ -159,7 +160,7 @@ interface PaymentService {
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
         callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     )
 
     fun executeAuth(
@@ -177,14 +178,14 @@ interface PaymentService {
             currency = currency,
             description = description,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
     /**
-     * Execute auth transaction with explicit signature routing (Auth only).
+     * Execute auth transaction with per-transaction signature configuration.
      *
-     * @param signatureEntryLocation Optional signature routing: ON_SCREEN / ON_RECEIPT.
+     * @param signatureConfig Optional signature location and amount threshold.
      */
     fun executeAuth(
         referenceOrderId: String,
@@ -193,7 +194,7 @@ interface PaymentService {
         currency: String,
         description: String,
         callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     )
 
     fun executeForcedAuth(

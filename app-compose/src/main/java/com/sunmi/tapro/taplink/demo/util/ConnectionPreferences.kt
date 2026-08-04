@@ -17,6 +17,8 @@ object ConnectionPreferences {
     private const val KEY_PRINT_RECEIPT = "print_receipt"
     private const val KEY_SIGNATURE_ENABLED = "signature_enabled"
     private const val KEY_SIGNATURE_MODE = "signature_mode"
+    private const val KEY_SIGNATURE_THRESHOLD_ENABLED = "signature_threshold_enabled"
+    private const val KEY_SIGNATURE_THRESHOLD = "signature_threshold"
 
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
@@ -24,6 +26,7 @@ object ConnectionPreferences {
     private const val DEFAULT_APP_TO_APP_MODE = "CUSTOM"
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
     private const val DEFAULT_SIGNATURE_MODE = "ON_SCREEN"
+    private const val DEFAULT_SIGNATURE_THRESHOLD = "5000"
 
     enum class ConnectionMode {
         APP_TO_APP,
@@ -144,5 +147,28 @@ object ConnectionPreferences {
         } catch (_: IllegalArgumentException) {
             com.sunmi.tapro.taplink.demo.ui.screens.settings.SignatureMode.ON_SCREEN
         }
+    }
+
+    fun saveSignatureThresholdEnabled(context: Context, enabled: Boolean) {
+        getPreferences(context).edit(commit = true) {
+            putBoolean(KEY_SIGNATURE_THRESHOLD_ENABLED, enabled)
+        }
+    }
+
+    fun isSignatureThresholdEnabled(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_SIGNATURE_THRESHOLD_ENABLED, false)
+    }
+
+    fun saveSignatureThreshold(context: Context, threshold: String) {
+        getPreferences(context).edit(commit = true) {
+            putString(KEY_SIGNATURE_THRESHOLD, threshold)
+        }
+    }
+
+    fun getSignatureThreshold(context: Context): String {
+        return getPreferences(context).getString(
+            KEY_SIGNATURE_THRESHOLD,
+            DEFAULT_SIGNATURE_THRESHOLD
+        ) ?: DEFAULT_SIGNATURE_THRESHOLD
     }
 }

@@ -814,7 +814,7 @@ private fun SignatureSectionContent(
     )
     Spacer(modifier = Modifier.height(4.dp))
     Text(
-        text = "When enabled, Sale/Auth requests include signature with ON_SCREEN or ON_RECEIPT.",
+        text = "When enabled, Sale/Auth requests include signatureConfig.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -881,6 +881,51 @@ private fun SignatureSectionContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+
+                }
+            }
+
+            AnimatedVisibility(visible = state.signatureMode != SignatureMode.NONE) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Amount Threshold", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Require signature only when final amount exceeds the threshold",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.signatureThresholdEnabled,
+                            onCheckedChange = {
+                                onIntent(SettingsIntent.UpdateSignatureThresholdEnabled(it))
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(visible = state.signatureThresholdEnabled) {
+                        OutlinedTextField(
+                            value = state.signatureThreshold,
+                            onValueChange = {
+                                onIntent(SettingsIntent.UpdateSignatureThreshold(it))
+                            },
+                            label = { Text("Threshold (smallest currency unit)") },
+                            supportingText = {
+                                Text("Example: 5000 means USD 50.00")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = MaterialTheme.shapes.medium
+                        )
                     }
                 }
             }
@@ -1547,11 +1592,13 @@ private fun getPrintReceiptDescription(option: PrintReceipt): String = when (opt
 private fun getSignatureModeLabel(option: SignatureMode): String = when (option) {
     SignatureMode.ON_SCREEN -> "ON_SCREEN"
     SignatureMode.ON_RECEIPT -> "ON_RECEIPT"
+    SignatureMode.NONE -> "NONE"
 }
 
 private fun getSignatureModeDescription(option: SignatureMode): String = when (option) {
     SignatureMode.ON_SCREEN -> "Collect signature on terminal screen"
     SignatureMode.ON_RECEIPT -> "Collect signature on printed receipt"
+    SignatureMode.NONE -> "Do not collect a signature for the transaction"
 }
 
 @Composable

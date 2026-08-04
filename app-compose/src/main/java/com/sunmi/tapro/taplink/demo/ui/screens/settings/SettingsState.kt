@@ -19,7 +19,8 @@ enum class PrintReceipt {
 
 enum class SignatureMode {
     ON_SCREEN,
-    ON_RECEIPT
+    ON_RECEIPT,
+    NONE
 }
 
 enum class SdkEnvironment {
@@ -54,6 +55,8 @@ data class SettingsState(
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
     val signatureEnabled: Boolean = false,
     val signatureMode: SignatureMode = SignatureMode.ON_SCREEN,
+    val signatureThresholdEnabled: Boolean = false,
+    val signatureThreshold: String = "5000",
 
     // Cloud Configuration
     val cloudApiKey: String = EnvironmentDefaults.Prod.CLOUD_API_KEY,

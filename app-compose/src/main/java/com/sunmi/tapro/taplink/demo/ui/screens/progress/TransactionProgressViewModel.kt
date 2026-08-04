@@ -599,7 +599,7 @@ class TransactionProgressViewModel(
                         surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
                         tipConfig = tipConfig,
                         callback = callback,
-                        signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                        signatureConfig = resolveSignatureForSaleOrAuth()
                     )
                 }
 
@@ -611,7 +611,7 @@ class TransactionProgressViewModel(
                         currency = transactionForRequest.currency,
                         description = "Auth - ${_state.value.orderItems.size} items",
                         callback = callback,
-                        signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                        signatureConfig = resolveSignatureForSaleOrAuth()
                     )
                 }
 
@@ -830,7 +830,7 @@ class TransactionProgressViewModel(
                     serviceFee = transaction.serviceFee,
                     tipConfig = tipConfig,
                     callback = callback,
-                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                    signatureConfig = resolveSignatureForSaleOrAuth()
                 )
             }
             TransactionType.AUTH -> {
@@ -841,7 +841,7 @@ class TransactionProgressViewModel(
                     currency = transaction.currency,
                     description = "Retry: ${transaction.getDisplayName()}",
                     callback = callback,
-                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                    signatureConfig = resolveSignatureForSaleOrAuth()
                 )
             }
             TransactionType.FORCED_AUTH -> {
@@ -901,13 +901,10 @@ class TransactionProgressViewModel(
         }
     }
 
-    private fun resolveSignatureForSaleOrAuth(): String? {
-        val context = DependencyProvider.requireContext()
-        if (!ConnectionPreferences.isSignatureEnabled(context)) {
-            return null
-        }
-        return ConnectionPreferences.getSignatureMode(context).name
-    }
+    private fun resolveSignatureForSaleOrAuth() =
+        com.sunmi.tapro.taplink.demo.util.SignatureConfigBuilder.buildFromPreferences(
+            DependencyProvider.requireContext()
+        )
 
     /**
      * Create payment callback for transaction

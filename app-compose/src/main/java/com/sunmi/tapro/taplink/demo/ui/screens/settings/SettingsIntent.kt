@@ -20,6 +20,8 @@ sealed class SettingsIntent {
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
     data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateSignatureMode(val mode: SignatureMode) : SettingsIntent()
+    data class UpdateSignatureThresholdEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateSignatureThreshold(val threshold: String) : SettingsIntent()
 
     // SDK Initialization Parameters
     data class UpdateSdkAppId(val appId: String) : SettingsIntent()

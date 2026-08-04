@@ -14,6 +14,7 @@ import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
+import com.sunmi.tapro.taplink.sdk.model.common.SignatureConfig
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import kotlinx.coroutines.CoroutineScope
@@ -269,7 +270,7 @@ class CloudPaymentService : PaymentService {
             staffInfo = staffInfo,
             tipConfig = tipConfig,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
@@ -284,7 +285,7 @@ class CloudPaymentService : PaymentService {
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
         surchargeAmount: BigDecimal?,
         staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     ) {
         val body = baseJson().apply {
             put("referenceOrderId", referenceOrderId)
@@ -300,7 +301,9 @@ class CloudPaymentService : PaymentService {
             applyNotifyUrl()
             set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
             cardNetworkType?.let { put("cardNetworkType", it) }
-            signatureEntryLocation?.let { put("signatureEntryLocation", it) }
+            signatureConfig?.let { config ->
+                set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
+            }
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
                 tipAmount?.let { put("tipAmount", AmountConverter.toCents(it)) }
                 taxAmount?.let { put("taxAmount", AmountConverter.toCents(it)) }
@@ -331,7 +334,7 @@ class CloudPaymentService : PaymentService {
             currency = currency,
             description = description,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
@@ -339,19 +342,28 @@ class CloudPaymentService : PaymentService {
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
         callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     ) {
         val body = baseJson().apply {
             put("referenceOrderId", referenceOrderId)
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             put("printReceipt", printReceipt)
-            signatureEntryLocation?.let { put("signatureEntryLocation", it) }
+            signatureConfig?.let { config ->
+                set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
+            }
             applyNotifyUrl()
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [AUTH]: $body")
         executeCloud("AUTH", callback) { it.post(PATH_AUTH, body) }
+    }
+
+    private fun buildSignatureConfigJson(config: SignatureConfig): ObjectNode {
+        return objectMapper.createObjectNode().apply {
+            put("entryLocation", config.entryLocation.name)
+            config.threshold?.let { put("threshold", it) }
+        }
     }
 
     override fun executeForcedAuth(

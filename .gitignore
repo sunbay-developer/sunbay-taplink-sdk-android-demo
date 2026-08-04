@@ -39,3 +39,5 @@ key
 
 # local unified secrets file
 local.secrets.properties
+/AGENT.md
+/AGENTS.md

@@ -568,7 +568,7 @@ class MainViewModel(
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
                     tipConfig = tipConfig,
                     callback = createNavigatingPaymentCallback(transactionRequestId),
-                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                    signatureConfig = resolveSignatureForSaleOrAuth()
                 )
 
                 // Clear order after initiating payment
@@ -651,7 +651,7 @@ class MainViewModel(
                     currency = CURRENCY,
                     description = "Auth - ${_state.value.orderItems.size} items",
                     callback = createNavigatingPaymentCallback(transactionRequestId),
-                    signatureEntryLocation = resolveSignatureForSaleOrAuth()
+                    signatureConfig = resolveSignatureForSaleOrAuth()
                 )
 
                 // Clear order after initiating payment
@@ -821,13 +821,10 @@ class MainViewModel(
         }
     }
     
-    private fun resolveSignatureForSaleOrAuth(): String? {
-        val context = getApplication<Application>()
-        if (!com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.isSignatureEnabled(context)) {
-            return null
-        }
-        return com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.getSignatureMode(context).name
-    }
+    private fun resolveSignatureForSaleOrAuth() =
+        com.sunmi.tapro.taplink.demo.util.SignatureConfigBuilder.buildFromPreferences(
+            getApplication<Application>()
+        )
 
     /**
      * Create a payment callback that navigates to the progress screen and resets

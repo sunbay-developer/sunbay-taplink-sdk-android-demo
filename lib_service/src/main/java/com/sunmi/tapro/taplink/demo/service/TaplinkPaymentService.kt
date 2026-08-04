@@ -9,12 +9,12 @@ import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.CardNetworkType
 import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
-import com.sunmi.tapro.taplink.sdk.enums.Signature
 import com.sunmi.tapro.taplink.sdk.model.common.AmountInfo
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodId
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodInfo
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentMethodSubId
+import com.sunmi.tapro.taplink.sdk.model.common.SignatureConfig
 import com.sunmi.tapro.taplink.sdk.model.common.StaffInfo
 import com.sunmi.tapro.taplink.sdk.model.common.TipConfig
 import com.sunmi.tapro.taplink.sdk.enums.TipMode
@@ -619,7 +619,7 @@ class TaplinkPaymentService : PaymentService {
             staffInfo = staffInfo,
             tipConfig = tipConfig,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
@@ -641,13 +641,12 @@ class TaplinkPaymentService : PaymentService {
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
         callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     ) {
         // Convert String? to SDK types for Taplink SDK
         val sdkPaymentMethodId = paymentMethodId?.let { PaymentMethodId.valueOf(it) }
         val sdkSubPaymentMethodId = subPaymentMethodId?.let { PaymentMethodSubId.valueOf(it) }
         val sdkCardNetworkType = cardNetworkType?.let { CardNetworkType.fromValue(it) }
-        val sdkSignature = signatureEntryLocation?.let { Signature.fromValue(it) }
         val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount)
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [SALE]: applied tipConfig=$tipConfig")
@@ -670,7 +669,7 @@ class TaplinkPaymentService : PaymentService {
             staffInfo,
             tipConfig,
             printReceipt,
-            sdkSignature,
+            signatureConfig,
         )
         logSdkRequest("SALE", saleRequest)
         getClient().sale(saleRequest, object : SdkPaymentCallback {
@@ -695,7 +694,7 @@ class TaplinkPaymentService : PaymentService {
             currency = currency,
             description = description,
             callback = callback,
-            signatureEntryLocation = null
+            signatureConfig = null
         )
     }
 
@@ -706,9 +705,8 @@ class TaplinkPaymentService : PaymentService {
         currency: String,
         description: String,
         callback: PaymentCallback,
-        signatureEntryLocation: String?
+        signatureConfig: SignatureConfig?
     ) {
-        val sdkSignature = signatureEntryLocation?.let { Signature.fromValue(it) }
         val authRequest = AuthRequest(
             referenceOrderId,
             transactionRequestId,
@@ -720,7 +718,7 @@ class TaplinkPaymentService : PaymentService {
             null,
             null,
             printReceipt,
-            sdkSignature,
+            signatureConfig,
         )
         logSdkRequest("AUTH", authRequest)
         getClient().auth(authRequest, object : SdkPaymentCallback {
