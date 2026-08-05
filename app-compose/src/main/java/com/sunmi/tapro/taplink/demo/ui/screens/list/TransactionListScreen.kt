@@ -490,7 +490,14 @@ private fun BatchCloseResultDialog(
     ) {
         when {
             inProgress -> {
-                CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
             result != null -> {
                 Column(modifier = Modifier.fillMaxWidth()) {

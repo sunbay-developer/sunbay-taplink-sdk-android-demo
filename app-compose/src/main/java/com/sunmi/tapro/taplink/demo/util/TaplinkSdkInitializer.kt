@@ -41,7 +41,7 @@ object TaplinkSdkInitializer {
                 secretKey = config.secretKey
             )
                 .setLogEnabled(true)
-                .setLogLevel(LogLevel.DEBUG)
+                .setLogLevel(LogLevel.INFO)
 
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
