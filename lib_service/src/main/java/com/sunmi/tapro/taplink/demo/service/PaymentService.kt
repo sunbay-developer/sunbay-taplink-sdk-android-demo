@@ -222,6 +222,9 @@ interface PaymentService {
      *   so the terminal routes to the correct QR refund flow.
      * @param cardNetworkType Optional card network for CARD refunds (e.g. CREDIT/DEBIT).
      *   Used by standalone refund UI to force routing to a specific card network.
+     * @param signatureConfig Optional signature configuration. Only accepted for **unreferenced**
+     *   refunds, where the cardholder presents a card and can be asked to sign. Passing it for a
+     *   referenced refund is rejected by the SDK.
      * @see <a href="https://docs.sunbay.dev/zh/refspec/transaction/refund">Refund API</a>
      */
     fun executeRefund(
@@ -235,6 +238,7 @@ interface PaymentService {
         reason: String?,
         paymentCategory: PaymentCategory? = null,
         cardNetworkType: String? = null,
+        signatureConfig: SignatureConfig? = null,
         callback: PaymentCallback
     )
 

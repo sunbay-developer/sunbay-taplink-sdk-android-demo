@@ -12,6 +12,10 @@ object SignatureConfigBuilder {
             return null
         }
 
+        if (ConnectionPreferences.isSignatureUseHostConfig(context)) {
+            return SignatureConfig.useHostConfig()
+        }
+
         val entryLocation = SignatureEntryLocation.valueOf(
             ConnectionPreferences.getSignatureMode(context).name
         )
@@ -19,7 +23,7 @@ object SignatureConfigBuilder {
             return SignatureConfig.none()
         }
         if (!ConnectionPreferences.isSignatureThresholdEnabled(context)) {
-            return SignatureConfig(entryLocation = entryLocation)
+            return SignatureConfig(useHostConfig = false, entryLocation = entryLocation)
         }
 
         val thresholdText = ConnectionPreferences.getSignatureThreshold(context)
@@ -31,6 +35,7 @@ object SignatureConfigBuilder {
             "Signature threshold must be an integer in the smallest currency unit"
         }
         return SignatureConfig(
+            useHostConfig = false,
             entryLocation = entryLocation,
             threshold = threshold
         )

@@ -16,6 +16,7 @@ object ConnectionPreferences {
     private const val KEY_APP_TO_APP_MODE = "app_to_app_mode"
     private const val KEY_PRINT_RECEIPT = "print_receipt"
     private const val KEY_SIGNATURE_ENABLED = "signature_enabled"
+    private const val KEY_SIGNATURE_USE_HOST_CONFIG = "signature_use_host_config"
     private const val KEY_SIGNATURE_MODE = "signature_mode"
     private const val KEY_SIGNATURE_THRESHOLD_ENABLED = "signature_threshold_enabled"
     private const val KEY_SIGNATURE_THRESHOLD = "signature_threshold"
@@ -129,6 +130,20 @@ object ConnectionPreferences {
 
     fun isSignatureEnabled(context: Context): Boolean {
         return getPreferences(context).getBoolean(KEY_SIGNATURE_ENABLED, false)
+    }
+
+    /**
+     * Whether the terminal (host) signature configuration should be used instead of the
+     * per-transaction one. Defaults to true, matching the SDK default.
+     */
+    fun saveSignatureUseHostConfig(context: Context, useHostConfig: Boolean) {
+        getPreferences(context).edit(commit = true) {
+            putBoolean(KEY_SIGNATURE_USE_HOST_CONFIG, useHostConfig)
+        }
+    }
+
+    fun isSignatureUseHostConfig(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_SIGNATURE_USE_HOST_CONFIG, true)
     }
 
     fun saveSignatureMode(

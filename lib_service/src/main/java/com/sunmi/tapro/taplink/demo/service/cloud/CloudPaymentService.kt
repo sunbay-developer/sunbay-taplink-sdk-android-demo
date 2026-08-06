@@ -141,6 +141,10 @@ class CloudPaymentService : PaymentService {
 
     /** Build tipConfig JSON object from SDK TipConfig for cloud requests */
     private fun buildTipConfigJson(tipConfig: TipConfig): ObjectNode = objectMapper.createObjectNode().apply {
+        put("useHostConfig", tipConfig.useHostConfig)
+        if (tipConfig.useHostConfig) {
+            return@apply
+        }
         put("onScreenTip", tipConfig.onScreenTip)
         if (includeTipModeField) {
             put("tipMode", tipConfig.tipMode.name)
@@ -361,7 +365,8 @@ class CloudPaymentService : PaymentService {
 
     private fun buildSignatureConfigJson(config: SignatureConfig): ObjectNode {
         return objectMapper.createObjectNode().apply {
-            put("entryLocation", config.entryLocation.name)
+            put("useHostConfig", config.useHostConfig)
+            config.entryLocation?.let { put("entryLocation", it.name) }
             config.threshold?.let { put("threshold", it) }
         }
     }
@@ -391,6 +396,7 @@ class CloudPaymentService : PaymentService {
         description: String, reason: String?,
         paymentCategory: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory?,
         cardNetworkType: String?,
+        signatureConfig: SignatureConfig?,
         callback: PaymentCallback
     ) {
         // Referenced refund: provide originalTransactionId or originalTransactionRequestId.
@@ -426,6 +432,12 @@ class CloudPaymentService : PaymentService {
                 applyPushToTerminal()
             }
             cardNetworkType?.let { put("cardNetworkType", it) }
+            // Only an unreferenced refund can capture a signature.
+            if (!isReferenced) {
+                signatureConfig?.let { config ->
+                    set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
+                }
+            }
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
         }
         Log.d(TAG, "SDK_REQ [REFUND]: $body")

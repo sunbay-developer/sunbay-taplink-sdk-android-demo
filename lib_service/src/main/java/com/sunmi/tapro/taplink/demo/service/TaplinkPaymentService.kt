@@ -764,6 +764,7 @@ class TaplinkPaymentService : PaymentService {
         reason: String?,
         paymentCategory: PaymentCategory?,
         cardNetworkType: String?,
+        signatureConfig: SignatureConfig?,
         callback: PaymentCallback
     ) {
         val finalDescription = if (reason != null) {
@@ -802,7 +803,9 @@ class TaplinkPaymentService : PaymentService {
             referenceOrderId = if (!isReferenced) referenceOrderId else null,
             paymentMethod = paymentMethodInfo,
             cardNetworkType = refundCardNetworkType,
-            printReceipt = printReceipt
+            printReceipt = printReceipt,
+            // Only an unreferenced refund can capture a signature.
+            signatureConfig = signatureConfig.takeIf { !isReferenced }
         )
         logSdkRequest("REFUND", refundRequest)
         getClient().refund(refundRequest, object : SdkPaymentCallback {

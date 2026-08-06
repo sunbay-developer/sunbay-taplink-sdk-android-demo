@@ -19,6 +19,7 @@ sealed class SettingsIntent {
     data class UpdatePort(val port: String) : SettingsIntent()
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
     data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateSignatureUseHostConfig(val useHostConfig: Boolean) : SettingsIntent()
     data class UpdateSignatureMode(val mode: SignatureMode) : SettingsIntent()
     data class UpdateSignatureThresholdEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateSignatureThreshold(val threshold: String) : SettingsIntent()
@@ -43,6 +44,7 @@ sealed class SettingsIntent {
 
     // Tip Configuration (SALE and POST_AUTH only)
     data class UpdateTipConfigEnabled(val enabled: Boolean) : SettingsIntent()
+    data class UpdateTipUseHostConfig(val useHostConfig: Boolean) : SettingsIntent()
     data class UpdateTipOnScreenTip(val enabled: Boolean) : SettingsIntent()
     data class UpdateTipMode(val mode: TipConfigPreferences.TipMode) : SettingsIntent()
     data class UpdateTipIncludeModeField(val enabled: Boolean) : SettingsIntent()

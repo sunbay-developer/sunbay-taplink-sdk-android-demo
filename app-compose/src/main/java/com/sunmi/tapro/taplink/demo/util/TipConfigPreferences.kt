@@ -13,6 +13,7 @@ import androidx.core.content.edit
 object TipConfigPreferences {
     private const val PREFS_NAME = "taplink_tip_config"
     private const val KEY_ENABLED = "tip_config_enabled"
+    private const val KEY_USE_HOST_CONFIG = "tip_use_host_config"
     private const val KEY_ON_SCREEN_TIP = "on_screen_tip"
     private const val KEY_TIP_MODE = "tip_mode"
     private const val KEY_INCLUDE_TIP_MODE = "include_tip_mode"
@@ -40,6 +41,11 @@ object TipConfigPreferences {
 
     data class TipConfigData(
         val enabled: Boolean = false,
+        /**
+         * When true the terminal (host) tip configuration is used and every other field in this
+         * object is ignored. Defaults to false, matching the SDK default.
+         */
+        val useHostConfig: Boolean = false,
         val onScreenTip: Boolean = true,
         val tipMode: TipMode = TipMode.ON_SALE,
         val includeTipMode: Boolean = true,
@@ -77,6 +83,7 @@ object TipConfigPreferences {
     fun saveConfig(context: Context, config: TipConfigData) {
         getPreferences(context).edit {
             putBoolean(KEY_ENABLED, config.enabled)
+            putBoolean(KEY_USE_HOST_CONFIG, config.useHostConfig)
             putBoolean(KEY_ON_SCREEN_TIP, config.onScreenTip)
             putString(KEY_TIP_MODE, config.tipMode.name)
             putBoolean(KEY_INCLUDE_TIP_MODE, config.includeTipMode)
@@ -96,6 +103,7 @@ object TipConfigPreferences {
         val prefs = getPreferences(context)
         return TipConfigData(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
+            useHostConfig = prefs.getBoolean(KEY_USE_HOST_CONFIG, false),
             onScreenTip = prefs.getBoolean(KEY_ON_SCREEN_TIP, true),
             tipMode = try {
                 TipMode.valueOf(prefs.getString(KEY_TIP_MODE, TipMode.ON_SALE.name) ?: TipMode.ON_SALE.name)

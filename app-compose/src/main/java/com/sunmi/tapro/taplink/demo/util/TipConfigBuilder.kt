@@ -32,6 +32,11 @@ object TipConfigBuilder {
             return null
         }
 
+        if (config.useHostConfig) {
+            Log.d(TAG, "TipConfig uses the host configuration, request fields are ignored")
+            return TipConfig(useHostConfig = true)
+        }
+
         val tipMode = when (config.tipMode) {
             TipConfigPreferences.TipMode.ON_SALE -> TipMode.ON_SALE
             TipConfigPreferences.TipMode.AFTER_SALE -> TipMode.AFTER_SALE
@@ -52,6 +57,7 @@ object TipConfigBuilder {
         }
 
         val tipConfig = TipConfig(
+            useHostConfig = false,
             onScreenTip = config.onScreenTip,
             tipMode = tipMode,
             tipWithTax = config.tipWithTax,

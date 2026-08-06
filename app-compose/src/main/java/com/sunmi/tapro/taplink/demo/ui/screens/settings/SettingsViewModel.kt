@@ -89,6 +89,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
             is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
+            is SettingsIntent.UpdateSignatureUseHostConfig ->
+                updateSignatureUseHostConfig(intent.useHostConfig)
             is SettingsIntent.UpdateSignatureMode -> updateSignatureMode(intent.mode)
             is SettingsIntent.UpdateSignatureThresholdEnabled ->
                 updateSignatureThresholdEnabled(intent.enabled)
@@ -108,6 +110,7 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCloudPushToTerminal -> updateCloudPushToTerminal(intent.enabled)
             is SettingsIntent.AddCloudOption -> addCloudOption(intent.field, intent.value)
             is SettingsIntent.UpdateTipConfigEnabled -> updateTipConfigEnabled(intent.enabled)
+            is SettingsIntent.UpdateTipUseHostConfig -> updateTipUseHostConfig(intent.useHostConfig)
             is SettingsIntent.UpdateTipOnScreenTip -> updateTipOnScreenTip(intent.enabled)
             is SettingsIntent.UpdateTipMode -> updateTipMode(intent.mode)
             is SettingsIntent.UpdateTipIncludeModeField -> updateTipIncludeModeField(intent.enabled)
@@ -158,6 +161,8 @@ class SettingsViewModel(
                 // Load print receipt configuration
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
                 val savedSignatureEnabled = ConnectionPreferences.isSignatureEnabled(context)
+                val savedSignatureUseHostConfig =
+                    ConnectionPreferences.isSignatureUseHostConfig(context)
                 val savedSignatureMode = ConnectionPreferences.getSignatureMode(context)
                 val savedSignatureThresholdEnabled =
                     ConnectionPreferences.isSignatureThresholdEnabled(context)
@@ -209,6 +214,7 @@ class SettingsViewModel(
                         port = savedPort.toString(),
                         printReceipt = savedPrintReceipt,
                         signatureEnabled = savedSignatureEnabled,
+                        signatureUseHostConfig = savedSignatureUseHostConfig,
                         signatureMode = savedSignatureMode,
                         signatureThresholdEnabled = savedSignatureThresholdEnabled,
                         signatureThreshold = savedSignatureThreshold,
@@ -232,6 +238,7 @@ class SettingsViewModel(
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
                         tipConfigEnabled = tipConfig.enabled,
+                        tipUseHostConfig = tipConfig.useHostConfig,
                         tipOnScreenTip = tipConfig.onScreenTip,
                         tipMode = tipConfig.tipMode,
                         tipIncludeModeField = tipConfig.includeTipMode,
@@ -335,6 +342,12 @@ class SettingsViewModel(
         _state.update { it.copy(signatureEnabled = enabled) }
         val context = getApplication<Application>()
         ConnectionPreferences.saveSignatureEnabled(context, enabled)
+    }
+
+    private fun updateSignatureUseHostConfig(useHostConfig: Boolean) {
+        _state.update { it.copy(signatureUseHostConfig = useHostConfig) }
+        val context = getApplication<Application>()
+        ConnectionPreferences.saveSignatureUseHostConfig(context, useHostConfig)
     }
 
     private fun updateSignatureMode(mode: SignatureMode) {
@@ -563,6 +576,7 @@ class SettingsViewModel(
         val currentState = _state.value
         val config = TipConfigPreferences.TipConfigData(
             enabled = currentState.tipConfigEnabled,
+            useHostConfig = currentState.tipUseHostConfig,
             onScreenTip = currentState.tipOnScreenTip,
             tipMode = currentState.tipMode,
             includeTipMode = currentState.tipIncludeModeField,
@@ -585,6 +599,11 @@ class SettingsViewModel(
 
     private fun updateTipConfigEnabled(enabled: Boolean) {
         _state.update { it.copy(tipConfigEnabled = enabled) }
+        persistTipConfig()
+    }
+
+    private fun updateTipUseHostConfig(useHostConfig: Boolean) {
+        _state.update { it.copy(tipUseHostConfig = useHostConfig) }
         persistTipConfig()
     }
 

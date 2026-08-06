@@ -541,6 +541,9 @@ class TransactionListViewModel(
                     reason = "Standalone refund",
                     paymentCategory = paymentCategory,
                     cardNetworkType = cardNetworkType,
+                    // Unreferenced refund requires a card, so it supports signature configuration.
+                    signatureConfig = com.sunmi.tapro.taplink.demo.util.SignatureConfigBuilder
+                        .buildFromPreferences(getApplication<android.app.Application>()),
                     callback = createNavigatingStandaloneRefundCallback(
                         transactionRequestId = transactionRequestId,
                         isAppToApp = isAppToApp,

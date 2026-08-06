@@ -54,6 +54,8 @@ data class SettingsState(
     // Print Receipt Configuration
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
     val signatureEnabled: Boolean = false,
+    /** When true the terminal (host) signature configuration is used for the transaction. */
+    val signatureUseHostConfig: Boolean = true,
     val signatureMode: SignatureMode = SignatureMode.ON_SCREEN,
     val signatureThresholdEnabled: Boolean = false,
     val signatureThreshold: String = "5000",
@@ -82,6 +84,8 @@ data class SettingsState(
 
     // Tip Configuration (only for SALE and POST_AUTH)
     val tipConfigEnabled: Boolean = false,
+    /** When true the terminal (host) tip configuration is used for the transaction. */
+    val tipUseHostConfig: Boolean = false,
     val tipOnScreenTip: Boolean = true,
     val tipMode: TipConfigPreferences.TipMode = TipConfigPreferences.TipMode.ON_SALE,
     val tipIncludeModeField: Boolean = true,
