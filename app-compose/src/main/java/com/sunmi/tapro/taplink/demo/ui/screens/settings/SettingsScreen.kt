@@ -1056,7 +1056,7 @@ private fun TipConfigSectionContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("On-Screen Tip", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Show tip prompt on terminal screen",
+                            "On: tip is captured on the terminal screen. Off: with suggestions enabled the amounts are printed on the receipt instead",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1165,7 +1165,7 @@ private fun TipConfigSectionContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Tip Suggestions", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Show predefined tip options on terminal",
+                            "Preset tip amounts. Shown on the tip screen, or printed on the receipt when On-Screen Tip is off",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
