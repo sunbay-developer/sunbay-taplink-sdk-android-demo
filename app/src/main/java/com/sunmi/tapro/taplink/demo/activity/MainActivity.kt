@@ -368,6 +368,8 @@ class MainActivity : Activity() {
             override fun onConnected(deviceId: String, taproVersion: String) {
                 Log.d(TAG, "Global listener - Connected: $deviceId, Version: $taproVersion")
                 connectedTaproVersion = taproVersion
+                // 连接成功后请求副屏播放器就绪，满足业务要求的连接成功时机。
+                paymentService.ensureUsbScreenPlayerReady()
                 runOnUiThread {
                     updateConnectionStatusDisplay()
                 }

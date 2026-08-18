@@ -45,6 +45,7 @@ import com.sunmi.tapro.taplink.sdk.model.common.PaymentEvent as SdkPaymentEvent
 import com.sunmi.tapro.taplink.sdk.model.response.PaymentResult as SdkPaymentResult
 import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 
+import java.lang.reflect.Modifier
 
 /**
  * Unified payment service implementation supporting multiple connection modes.
@@ -467,6 +468,8 @@ class TaplinkPaymentService : PaymentService {
         if (isConnectionRelatedError(error.code)) {
             handleConnectionLost("Payment error: ${error.message}")
         }
+        // 交易失败也视作交易结束，按需求在结束时再次请求副屏播放器就绪。
+        ensureUsbScreenPlayerReady()
         callback.onFailure(error.code, error.message)
     }
 
@@ -571,6 +574,10 @@ class TaplinkPaymentService : PaymentService {
                 )
             }
         )
+        // 仅在终态（成功/失败）时触发“交易结束”时机的副屏播放器就绪请求。
+        if (result.isTerminal()) {
+            ensureUsbScreenPlayerReady()
+        }
         callback.onSuccess(result)
     }
 
@@ -581,6 +588,72 @@ class TaplinkPaymentService : PaymentService {
 
     override fun getConnectedDeviceId(): String? = connectedDeviceId
     override fun getTaproVersion(): String? = taproVersion
+
+    /**
+     * 预热副屏播放器。
+     *
+     * 兼容策略：
+     * - 新版 SDK：通过 openUsbScreenPlayer 控制接口通知 tapro 拉起副屏播放器；
+     * - 旧版 SDK（尚未包含该接口）：仅记录日志，不阻断主交易流程。
+     */
+    override fun ensureUsbScreenPlayerReady() {
+        val callback = object : SdkPaymentCallback {
+            override fun onSuccess(result: SdkPaymentResult) {
+                Log.d(
+                    TAG,
+                    "SDK_RESULT [OPEN_USB_SCREEN_PLAYER]: code=${result.code}, msg=${result.message}"
+                )
+            }
+
+            override fun onFailure(error: SdkPaymentError) {
+                Log.w(
+                    TAG,
+                    "SDK_FAILURE [OPEN_USB_SCREEN_PLAYER]: code=${error.code}, msg=${error.message}"
+                )
+            }
+
+            override fun onProgress(event: SdkPaymentEvent) {
+                Log.d(TAG, "SDK_PROGRESS [OPEN_USB_SCREEN_PLAYER]: ${event.eventCode}")
+            }
+        }
+
+        try {
+            // 1) 优先匹配 @JvmStatic 暴露的静态方法（兼容不同 SDK 版本的命名）。
+            val staticMethod = TaplinkSDK::class.java.methods.firstOrNull { candidate ->
+                Modifier.isStatic(candidate.modifiers) &&
+                    (candidate.name == "openSDKUsbScreenPlayer" ||
+                        candidate.name == "openUsbScreenPlayer") &&
+                    candidate.parameterTypes.size == 1 &&
+                    candidate.parameterTypes[0].name == SdkPaymentCallback::class.java.name
+            }
+            if (staticMethod != null) {
+                staticMethod.invoke(null, callback)
+                Log.d(TAG, "Invoked SDK static openUsbScreenPlayer API successfully")
+                return
+            }
+
+            // 2) 回退到实例方法（防止 SDK 仅暴露实例 API）。
+            val sdkInstance = TaplinkSDK.getInstance()
+            val instanceMethod = sdkInstance.javaClass.methods.firstOrNull { candidate ->
+                !Modifier.isStatic(candidate.modifiers) &&
+                    candidate.name == "openUsbScreenPlayer" &&
+                    candidate.parameterTypes.size == 1 &&
+                    candidate.parameterTypes[0].name == SdkPaymentCallback::class.java.name
+            }
+            if (instanceMethod != null) {
+                instanceMethod.invoke(sdkInstance, callback)
+                Log.d(TAG, "Invoked SDK instance openUsbScreenPlayer API successfully")
+                return
+            }
+
+            Log.w(
+                TAG,
+                "SDK openUsbScreenPlayer API not found (static/instance), skip secondary-screen prewarm"
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to invoke openUsbScreenPlayer via reflection: ${e.message}")
+        }
+    }
 
     override fun executeSale(
         referenceOrderId: String,

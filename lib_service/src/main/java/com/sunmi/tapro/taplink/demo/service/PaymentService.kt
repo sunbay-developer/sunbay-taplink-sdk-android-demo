@@ -96,6 +96,14 @@ interface PaymentService {
      */
     fun getTaproVersion(): String?
 
+    /**
+     * Ensure TaPro USB screen player app is opened before rendering secondary Presentation UI.
+     *
+     * This is a fire-and-forget control operation. Implementations should log errors and
+     * avoid throwing so UI flow is not blocked by non-critical secondary-screen prep failures.
+     */
+    fun ensureUsbScreenPlayerReady()
+
     fun executeSale(
         referenceOrderId: String,
         transactionRequestId: String,
