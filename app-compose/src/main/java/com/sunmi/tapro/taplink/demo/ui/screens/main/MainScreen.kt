@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.main
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +24,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.ui.components.*
-import com.sunmi.tapro.taplink.demo.ui.screens.main.table.MainTableScreen
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
@@ -72,17 +75,91 @@ fun MainScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
-    val isAppToAppHeadless = remember(state.connectionStatus) {
-        ConnectionPreferences.getConnectionMode(context) == ConnectionPreferences.ConnectionMode.APP_TO_APP &&
-            ConnectionPreferences.getAppToAppMode(context) == ConnectionPreferences.AppToAppMode.HEADLESS
-    }
-    val isHiddenInHeadless: (PaymentOption) -> Boolean = { option ->
-        option.isQr || (option.isEbt && !option.isEbtAllowedInHeadless)
+<<<<<<< HEAD
+    val context = LocalContext.current
+    val secondaryTipController = remember(context) { SecondaryTipSelectionController(context) }
+
+    /**
+     * Ensure secondary presentation is dismissed when MainScreen leaves composition.
+     */
+    DisposableEffect(secondaryTipController) {
+        onDispose {
+            secondaryTipController.dismiss()
+        }
     }
 
-    LaunchedEffect(isAppToAppHeadless, state.selectedPaymentOption) {
-        if (isAppToAppHeadless && isHiddenInHeadless(state.selectedPaymentOption)) {
-            viewModel.handleIntent(MainIntent.SelectPaymentOption(PaymentOption.CARD_SALE))
+    /**
+     * Build a customer-facing order snapshot for the secondary display.
+     *
+     * 当订单含商品时，副屏左侧展示商品清单（名称、数量、单价、小计、合计）。
+     */
+    val secondaryOrderState = remember(state.orderItems, state.totalAmount) {
+        buildSecondaryOrderState(state)
+    }
+
+    /**
+     * Idle behavior for secondary display:
+     * - App idle on main screen: show ad carousel (订单非空时左侧叠加订单清单).
+     * - During payment initiation: hide secondary display content.
+     * - During tip selection: keep current secondary tip presentation alive.
+     */
+    LaunchedEffect(
+        state.isAwaitingSecondaryTipSelection,
+        state.isInitiatingPayment,
+        secondaryOrderState
+    ) {
+        if (state.isInitiatingPayment) {
+            secondaryTipController.dismiss()
+        } else if (!state.isAwaitingSecondaryTipSelection) {
+            secondaryTipController.showAdCarousel(secondaryOrderState)
+        }
+    }
+
+    /**
+     * When the terminal becomes connected, refresh the idle ad carousel once more.
+     *
+     * This keeps the secondary screen in the expected idle state after the warm-up
+     * request sent by the connection flow.
+     */
+    LaunchedEffect(state.connectionStatus) {
+        if (state.connectionStatus is ConnectionState.Connected &&
+            !state.isInitiatingPayment &&
+            !state.isAwaitingSecondaryTipSelection
+        ) {
+            Log.d("MainScreen", "Connection became connected, refreshing secondary ad carousel")
+            secondaryTipController.showAdCarousel(secondaryOrderState)
+        }
+    }
+
+    /**
+     * Shared pay-click behavior:
+     * 1) If secondary display exists and current option supports tip, request tip on secondary screen first.
+     * 2) After tip selection, write tip to state and then continue payment flow.
+     */
+    val onPayClick = remember(state, secondaryTipController) {
+        {
+            if (shouldShowSecondaryTipSelection(state, secondaryTipController)) {
+                viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
+                val shown = secondaryTipController.showTipSelection(
+                    subtotalAmount = state.getItemsSubtotal(),
+                    currency = "USD",
+                    onTipSelected = { tipAmount ->
+                        viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
+                        viewModel.handleIntent(MainIntent.ProcessPayment)
+                    },
+                    onCancelled = {
+                        viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                    }
+                )
+                if (!shown) {
+                    viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                    viewModel.handleIntent(MainIntent.ProcessPayment)
+                }
+            } else {
+                // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
+                secondaryTipController.dismiss()
+                viewModel.handleIntent(MainIntent.ProcessPayment)
+            }
         }
     }
 
@@ -102,37 +179,70 @@ fun MainScreen(
                 .padding(paddingValues)
         ) {
             if (screenConfig.isLandscape) {
-                MainTableScreen(
-                    products = state.products,
-                    orderItems = state.orderItems,
-                    subtotalAmount = state.getItemsSubtotal(),
-                    totalAmount = state.totalAmount,
-                    additionalAmounts = state.additionalAmounts,
-                    isEditingSubtotal = state.isEditingSubtotal,
-                    canProcessPayment = state.canProcessPayment,
-                    onProductClick = { product ->
-                        viewModel.handleIntent(MainIntent.AddProduct(product))
-                    },
-                    onAddProductClick = {
-                        viewModel.handleIntent(MainIntent.ShowAddProductDialog)
-                    },
-                    onRemoveItem = { item ->
-                        viewModel.handleIntent(MainIntent.RemoveOrderItem(item))
-                    },
-                    onAdditionalAmounts = {
-                        viewModel.handleIntent(MainIntent.ShowAdditionalAmountsDialog)
-                    },
-                    onStartEditingSubtotal = {
-                        viewModel.handleIntent(MainIntent.StartEditingSubtotal)
-                    },
-                    onStopEditingSubtotal = {
-                        viewModel.handleIntent(MainIntent.StopEditingSubtotal)
-                    },
-                    onAddCustomAmount = { amount ->
-                        viewModel.handleIntent(MainIntent.AddCustomAmount(amount))
-                    },
-                    onPay = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) }
-                )
+                // Landscape: left 60% product grid, right 40% order summary + payment buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surfaceVariant,
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                ) {
+                    Box(modifier = Modifier.fillMaxHeight().weight(0.6f)) {
+                        ProductGrid(
+                            products = state.products,
+                            onProductClick = { product ->
+                                viewModel.handleIntent(MainIntent.AddProduct(product))
+                            },
+                            onAddProductClick = {
+                                viewModel.handleIntent(MainIntent.ShowAddProductDialog)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(0.4f)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            EnhancedOrderSummary(
+                                orderItems = state.orderItems,
+                                subtotalAmount = state.getItemsSubtotal(),
+                                totalAmount = state.totalAmount,
+                                additionalAmounts = state.additionalAmounts,
+                                isEditingSubtotal = state.isEditingSubtotal,
+                                onRemoveItem = { item ->
+                                    viewModel.handleIntent(MainIntent.RemoveOrderItem(item))
+                                },
+                                onAdditionalAmounts = {
+                                    viewModel.handleIntent(MainIntent.ShowAdditionalAmountsDialog)
+                                },
+                                onStartEditingSubtotal = {
+                                    viewModel.handleIntent(MainIntent.StartEditingSubtotal)
+                                },
+                                onStopEditingSubtotal = {
+                                    viewModel.handleIntent(MainIntent.StopEditingSubtotal)
+                                },
+                                onAddCustomAmount = { amount ->
+                                    viewModel.handleIntent(MainIntent.AddCustomAmount(amount))
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        ModernPaymentButton(
+                            enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
+                            isLoading = state.isInitiatingPayment,
+                            selectedOption = state.selectedPaymentOption,
+                            onPay = onPayClick,
+                            onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
+                        )
+                    }
+                }
             } else {
                 // Portrait: unchanged layout (column with grid, summary, buttons)
                 Column(
@@ -187,11 +297,10 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     ModernPaymentButton(
-                        enabled = state.canProcessPayment,
+                        enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
                         isLoading = state.isInitiatingPayment,
                         selectedOption = state.selectedPaymentOption,
-                        applyHeadlessOptionRule = isAppToAppHeadless,
-                        onPay = { viewModel.handleIntent(MainIntent.ProcessPayment) },
+                        onPay = onPayClick,
                         onSelectOption = { option -> viewModel.handleIntent(MainIntent.SelectPaymentOption(option)) }
                     )
                 }
@@ -215,6 +324,7 @@ fun MainScreen(
                 )
             }
         }
+
     }
     
     // Additional amounts dialog
@@ -248,6 +358,51 @@ fun MainScreen(
             viewModel.handleIntent(MainIntent.ClearNavigationEvent)
         }
     }
+}
+
+/**
+ * Decide whether this payment should trigger tip selection on secondary display.
+ *
+ * Business rule:
+ * - Only when order has items.
+ * - Only transaction types that support dedicated tip field (SALE / FORCED_AUTH).
+ * - Only when a secondary display is currently available.
+ */
+private fun shouldShowSecondaryTipSelection(
+    state: MainState,
+    secondaryTipController: SecondaryTipSelectionController
+): Boolean {
+    val supportsTip = state.selectedPaymentOption.transactionType != PaymentOption.TransactionType.AUTH
+    return state.hasItems() && supportsTip && secondaryTipController.hasSecondaryDisplay()
+}
+
+/**
+ * Build a secondary-screen order snapshot from the current main state.
+ *
+ * Business rule:
+ * - 订单无商品时返回 null，副屏全屏播放广告。
+ * - 订单含商品时返回清单，副屏左侧显示名称/数量/单价/小计，并汇总件数与合计。
+ *
+ * 合计金额采用商品小计之和（getItemsSubtotal），与副屏小费场景保持一致口径。
+ */
+private fun buildSecondaryOrderState(state: MainState): SecondaryOrderState? {
+    if (!state.hasItems()) {
+        return null
+    }
+    val lines = state.orderItems.map { item ->
+        SecondaryOrderLine(
+            name = item.product.name,
+            quantity = item.quantity,
+            unitPrice = item.product.price,
+            subtotal = item.calculateSubtotal()
+        )
+    }
+    return SecondaryOrderState(
+        lines = lines,
+        totalAmount = state.getItemsSubtotal(),
+        totalItemCount = state.getTotalItemCount(),
+        currency = "USD"
+    )
 }
 
 /**

@@ -33,6 +33,8 @@ import com.sunmi.tapro.taplink.sdk.model.request.transaction.VoidRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.settlement.BatchCloseRequest
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.lang.reflect.Modifier
+import com.google.gson.GsonBuilder
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule

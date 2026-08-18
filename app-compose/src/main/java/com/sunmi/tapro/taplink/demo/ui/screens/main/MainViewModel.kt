@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.main
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * Main Screen ViewModel
@@ -103,6 +105,9 @@ class MainViewModel(
             is MainIntent.ProcessPayment -> processPayment()
             is MainIntent.BeginCheckoutFlow -> beginCheckoutFlow()
             is MainIntent.SelectPaymentOption -> selectPaymentOption(intent.option)
+            is MainIntent.StartSecondaryTipSelection -> startSecondaryTipSelection()
+            is MainIntent.CancelSecondaryTipSelection -> cancelSecondaryTipSelection()
+            is MainIntent.ApplyTipFromSecondary -> applyTipFromSecondary(intent.tipAmount)
             is MainIntent.NavigateToTransactionList -> navigateToTransactionList()
             is MainIntent.NavigateToSettings -> navigateToSettings()
             is MainIntent.DismissMessage -> dismissMessage()
@@ -214,7 +219,7 @@ class MainViewModel(
             }
         }
     }
-    
+     
     // Intent Handlers
     
     /**
@@ -378,6 +383,48 @@ class MainViewModel(
      */
     private fun selectPaymentOption(option: PaymentOption) {
         _state.update { it.copy(selectedPaymentOption = option) }
+    }
+
+    /**
+     * Mark the UI as waiting for tip selection from the secondary display.
+     */
+    private fun startSecondaryTipSelection() {
+        android.util.Log.d(TAG, "Secondary tip selection started")
+        _state.update { it.copy(isAwaitingSecondaryTipSelection = true) }
+    }
+
+    /**
+     * Cancel waiting state when secondary tip selection is dismissed.
+     */
+    private fun cancelSecondaryTipSelection() {
+        android.util.Log.d(TAG, "Secondary tip selection canceled")
+        _state.update { it.copy(isAwaitingSecondaryTipSelection = false) }
+    }
+
+    /**
+     * Apply selected tip from the secondary display and recalculate total.
+     *
+     * Business rule:
+     * - Tip = 0 means "No Tip", so remove tip from additional amounts.
+     * - Positive tip value overwrites existing "Tip" entry.
+     */
+    private fun applyTipFromSecondary(tipAmount: BigDecimal) {
+        val normalizedTip = tipAmount.setScale(2, RoundingMode.HALF_UP)
+        val updatedAmounts = _state.value.additionalAmounts.toMutableMap()
+        if (normalizedTip > BigDecimal.ZERO) {
+            updatedAmounts["Tip"] = normalizedTip
+        } else {
+            updatedAmounts.remove("Tip")
+        }
+
+        android.util.Log.d(TAG, "Secondary tip selected: $normalizedTip")
+        _state.update {
+            it.copy(
+                additionalAmounts = updatedAmounts,
+                isAwaitingSecondaryTipSelection = false
+            )
+        }
+        calculateTotal()
     }
     
     /**
@@ -1042,7 +1089,8 @@ class MainViewModel(
                 additionalAmounts = emptyMap(),
                 manualAdditionalAmounts = emptyMap(),
                 totalAmount = BigDecimal.ZERO,
-                canProcessPayment = true
+                canProcessPayment = true,
+                isAwaitingSecondaryTipSelection = false
             )
         }
     }
