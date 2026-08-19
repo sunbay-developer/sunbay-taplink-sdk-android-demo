@@ -299,6 +299,10 @@ private fun UnifiedConfigurationSectionContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(modifier = Modifier.height(16.dp))
         TaxConfigSectionContent(state = state, onIntent = onIntent)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+        SecondaryDisplaySectionContent(state = state, onIntent = onIntent)
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -310,6 +314,46 @@ private fun UnifiedConfigurationSectionContent(
         onToggle = { advancedExpanded = !advancedExpanded }
     ) {
         SdkSectionContent(state = state, onIntent = onIntent)
+    }
+}
+
+@Composable
+private fun SecondaryDisplaySectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Text(
+        text = "Secondary Display",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "When enabled, advertisement images and tip selection are pushed to the secondary display (USB screen player).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Enable Secondary Display Ad", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Show ad carousel and order info on the secondary screen",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = state.secondaryDisplayAdEnabled,
+            onCheckedChange = { onIntent(SettingsIntent.UpdateSecondaryDisplayAdEnabled(it)) }
+        )
     }
 }
 

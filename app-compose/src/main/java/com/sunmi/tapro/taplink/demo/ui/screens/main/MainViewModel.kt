@@ -16,6 +16,7 @@ import com.sunmi.tapro.taplink.demo.model.TransactionType
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
+import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
@@ -79,6 +80,7 @@ class MainViewModel(
     init {
         loadProducts()
         observeConnectionStatus()
+        reloadSettings()
     }
     
     /**
@@ -113,9 +115,20 @@ class MainViewModel(
             is MainIntent.DismissMessage -> dismissMessage()
             is MainIntent.RetryConnection -> retryConnection()
             is MainIntent.ClearNavigationEvent -> clearNavigationEvent()
+            is MainIntent.ReloadSettings -> reloadSettings()
         }
     }
     
+    private fun reloadSettings() {
+        val context = getApplication<Application>()
+        _state.update {
+            it.copy(
+                secondaryDisplayAdEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context),
+                secondaryDisplayRefreshTick = it.secondaryDisplayRefreshTick + 1
+            )
+        }
+    }
+
     /**
      * Load product catalog
      * 

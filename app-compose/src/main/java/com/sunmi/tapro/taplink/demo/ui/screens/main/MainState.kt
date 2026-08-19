@@ -42,6 +42,9 @@ data class MainState(
     val isLoading: Boolean = false,
     val isInitiatingPayment: Boolean = false,
     val isAwaitingSecondaryTipSelection: Boolean = false,
+    val secondaryDisplayAdEnabled: Boolean = false,
+    /** Incremented on each ON_RESUME to force the secondary-display LaunchedEffect to re-run. */
+    val secondaryDisplayRefreshTick: Int = 0,
     
     // Message display (errors, warnings, info, success)
     val message: Message? = null,

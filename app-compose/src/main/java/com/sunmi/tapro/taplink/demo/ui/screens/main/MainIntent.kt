@@ -46,4 +46,7 @@ sealed class MainIntent {
     
     // Navigation Event Handling
     object ClearNavigationEvent : MainIntent()
+
+    // Settings Refresh (triggered when resuming from Settings screen)
+    object ReloadSettings : MainIntent()
 }

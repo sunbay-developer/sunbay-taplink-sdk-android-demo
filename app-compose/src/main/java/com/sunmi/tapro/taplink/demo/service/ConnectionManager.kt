@@ -488,8 +488,12 @@ class ConnectionManager(
                         val cloudService = com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
                         cloudService.shutdown()
                     } else {
-                        // Previous was Taplink: disconnect via Taplink SDK
-//                        com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService.disconnect()
+                        // Previous was a Taplink SDK mode (CABLE/LAN/APP_TO_APP).
+                        // Must explicitly disconnect so the SDK releases its internal
+                        // session (especially the VSP serial port) before we try to
+                        // reconnect. Without this, TaplinkSDK.connect() on an already-open
+                        // VSP port never fires onConnected, causing a 10-second timeout.
+                        com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService.disconnect()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error disconnecting previous mode ($previousMode)", e)

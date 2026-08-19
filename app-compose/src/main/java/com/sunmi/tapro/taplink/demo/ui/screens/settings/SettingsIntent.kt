@@ -23,6 +23,7 @@ sealed class SettingsIntent {
     data class UpdateSignatureMode(val mode: SignatureMode) : SettingsIntent()
     data class UpdateSignatureThresholdEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateSignatureThreshold(val threshold: String) : SettingsIntent()
+    data class UpdateSecondaryDisplayAdEnabled(val enabled: Boolean) : SettingsIntent()
 
     // SDK Initialization Parameters
     data class UpdateSdkAppId(val appId: String) : SettingsIntent()

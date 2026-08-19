@@ -145,6 +145,9 @@ class SecondaryTipSelectionController(private val context: Context) {
             }
         }
 
+        // 副屏播放器可能在交易期间被 tapro 接管，重新拉起后再展示。
+        ensureUsbScreenPlayerReady()
+
         dismiss()
 
         val secondaryDisplay = findSecondaryDisplay()
@@ -593,7 +596,7 @@ private fun AdCarousel(@DrawableRes images: List<Int>) {
     // 固定间隔切换广告图，保持副屏处于循环播放状态。
     LaunchedEffect(images) {
         while (true) {
-            delay(3000L)
+            delay(5000L)
             currentIndex = (currentIndex + 1) % images.size
         }
     }

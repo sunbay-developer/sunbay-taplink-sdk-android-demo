@@ -47,8 +47,6 @@ import com.sunmi.tapro.taplink.sdk.model.common.PaymentEvent as SdkPaymentEvent
 import com.sunmi.tapro.taplink.sdk.model.response.PaymentResult as SdkPaymentResult
 import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 
-import java.lang.reflect.Modifier
-
 /**
  * Unified payment service implementation supporting multiple connection modes.
  * Implements PaymentService interface, encapsulates Taplink SDK calling logic.
@@ -636,6 +634,10 @@ class TaplinkPaymentService : PaymentService {
 
             // 2) 回退到实例方法（防止 SDK 仅暴露实例 API）。
             val sdkInstance = TaplinkSDK.getInstance()
+            if (sdkInstance == null) {
+                Log.w(TAG, "TaplinkSDK.getInstance() returned null, skip secondary-screen prewarm")
+                return
+            }
             val instanceMethod = sdkInstance.javaClass.methods.firstOrNull { candidate ->
                 !Modifier.isStatic(candidate.modifiers) &&
                     candidate.name == "openUsbScreenPlayer" &&

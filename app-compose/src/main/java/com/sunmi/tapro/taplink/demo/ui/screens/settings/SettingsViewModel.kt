@@ -96,6 +96,8 @@ class SettingsViewModel(
                 updateSignatureThresholdEnabled(intent.enabled)
             is SettingsIntent.UpdateSignatureThreshold ->
                 updateSignatureThreshold(intent.threshold)
+            is SettingsIntent.UpdateSecondaryDisplayAdEnabled ->
+                updateSecondaryDisplayAdEnabled(intent.enabled)
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
@@ -167,6 +169,8 @@ class SettingsViewModel(
                 val savedSignatureThresholdEnabled =
                     ConnectionPreferences.isSignatureThresholdEnabled(context)
                 val savedSignatureThreshold = ConnectionPreferences.getSignatureThreshold(context)
+                val savedSecondaryDisplayAdEnabled =
+                    ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
                 // Sync to payment service (from :service module)
                 TaplinkPaymentService.getInstance().setPrintReceipt(PrintReceiptMapping.toSdk(savedPrintReceipt))
                 // Sync to cloud payment service (uses string name directly)
@@ -218,6 +222,7 @@ class SettingsViewModel(
                         signatureMode = savedSignatureMode,
                         signatureThresholdEnabled = savedSignatureThresholdEnabled,
                         signatureThreshold = savedSignatureThreshold,
+                        secondaryDisplayAdEnabled = savedSecondaryDisplayAdEnabled,
                         cloudApiKey = cloudConfig.apiKey,
                         cloudBaseUrl = cloudConfig.baseUrl,
                         cloudTerminalSn = cloudConfig.terminalSn,
@@ -383,6 +388,11 @@ class SettingsViewModel(
             getApplication<Application>(),
             normalized
         )
+    }
+
+    private fun updateSecondaryDisplayAdEnabled(enabled: Boolean) {
+        _state.update { it.copy(secondaryDisplayAdEnabled = enabled) }
+        ConnectionPreferences.saveSecondaryDisplayAdEnabled(getApplication<Application>(), enabled)
     }
 
     private fun updateSdkAppId(appId: String) {

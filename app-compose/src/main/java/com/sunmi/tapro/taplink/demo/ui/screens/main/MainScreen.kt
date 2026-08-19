@@ -20,6 +20,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
@@ -30,7 +33,6 @@ import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
-import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import java.math.BigDecimal
 
 /**
@@ -75,9 +77,19 @@ fun MainScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
-<<<<<<< HEAD
-    val context = LocalContext.current
     val secondaryTipController = remember(context) { SecondaryTipSelectionController(context) }
+
+    // 从 Settings 页返回时重新读取设置（含 secondaryDisplayAdEnabled）。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.handleIntent(MainIntent.ReloadSettings)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     /**
      * Ensure secondary presentation is dismissed when MainScreen leaves composition.
@@ -99,16 +111,21 @@ fun MainScreen(
 
     /**
      * Idle behavior for secondary display:
+     * - 副屏广告功能未开启时：dismiss 副屏，不做任何投放。
      * - App idle on main screen: show ad carousel (订单非空时左侧叠加订单清单).
      * - During payment initiation: hide secondary display content.
      * - During tip selection: keep current secondary tip presentation alive.
      */
     LaunchedEffect(
+        state.secondaryDisplayAdEnabled,
+        state.secondaryDisplayRefreshTick,
         state.isAwaitingSecondaryTipSelection,
         state.isInitiatingPayment,
         secondaryOrderState
     ) {
-        if (state.isInitiatingPayment) {
+        if (!state.secondaryDisplayAdEnabled) {
+            secondaryTipController.dismiss()
+        } else if (state.isInitiatingPayment) {
             secondaryTipController.dismiss()
         } else if (!state.isAwaitingSecondaryTipSelection) {
             secondaryTipController.showAdCarousel(secondaryOrderState)
@@ -122,7 +139,8 @@ fun MainScreen(
      * request sent by the connection flow.
      */
     LaunchedEffect(state.connectionStatus) {
-        if (state.connectionStatus is ConnectionState.Connected &&
+        if (state.secondaryDisplayAdEnabled &&
+            state.connectionStatus is ConnectionState.Connected &&
             !state.isInitiatingPayment &&
             !state.isAwaitingSecondaryTipSelection
         ) {
@@ -133,12 +151,12 @@ fun MainScreen(
 
     /**
      * Shared pay-click behavior:
-     * 1) If secondary display exists and current option supports tip, request tip on secondary screen first.
+     * 1) If secondary display ad is enabled, supports tip, and secondary screen is available, request tip on secondary screen first.
      * 2) After tip selection, write tip to state and then continue payment flow.
      */
     val onPayClick = remember(state, secondaryTipController) {
         {
-            if (shouldShowSecondaryTipSelection(state, secondaryTipController)) {
+            if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, secondaryTipController)) {
                 viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
                 val shown = secondaryTipController.showTipSelection(
                     subtotalAmount = state.getItemsSubtotal(),
@@ -156,8 +174,10 @@ fun MainScreen(
                     viewModel.handleIntent(MainIntent.ProcessPayment)
                 }
             } else {
-                // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
-                secondaryTipController.dismiss()
+                if (state.secondaryDisplayAdEnabled) {
+                    // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
+                    secondaryTipController.dismiss()
+                }
                 viewModel.handleIntent(MainIntent.ProcessPayment)
             }
         }
@@ -532,15 +552,11 @@ private fun ModernPaymentButton(
     enabled: Boolean,
     isLoading: Boolean,
     selectedOption: PaymentOption,
-    applyHeadlessOptionRule: Boolean,
     onPay: () -> Unit,
     onSelectOption: (PaymentOption) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val groupedOptions = PaymentOption.entries
-        .filterNot {
-            applyHeadlessOptionRule && (it.isQr || (it.isEbt && !it.isEbtAllowedInHeadless))
-        }
         .groupBy { it.group }
 
     Column(

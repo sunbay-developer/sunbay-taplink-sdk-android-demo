@@ -60,6 +60,9 @@ data class SettingsState(
     val signatureThresholdEnabled: Boolean = false,
     val signatureThreshold: String = "5000",
 
+    // Secondary Display Configuration
+    val secondaryDisplayAdEnabled: Boolean = false,
+
     // Cloud Configuration
     val cloudApiKey: String = EnvironmentDefaults.Prod.CLOUD_API_KEY,
     val cloudBaseUrl: String = EnvironmentDefaults.Prod.CLOUD_BASE_URL,

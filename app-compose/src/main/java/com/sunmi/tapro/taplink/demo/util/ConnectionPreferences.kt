@@ -20,6 +20,7 @@ object ConnectionPreferences {
     private const val KEY_SIGNATURE_MODE = "signature_mode"
     private const val KEY_SIGNATURE_THRESHOLD_ENABLED = "signature_threshold_enabled"
     private const val KEY_SIGNATURE_THRESHOLD = "signature_threshold"
+    private const val KEY_SECONDARY_DISPLAY_AD_ENABLED = "secondary_display_ad_enabled"
 
     private const val DEFAULT_MODE = "APP_TO_APP"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
@@ -185,5 +186,15 @@ object ConnectionPreferences {
             KEY_SIGNATURE_THRESHOLD,
             DEFAULT_SIGNATURE_THRESHOLD
         ) ?: DEFAULT_SIGNATURE_THRESHOLD
+    }
+
+    fun saveSecondaryDisplayAdEnabled(context: Context, enabled: Boolean) {
+        getPreferences(context).edit(commit = true) {
+            putBoolean(KEY_SECONDARY_DISPLAY_AD_ENABLED, enabled)
+        }
+    }
+
+    fun isSecondaryDisplayAdEnabled(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_SECONDARY_DISPLAY_AD_ENABLED, false)
     }
 }
