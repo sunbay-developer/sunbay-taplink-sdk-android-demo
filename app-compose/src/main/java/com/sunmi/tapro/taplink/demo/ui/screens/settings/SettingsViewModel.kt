@@ -892,7 +892,9 @@ class SettingsViewModel(
                 connectionManager.reconnect()
 
                 var seenDisconnected = false
-                val finalState = withTimeoutOrNull(10_000L) {
+                // Cable/VSP 需要与 tapro 重新完成握手（SDK 侧每秒重试，最长 30s），
+                // 10s 对刚断开重连的场景偏紧，容易误报超时。
+                val finalState = withTimeoutOrNull(20_000L) {
                     connectionManager.connectionState.first { state ->
                         when {
                             state is ConnectionState.Disconnected -> {

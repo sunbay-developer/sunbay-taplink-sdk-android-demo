@@ -33,7 +33,6 @@ import com.sunmi.tapro.taplink.sdk.model.request.transaction.VoidRequest
 import com.sunmi.tapro.taplink.sdk.model.request.transaction.settlement.BatchCloseRequest
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.lang.reflect.Modifier
 import com.google.gson.GsonBuilder
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -590,11 +589,7 @@ class TaplinkPaymentService : PaymentService {
     override fun getTaproVersion(): String? = taproVersion
 
     /**
-     * 预热副屏播放器。
-     *
-     * 兼容策略：
-     * - 新版 SDK：通过 openUsbScreenPlayer 控制接口通知 tapro 拉起副屏播放器；
-     * - 旧版 SDK（尚未包含该接口）：仅记录日志，不阻断主交易流程。
+     * 通过 OPEN_USB_SCREEN_PLAYER 控制指令通知 tapro 拉起其副屏播放器。
      */
     override fun ensureUsbScreenPlayerReady() {
         val callback = object : SdkPaymentCallback {
@@ -618,44 +613,9 @@ class TaplinkPaymentService : PaymentService {
         }
 
         try {
-            // 1) 优先匹配 @JvmStatic 暴露的静态方法（兼容不同 SDK 版本的命名）。
-            val staticMethod = TaplinkSDK::class.java.methods.firstOrNull { candidate ->
-                Modifier.isStatic(candidate.modifiers) &&
-                    (candidate.name == "openSDKUsbScreenPlayer" ||
-                        candidate.name == "openUsbScreenPlayer") &&
-                    candidate.parameterTypes.size == 1 &&
-                    candidate.parameterTypes[0].name == SdkPaymentCallback::class.java.name
-            }
-            if (staticMethod != null) {
-                staticMethod.invoke(null, callback)
-                Log.d(TAG, "Invoked SDK static openUsbScreenPlayer API successfully")
-                return
-            }
-
-            // 2) 回退到实例方法（防止 SDK 仅暴露实例 API）。
-            val sdkInstance = TaplinkSDK.getInstance()
-            if (sdkInstance == null) {
-                Log.w(TAG, "TaplinkSDK.getInstance() returned null, skip secondary-screen prewarm")
-                return
-            }
-            val instanceMethod = sdkInstance.javaClass.methods.firstOrNull { candidate ->
-                !Modifier.isStatic(candidate.modifiers) &&
-                    candidate.name == "openUsbScreenPlayer" &&
-                    candidate.parameterTypes.size == 1 &&
-                    candidate.parameterTypes[0].name == SdkPaymentCallback::class.java.name
-            }
-            if (instanceMethod != null) {
-                instanceMethod.invoke(sdkInstance, callback)
-                Log.d(TAG, "Invoked SDK instance openUsbScreenPlayer API successfully")
-                return
-            }
-
-            Log.w(
-                TAG,
-                "SDK openUsbScreenPlayer API not found (static/instance), skip secondary-screen prewarm"
-            )
+            TaplinkSDK.openUsbScreenPlayer(callback)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to invoke openUsbScreenPlayer via reflection: ${e.message}")
+            Log.w(TAG, "Failed to invoke openUsbScreenPlayer: ${e.message}")
         }
     }
 

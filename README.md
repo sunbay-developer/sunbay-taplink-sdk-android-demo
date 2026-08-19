@@ -259,6 +259,16 @@ sequenceDiagram
 
 This design allows both UI apps to reuse the same payment workflow logic.
 
+## Secondary Display
+
+`app-compose` renders an advertisement carousel, the live order list and a
+customer-facing tip selection on a USB secondary display using Android
+`Presentation`. Secondary-display rendering is owned entirely by the integrator
+app, not by the TapLink protocol — see
+[docs/secondary-display.md](docs/secondary-display.md) for the required
+`DisplayManager` wait sequence, Compose-inside-`Presentation` setup and
+lifecycle rules.
+
 ## Error Handling
 
 When `result.isFailed()`, inspect `result.code` and `result.message` for detailed error analysis:

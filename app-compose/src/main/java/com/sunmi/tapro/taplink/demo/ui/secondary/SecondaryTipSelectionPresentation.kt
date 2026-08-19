@@ -2,8 +2,12 @@ package com.sunmi.tapro.taplink.demo.ui.secondary
 
 import android.app.Presentation
 import android.content.Context
+import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.WindowManager
@@ -53,19 +57,22 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.sunmi.tapro.taplink.demo.R
-import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.coroutines.resume
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * One line item rendered on the secondary-screen order list.
  *
- * @property name 商品名称
- * @property quantity 数量
- * @property unitPrice 单价
- * @property subtotal 该商品小计（单价 × 数量）
+ * @property name Product name
+ * @property quantity Quantity
+ * @property unitPrice Unit price
+ * @property subtotal Subtotal for this line item (unit price × quantity)
  */
 data class SecondaryOrderLine(
     val name: String,
@@ -78,13 +85,13 @@ data class SecondaryOrderLine(
  * Order summary snapshot pushed to the secondary display.
  *
  * Business rule:
- * - 当 lines 非空时，副屏左侧 30% 显示订单清单，右侧 70% 继续广告轮播。
- * - 当 lines 为空（无商品）时，副屏全屏显示广告轮播。
+ * - When lines is non-empty, the left 30% of the secondary screen shows the order list and the right 70% continues the ad carousel.
+ * - When lines is empty (no items), the ad carousel fills the entire secondary screen.
  *
- * @property lines 订单行项目
- * @property totalAmount 订单合计金额
- * @property totalItemCount 商品总件数
- * @property currency 货币符号/代码
+ * @property lines Order line items
+ * @property totalAmount Order total amount
+ * @property totalItemCount Total item count
+ * @property currency Currency symbol/code
  */
 data class SecondaryOrderState(
     val lines: List<SecondaryOrderLine>,
@@ -92,7 +99,7 @@ data class SecondaryOrderState(
     val totalItemCount: Int,
     val currency: String
 ) {
-    /** 是否包含有效订单内容。 */
+    /** Whether it contains valid order content. */
     fun hasItems(): Boolean = lines.isNotEmpty()
 }
 
@@ -102,21 +109,20 @@ data class SecondaryOrderState(
 class SecondaryTipSelectionController(private val context: Context) {
     companion object {
         private const val TAG = "SecondaryTipController"
+
+        /** System Intent action for the SUNMI USB secondary screen player. */
+        private const val ACTION_SUNMI_USB_SCREEN_PLAYER = "sunmi.intent.action.SunmiUsbScreenPlayer"
+
+        /** Cooldown time for relaunching the secondary screen player. */
+        private const val PLAYER_LAUNCH_COOLDOWN_MS = 10_000L
+
+        /** Timeout waiting for the secondary display to appear in DisplayManager after launching the player. */
+        private const val DISPLAY_READY_TIMEOUT_MS = 5_000L
     }
 
     private var presentation: SecondaryTipSelectionPresentation? = null
     private var adPresentation: SecondaryAdCarouselPresentation? = null
-
-    /**
-     * Ask SDK/tapro to ensure USB screen player app is ready before showing Presentation.
-     */
-    private fun ensureUsbScreenPlayerReady() {
-        runCatching {
-            DependencyProvider.paymentService.ensureUsbScreenPlayerReady()
-        }.onFailure { error ->
-            Log.w(TAG, "Failed to request USB screen player readiness: ${error.message}")
-        }
-    }
+    private var lastPlayerLaunchAt = 0L
 
     /**
      * Returns true when at least one non-default display is available.
@@ -130,14 +136,14 @@ class SecondaryTipSelectionController(private val context: Context) {
      *
      * Business rule:
      * - Used as default secondary-screen content when app is idle.
-     * - 当传入的 [orderState] 含有商品时，副屏左侧 30% 展示订单清单，右侧 70% 继续广告轮播。
-     * - 若副屏已在展示广告，则仅增量刷新订单内容，避免重建 Presentation 导致轮播闪烁。
+     * - When the passed [orderState] contains items, the left 30% of the secondary screen shows the order list and the right 70% continues the ad carousel.
+     * - If the secondary screen is already showing ads, only refresh the order content incrementally to avoid carousel flicker caused by rebuilding the Presentation.
      * - Automatically replaced by tip selection or dismissed when entering transaction.
      *
-     * @param orderState 当前订单快照；为 null 或无商品时副屏全屏播放广告。
+     * @param orderState Current order snapshot; when null or empty, the secondary screen plays ads in full screen.
      */
-    fun showAdCarousel(orderState: SecondaryOrderState? = null): Boolean {
-        // 副屏已在播放广告：直接增量更新订单内容即可，无需重建。
+    suspend fun showAdCarousel(orderState: SecondaryOrderState? = null): Boolean {
+        // The secondary screen is already playing ads: update the order content incrementally without rebuilding.
         adPresentation?.let { existing ->
             if (existing.isShowing) {
                 existing.updateOrder(orderState)
@@ -145,21 +151,19 @@ class SecondaryTipSelectionController(private val context: Context) {
             }
         }
 
-        // 副屏播放器可能在交易期间被 tapro 接管，重新拉起后再展示。
-        ensureUsbScreenPlayerReady()
-
-        dismiss()
-
-        val secondaryDisplay = findSecondaryDisplay()
+        // The secondary screen player may be taken over by tapro during a transaction; wait for it to become ready again before obtaining the Display.
+        val secondaryDisplay = awaitSecondaryDisplayReady()
         if (secondaryDisplay == null) {
             Log.d(TAG, "No secondary display found, skip ad carousel")
             return false
         }
 
+        dismiss()
+
         val newPresentation = SecondaryAdCarouselPresentation(
             outerContext = context,
             display = secondaryDisplay,
-            images = listOf(R.mipmap.g1, R.mipmap.g2),
+            images = listOf(R.mipmap.p3, R.mipmap.payments),
             initialOrder = orderState
         )
         newPresentation.setOnDismissListener {
@@ -185,22 +189,19 @@ class SecondaryTipSelectionController(private val context: Context) {
      *
      * @return true if the presentation is shown, false when no secondary display exists.
      */
-    fun showTipSelection(
+    suspend fun showTipSelection(
         subtotalAmount: BigDecimal,
         currency: String,
         onTipSelected: (BigDecimal) -> Unit,
         onCancelled: () -> Unit
     ): Boolean {
-        // 每次展示副屏 Presentation 前先请求 tapro 拉起副屏播放器。
-        ensureUsbScreenPlayerReady()
-
-        dismiss()
-
-        val secondaryDisplay = findSecondaryDisplay()
+        val secondaryDisplay = awaitSecondaryDisplayReady()
         if (secondaryDisplay == null) {
             Log.d(TAG, "No secondary display found, skip tip presentation")
             return false
         }
+
+        dismiss()
 
         var isCompleted = false
         fun finishWithTip(tip: BigDecimal) {
@@ -259,6 +260,84 @@ class SecondaryTipSelectionController(private val context: Context) {
     }
 
     /**
+     * Make sure the USB screen player is running and the secondary [Display] is
+     * actually registered in [DisplayManager] before any Presentation is shown.
+     *
+     * Secondary screen rendering is fully handled by this app: Android [Presentation] can only render to the **local**
+     * Display in [DisplayManager], so here we launch the SUNMI USB screen player locally
+     * and wait for the Display to register via [DisplayManager.DisplayListener], instead of sending commands to tapro.
+     *
+     * @return Available secondary display, or null on timeout or unsupported device.
+     */
+    private suspend fun awaitSecondaryDisplayReady(): Display? {
+        findSecondaryDisplay()?.let { return it }
+
+        launchLocalUsbScreenPlayer()
+
+        return awaitSecondaryDisplayAdded(DISPLAY_READY_TIMEOUT_MS)
+    }
+
+    /**
+     * Best-effort launch of the local SUNMI USB screen player app.
+     *
+     * Silently ignored when the system app is not installed on the device; includes a cooldown to avoid repeated launches when the secondary screen is unavailable.
+     */
+    private fun launchLocalUsbScreenPlayer() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPlayerLaunchAt < PLAYER_LAUNCH_COOLDOWN_MS) return
+        lastPlayerLaunchAt = now
+
+        runCatching {
+            val intent = Intent(ACTION_SUNMI_USB_SCREEN_PLAYER)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+                Log.d(TAG, "Launched local SUNMI USB screen player")
+            } else {
+                Log.d(TAG, "SUNMI USB screen player not installed on this device")
+            }
+        }.onFailure { error ->
+            Log.w(TAG, "Failed to launch local USB screen player: ${error.message}")
+        }
+    }
+
+    /**
+     * Suspend until a secondary display appears in [DisplayManager] or [timeoutMs] elapses.
+     */
+    private suspend fun awaitSecondaryDisplayAdded(timeoutMs: Long): Display? {
+        val manager = context.getSystemService(DisplayManager::class.java) ?: return null
+        return withTimeoutOrNull(timeoutMs.milliseconds) {
+            suspendCancellableCoroutine { continuation ->
+                val listener = object : DisplayManager.DisplayListener {
+                    private fun resumeIfReady() {
+                        findSecondaryDisplay()?.takeIf { continuation.isActive }?.let { display ->
+                            unregisterAndResume(display)
+                        }
+                    }
+
+                    private fun unregisterAndResume(display: Display) {
+                        runCatching { manager.unregisterDisplayListener(this) }
+                        continuation.resume(display)
+                    }
+
+                    override fun onDisplayAdded(displayId: Int) = resumeIfReady()
+                    override fun onDisplayChanged(displayId: Int) = resumeIfReady()
+                    override fun onDisplayRemoved(displayId: Int) = Unit
+                }
+                manager.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+                continuation.invokeOnCancellation {
+                    runCatching { manager.unregisterDisplayListener(listener) }
+                }
+                // A new display may have appeared between registration and query; perform an extra check to avoid missing events.
+                findSecondaryDisplay()?.takeIf { continuation.isActive }?.let { display ->
+                    runCatching { manager.unregisterDisplayListener(listener) }
+                    continuation.resume(display)
+                }
+            }
+        }
+    }
+
+    /**
      * Find the first available non-default display.
      */
     private fun findSecondaryDisplay(): Display? {
@@ -290,8 +369,8 @@ private class SecondaryTipSelectionPresentation(
         composeViewTreeOwner.onCreate()
 
         val composeView = ComposeView(context).apply {
-            // Presentation 没有像 Activity 一样自动注入 ViewTree*Owner，需手动设置，
-            // 否则 Compose Recomposer 在初始化时会抛 ViewTreeLifecycleOwner not found。
+            // Presentation does not automatically inject ViewTree*Owner like Activity, so it must be set manually,
+            // otherwise the Compose Recomposer will throw "ViewTreeLifecycleOwner not found" during initialization.
             setViewTreeLifecycleOwner(composeViewTreeOwner)
             setViewTreeViewModelStoreOwner(composeViewTreeOwner)
             setViewTreeSavedStateRegistryOwner(composeViewTreeOwner)
@@ -334,8 +413,8 @@ private class SecondaryTipSelectionPresentation(
 /**
  * Presentation used to render idle advertisement carousel on a secondary screen.
  *
- * 当存在订单内容时，左侧 30% 渲染订单清单，右侧 70% 渲染广告轮播；
- * 否则广告轮播占满整个副屏。
+ * When order content exists, the left 30% renders the order list and the right 70% renders the ad carousel;
+ * otherwise the ad carousel fills the entire secondary screen.
  */
 private class SecondaryAdCarouselPresentation(
     outerContext: Context,
@@ -345,13 +424,13 @@ private class SecondaryAdCarouselPresentation(
 ) : Presentation(outerContext, display) {
     private val composeViewTreeOwner = PresentationComposeViewTreeOwner()
 
-    // 订单状态以 Compose State 持有，便于在不重建 Presentation 的情况下增量刷新。
+    // Order state is held as Compose State for incremental refresh without rebuilding the Presentation.
     private val orderState: MutableState<SecondaryOrderState?> = mutableStateOf(initialOrder)
 
     /**
      * Update the order snapshot shown alongside the ad carousel.
      *
-     * 仅更新 State，触发 Compose 局部重组，不会重启广告轮播计时器。
+     * Only updates the State, triggering a local Compose recomposition without restarting the ad carousel timer.
      */
     fun updateOrder(order: SecondaryOrderState?) {
         orderState.value = order
@@ -406,8 +485,8 @@ private class SecondaryAdCarouselPresentation(
  * ViewTree owner used by ComposeView inside Presentation.
  *
  * Why it exists:
- * - Activity/Fragment 场景下 ViewTreeLifecycleOwner 等由框架自动注入；
- * - Presentation 不是标准 Activity 内容视图容器，需我们显式提供 owner。
+ * - In Activity/Fragment scenarios, ViewTreeLifecycleOwner etc. are automatically injected by the framework;
+ * - Presentation is not a standard Activity content view container, so we need to explicitly provide the owner.
  */
 private class PresentationComposeViewTreeOwner :
     LifecycleOwner,
@@ -549,9 +628,9 @@ private fun formatCurrency(amount: BigDecimal, currency: String): String {
 /**
  * Idle advertisement carousel content for secondary display.
  *
- * 布局规则：
- * - [order] 含有商品时：左侧 30% 显示订单清单，右侧 70% 显示广告轮播。
- * - 否则：广告轮播占满整个副屏。
+ * Layout rules:
+ * - When [order] contains items: left 30% shows the order list, right 70% shows the ad carousel.
+ * - Otherwise: the ad carousel fills the entire secondary screen.
  */
 @Composable
 private fun SecondaryAdCarouselContent(
@@ -560,7 +639,7 @@ private fun SecondaryAdCarouselContent(
 ) {
     if (order != null && order.hasItems()) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // 左侧 30%：订单清单
+            // Left 30%: order list
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -568,7 +647,7 @@ private fun SecondaryAdCarouselContent(
             ) {
                 SecondaryOrderListContent(order = order)
             }
-            // 右侧 70%：广告轮播
+            // Right 70%: ad carousel
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -593,7 +672,7 @@ private fun AdCarousel(@DrawableRes images: List<Int>) {
 
     var currentIndex by remember { mutableIntStateOf(0) }
 
-    // 固定间隔切换广告图，保持副屏处于循环播放状态。
+    // Switches ads at fixed intervals to keep the secondary screen looping.
     LaunchedEffect(images) {
         while (true) {
             delay(5000L)
@@ -616,7 +695,7 @@ private fun AdCarousel(@DrawableRes images: List<Int>) {
 /**
  * Customer-facing order list shown on the left portion of the secondary screen.
  *
- * 展示每个商品的名称、数量、单价、小计，并在底部汇总件数与合计金额。
+ * Displays each product's name, quantity, unit price, and subtotal, and summarizes item count and total amount at the bottom.
  */
 @Composable
 private fun SecondaryOrderListContent(order: SecondaryOrderState) {
@@ -639,7 +718,7 @@ private fun SecondaryOrderListContent(order: SecondaryOrderState) {
             HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 8.dp))
 
-            // 商品清单可滚动，避免商品过多时溢出副屏。
+            // The product list is scrollable to avoid overflowing the secondary screen when there are many items.
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -655,7 +734,7 @@ private fun SecondaryOrderListContent(order: SecondaryOrderState) {
             HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 8.dp))
 
-            // 汇总：件数 + 合计金额
+            // Summary: item count + total amount
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -689,7 +768,7 @@ private fun SecondaryOrderListContent(order: SecondaryOrderState) {
 }
 
 /**
- * Single order line row: 名称、数量 × 单价、小计。
+ * Single order line row: name, quantity × unit price, subtotal.
  */
 @Composable
 private fun SecondaryOrderLineRow(line: SecondaryOrderLine, currency: String) {

@@ -11,8 +11,10 @@ import com.sunmi.tapro.taplink.demo.util.ErrorMessageConverter
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
+import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.AppToAppMode
+import com.sunmi.tapro.taplink.sdk.enums.ConnectionStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +44,15 @@ class ConnectionManager(
 ) {
     companion object {
         private const val TAG = "ConnectionManager"
+
+        /** 等待 SDK 真正进入 DISCONNECTED 的最长时间。 */
+        private const val SDK_DISCONNECT_TIMEOUT_MS = 3_000L
+
+        /** 轮询 SDK 连接状态的间隔。 */
+        private const val SDK_DISCONNECT_POLL_INTERVAL_MS = 50L
+
+        /** 串口/USB 句柄释放后的缓冲时间，避免立即 re-open 失败。 */
+        private const val SDK_PORT_RELEASE_SETTLE_MS = 300L
     }
     
     // Coroutine scope for connection operations
@@ -494,6 +505,7 @@ class ConnectionManager(
                         // reconnect. Without this, TaplinkSDK.connect() on an already-open
                         // VSP port never fires onConnected, causing a 10-second timeout.
                         com.sunmi.tapro.taplink.demo.di.DependencyProvider.taplinkPaymentService.disconnect()
+                        awaitSdkDisconnected()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error disconnecting previous mode ($previousMode)", e)
@@ -503,10 +515,39 @@ class ConnectionManager(
             _connectionState.value = ConnectionState.Disconnected
             currentMode = null
 
-            // Small delay to ensure clean disconnection
-            kotlinx.coroutines.delay(500)
             connect()
         }
+    }
+
+    /**
+     * Wait until the Taplink SDK reports [ConnectionStatus.DISCONNECTED].
+     *
+     * SDK 的 disconnect() 同步返回，但底层资源（VSP 串口、接收协程）是在状态翻转前后
+     * 陆续释放的。在状态仍为 CONNECTED/CONNECTING 时再次调用 connect()，SDK 会把
+     * listener 挂到队列上或直接复用旧连接，导致 onConnected 永不触发。
+     *
+     * 因此这里轮询真实状态而不是固定 delay；额外留一小段时间让 USB 句柄彻底释放。
+     */
+    private suspend fun awaitSdkDisconnected(
+        timeoutMs: Long = SDK_DISCONNECT_TIMEOUT_MS
+    ) {
+        val reachedDisconnected = kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+            while (TaplinkSDK.getConnectionStatus() != ConnectionStatus.DISCONNECTED) {
+                kotlinx.coroutines.delay(SDK_DISCONNECT_POLL_INTERVAL_MS)
+            }
+            true
+        } != null
+
+        if (!reachedDisconnected) {
+            Log.w(
+                TAG,
+                "SDK did not reach DISCONNECTED within ${timeoutMs}ms " +
+                    "(status=${TaplinkSDK.getConnectionStatus()}), continuing anyway"
+            )
+        }
+
+        // USB/VSP 设备句柄关闭后，系统驱动需要短暂时间才允许重新 open。
+        kotlinx.coroutines.delay(SDK_PORT_RELEASE_SETTLE_MS)
     }
     
     /**

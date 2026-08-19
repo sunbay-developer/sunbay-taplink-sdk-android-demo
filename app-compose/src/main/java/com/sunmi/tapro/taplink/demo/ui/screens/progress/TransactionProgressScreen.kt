@@ -644,69 +644,122 @@ internal fun SettleRightPanel(
                         }
 
                         if (useTableSplitUi && state.isSplitMode) {
-                            // Split count control: - N +
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(
-                                    onClick = { onSplitCountChange(state.splitCount - 1) },
-                                    enabled = state.splitCount > 1
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Remove,
-                                        contentDescription = "Decrease split count",
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                Text(
-                                    text = "${state.splitCount}",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                                IconButton(
-                                    onClick = { onSplitCountChange(state.splitCount + 1) },
-                                    enabled = state.splitCount < 10
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Increase split count",
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "Pay",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Split lines - each with independent payment option, amount, and charge button
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
-                                state.splitLines.forEachIndexed { index, line ->
-                                    SplitLineRow(
-                                        index = index,
-                                        line = line,
-                                        isPaid = line.isPaid,
-                                        isStartingPayment = state.isStartingPayment,
-                                        onPaymentOptionChange = { option ->
-                                            onSplitLinePaymentOptionChange(index, option)
-                                        },
-                                        onAmountChange = { input ->
-                                            onSplitLineAmountChange(index, input)
-                                        },
-                                        onCharge = { onStartSplitLinePayment(index) }
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // Split count control: - N +
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = { onSplitCountChange(state.splitCount - 1) },
+                                            enabled = state.splitCount > 1
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Remove,
+                                                contentDescription = "Decrease split count",
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${state.splitCount}",
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 16.dp)
+                                        )
+                                        IconButton(
+                                            onClick = { onSplitCountChange(state.splitCount + 1) },
+                                            enabled = state.splitCount < 10
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Increase split count",
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "Pay",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
                                     )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Split lines - each with independent payment option, amount, and charge button
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        state.splitLines.forEachIndexed { index, line ->
+                                            SplitLineRow(
+                                                index = index,
+                                                line = line,
+                                                isPaid = line.isPaid,
+                                                isStartingPayment = state.isStartingPayment,
+                                                onPaymentOptionChange = { option ->
+                                                    onSplitLinePaymentOptionChange(index, option)
+                                                },
+                                                onAmountChange = { input ->
+                                                    onSplitLineAmountChange(index, input)
+                                                },
+                                                onCharge = { onStartSplitLinePayment(index) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Bottom action buttons: Cancel + Payment
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onCancelOrder,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(52.dp),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Cancel",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Button(
+                                        onClick = onStartPayment,
+                                        enabled = !state.isStartingPayment,
+                                        modifier = Modifier
+                                            .weight(2f)
+                                            .height(52.dp),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        if (state.isStartingPayment) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text(
+                                            text = if (state.isStartingPayment) "Starting..." else "Payment",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         } else {

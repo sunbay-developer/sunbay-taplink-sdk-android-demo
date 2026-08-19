@@ -29,11 +29,13 @@ object TaplinkSdkInitializer {
     fun init(context: Context, config: TaplinkSdkPreferences.SdkConfig): Boolean {
         return try {
             val merchantId = config.merchantId.trim().ifBlank { null }
+            val secondaryDisplayEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
             Log.d(TAG, "=== Taplink SDK Initialization Started ===")
             Log.d(TAG, "=== SDK Init Request Parameters ===")
             Log.d(TAG, "App ID: ${config.appId}")
             Log.d(TAG, "Merchant ID: ${config.merchantId ?: "(not provided)"}")
             Log.d(TAG, "Secret Key: ${maskSecret(config.secretKey)}")
+            Log.d(TAG, "Auto open USB screen player: $secondaryDisplayEnabled")
 
             val taplinkConfig = TaplinkConfig(
                 appId = config.appId,
@@ -42,6 +44,8 @@ object TaplinkSdkInitializer {
             )
                 .setLogEnabled(true)
                 .setLogLevel(LogLevel.INFO)
+                // 副屏挂在 tapro 侧设备上时，由 SDK 在 connect 内部先拉起 tapro 的副屏播放器。
+                .setAutoOpenUsbScreenPlayer(secondaryDisplayEnabled)
 
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
