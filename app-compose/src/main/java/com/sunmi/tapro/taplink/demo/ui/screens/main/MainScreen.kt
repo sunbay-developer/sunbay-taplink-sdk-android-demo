@@ -154,6 +154,51 @@ fun MainScreen(
     }
 
     /**
+     * Landscape pay-click behavior:
+     * 1) If secondary display is enabled and tip selection is needed, show tip on secondary screen first.
+     * 2) After tip selection (or skip), dismiss secondary display and call BeginCheckoutFlow to
+     *    navigate to the settle screen where the user selects payment method and initiates payment.
+     */
+    val onPayClickLandscape = remember(state, secondaryTipController, secondaryScreenScope, context) {
+        {
+            val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(context)
+            val tipConfigIsNull = tipConfig == null
+            val hasTipAmount = state.additionalAmounts["Tip"] != null
+
+            if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
+                viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
+                secondaryScreenScope.launch {
+                    val shown = secondaryTipController.showTipSelection(
+                        subtotalAmount = state.getItemsSubtotal(),
+                        currency = "USD",
+                        onTipSelected = { tipAmount ->
+                            viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
+                            // Dismiss secondary display before entering settle screen
+                            secondaryTipController.dismiss()
+                            viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
+                        },
+                        onCancelled = {
+                            viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                        }
+                    )
+                    if (!shown) {
+                        viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                        secondaryTipController.dismiss()
+                        viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
+                    }
+                }
+                Unit
+            } else {
+                if (state.secondaryDisplayAdEnabled) {
+                    // Hide secondary ads before entering settle screen
+                    secondaryTipController.dismiss()
+                }
+                viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
+            }
+        }
+    }
+
+    /**
      * Shared pay-click behavior:
      * 1) If secondary display ad is enabled, supports tip, tipConfig is null, and no pre-set tip amount, request tip on secondary screen first.
      * 2) After tip selection, write tip to state and then continue payment flow.
@@ -270,8 +315,8 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.outlineVariant
                         )
                         Button(
-                            onClick = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) },
-                            enabled = state.canProcessPayment,
+                            onClick = onPayClickLandscape,
+                            enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(64.dp)

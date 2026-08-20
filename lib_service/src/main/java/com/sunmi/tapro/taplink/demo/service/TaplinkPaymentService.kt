@@ -502,7 +502,11 @@ class TaplinkPaymentService : PaymentService {
         }
     }
 
-    private fun handlePaymentResult(sdkResult: SdkPaymentResult, callback: PaymentCallback) {
+    private fun handlePaymentResult(
+        sdkResult: SdkPaymentResult,
+        callback: PaymentCallback,
+        triggerScreenReady: Boolean = true
+    ) {
         logSdkResult(sdkResult)
         fun toDollars(centsAmount: BigDecimal?): BigDecimal? {
             return centsAmount?.divide(BigDecimal(CENTS_TO_DOLLARS_MULTIPLIER), AMOUNT_DECIMAL_PLACES, RoundingMode.HALF_UP)
@@ -574,7 +578,8 @@ class TaplinkPaymentService : PaymentService {
             }
         )
         // 仅在终态（成功/失败）时触发“交易结束”时机的副屏播放器就绪请求。
-        if (result.isTerminal()) {
+        // abort 响应不触发，避免干扰 Tapro 侧仍在进行中的交易。
+        if (triggerScreenReady && result.isTerminal()) {
             ensureUsbScreenPlayerReady()
         }
         callback.onSuccess(result)
@@ -1017,7 +1022,7 @@ class TaplinkPaymentService : PaymentService {
         )
         logSdkRequest("ABORT", abortRequest)
         getClient().abort(abortRequest, object : SdkPaymentCallback {
-            override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback) }
+            override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback, triggerScreenReady = false) }
             override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("ABORT", error, callback) }
             override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "ABORT") }
         })

@@ -1247,22 +1247,49 @@ class TransactionProgressViewModel(
 
         val callback = object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                // Mark the original transaction as failed (aborted)
-                transactionRepository.updateTransactionStatus(
-                    transactionRequestId = transaction.transactionRequestId,
-                    status = TransactionStatus.FAILED,
-                    transactionId = result.originalTransactionId ?: transaction.transactionId
-                )
+                if (result.isSuccess()) {
+                    // Abort was accepted — the transaction was actually cancelled.
+                    transactionRepository.updateTransactionStatus(
+                        transactionRequestId = transaction.transactionRequestId,
+                        status = TransactionStatus.FAILED,
+                        transactionId = result.originalTransactionId ?: transaction.transactionId
+                    )
+                } else {
+                    // Abort returned a non-success response (e.g., 307 "No transaction to cancel").
+                    // This means the terminal could not cancel the transaction at this stage.
+                    // Do NOT mark as failed — the original transaction is still running on the
+                    // Tapro side and its own callback will arrive separately. Keep waiting.
+                    Log.w(TAG, "abortTransaction not accepted: code=${result.code} msg=${result.message} — continuing to wait for transaction callback")
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            message = Message(
+                                type = MessageType.WARNING,
+                                title = "Abort Rejected",
+                                content = "The transaction cannot be cancelled at this stage. Please complete the transaction on the terminal.",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                }
             }
 
             override fun onFailure(code: String, message: String) {
-                // Update transaction as failed when abort itself fails
-                transactionRepository.updateTransactionStatus(
-                    transactionRequestId = transaction.transactionRequestId,
-                    status = TransactionStatus.FAILED,
-                    errorCode = code,
-                    errorMessage = message
-                )
+                // Abort was rejected by the terminal — the transaction is still running on the
+                // Tapro side. Do NOT mark as failed. Restore the waiting UI so the user can
+                // see that the transaction is still in progress and wait for it to complete.
+                Log.w(TAG, "abortTransaction rejected: $code $message — continuing to wait")
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        message = Message(
+                            type = MessageType.WARNING,
+                            title = "Abort Rejected",
+                            content = "The transaction cannot be cancelled at this stage. Please complete the transaction on the terminal.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
             }
 
             override fun onProgress(status: String, message: String) {
