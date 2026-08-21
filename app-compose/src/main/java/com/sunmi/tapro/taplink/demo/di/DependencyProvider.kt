@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.service.cloud.CloudPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.PrintReceiptMapping
 
@@ -129,6 +130,9 @@ object DependencyProvider {
         TaplinkPaymentService.getInstance().apply {
             initialize(requireApplication())
             setPrintReceipt(PrintReceiptMapping.toSdk(ConnectionPreferences.getPrintReceipt(requireApplication())))
+            setSecondaryDisplayEnabled(
+                ConnectionPreferences.isSecondaryDisplayAdEnabled(requireApplication())
+            )
         }
     }
     
@@ -171,12 +175,23 @@ object DependencyProvider {
     
     /**
      * Connection manager for managing payment terminal connections
-     * 
+     *
      * Provides reactive connection state updates through StateFlow.
      * Handles all connection modes: App-to-App, Cable, LAN, Cloud.
      * Uses dynamic paymentService resolution based on current connection mode.
      */
     val connectionManager: ConnectionManager by lazy {
         ConnectionManager(requireApplication(), ::getPaymentService)
+    }
+
+    /**
+     * Singleton secondary-display controller.
+     *
+     * Shared across screens (MainScreen → TransactionProgressScreen) so that
+     * presentation lifecycle is managed in one place and screens can hand off
+     * control without creating conflicting Presentation instances.
+     */
+    val secondaryTipSelectionController: SecondaryTipSelectionController by lazy {
+        SecondaryTipSelectionController(requireApplication())
     }
 }

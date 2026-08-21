@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
+import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 
 import kotlinx.coroutines.CoroutineScope
@@ -46,7 +47,7 @@ class TaplinkDemoApplication : Application() {
         // Initialize connection manager and establish connection
         initializeConnectionManager()
 
-        // 业务要求时机 1：应用启动时，先请求一次副屏播放器拉起。
+        // 仅在 Settings 开启副屏时请求播放器拉起。
         warmUpUsbScreenPlayerOnAppStart()
         
         // Setup global connection state observer
@@ -261,6 +262,10 @@ class TaplinkDemoApplication : Application() {
      */
     private fun warmUpUsbScreenPlayerOnAppStart() {
         try {
+            if (!ConnectionPreferences.isSecondaryDisplayAdEnabled(this)) {
+                Log.d(TAG, "Startup warm-up skipped: secondary display is disabled")
+                return
+            }
             DependencyProvider.paymentService.ensureUsbScreenPlayerReady()
             Log.d(TAG, "Startup warm-up requested: ensureUsbScreenPlayerReady")
         } catch (e: Exception) {

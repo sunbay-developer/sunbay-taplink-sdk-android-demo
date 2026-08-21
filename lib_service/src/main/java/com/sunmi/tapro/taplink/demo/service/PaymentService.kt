@@ -105,6 +105,13 @@ interface PaymentService {
      */
     fun ensureUsbScreenPlayerReady()
 
+    /**
+     * Configure whether transaction lifecycle callbacks may request the USB screen player.
+     *
+     * Implementations that do not control a local screen player may ignore this setting.
+     */
+    fun setSecondaryDisplayEnabled(enabled: Boolean) {}
+
     fun executeSale(
         referenceOrderId: String,
         transactionRequestId: String,

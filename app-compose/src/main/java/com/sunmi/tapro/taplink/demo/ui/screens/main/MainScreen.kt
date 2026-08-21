@@ -26,10 +26,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.*
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
+import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.ui.components.*
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
-import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
@@ -79,7 +79,7 @@ fun MainScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
-    val secondaryTipController = remember(context) { SecondaryTipSelectionController(context) }
+    val secondaryTipController = DependencyProvider.secondaryTipSelectionController
     // 副屏投放需要等待副屏播放器就绪，必须在协程中执行。
     val secondaryScreenScope = rememberCoroutineScope()
 
@@ -154,88 +154,78 @@ fun MainScreen(
     }
 
     /**
-     * Landscape pay-click behavior:
-     * 1) If secondary display is enabled and tip selection is needed, show tip on secondary screen first.
-     * 2) After tip selection (or skip), dismiss secondary display and call BeginCheckoutFlow to
-     *    navigate to the settle screen where the user selects payment method and initiates payment.
+     * Attempt secondary-display tip selection, then invoke [onComplete] with the
+     * chosen next step (ProcessPayment or BeginCheckoutFlow).
+     *
+     * Shared logic for both portrait and landscape pay-click flows:
+     * 1) Check if secondary tip selection should be shown.
+     * 2) If yes, launch it on the secondary screen; on result, apply tip and proceed.
+     * 3) If no secondary display (returns false), fall back directly to [onComplete].
+     *
+     * @param onTipApplied Called after the tip is applied (or skipped). Should dispatch
+     *        the next navigation intent (ProcessPayment or BeginCheckoutFlow).
+     * @param dismissBeforeNext Whether to dismiss the secondary display before calling
+     *        [onTipApplied]. Landscape mode dismisses before navigating to settle screen.
      */
-    val onPayClickLandscape = remember(state, secondaryTipController, secondaryScreenScope, context) {
-        {
-            val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(context)
-            val tipConfigIsNull = tipConfig == null
-            val hasTipAmount = state.additionalAmounts["Tip"] != null
+    fun trySecondaryTipThenProceed(
+        onTipApplied: () -> Unit,
+        dismissBeforeNext: Boolean = false
+    ) {
+        val tipConfig = TipConfigBuilder.buildFromPreferences(context)
+        val tipConfigIsNull = tipConfig == null
+        val hasTipAmount = state.additionalAmounts["Tip"] != null
 
-            if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
-                viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
-                secondaryScreenScope.launch {
-                    val shown = secondaryTipController.showTipSelection(
-                        subtotalAmount = state.getItemsSubtotal(),
-                        currency = "USD",
-                        onTipSelected = { tipAmount ->
-                            viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
-                            // Dismiss secondary display before entering settle screen
-                            secondaryTipController.dismiss()
-                            viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
-                        },
-                        onCancelled = {
-                            viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                        }
-                    )
-                    if (!shown) {
+        if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
+            viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
+            secondaryScreenScope.launch {
+                val shown = secondaryTipController.showTipSelection(
+                    subtotalAmount = state.getItemsSubtotal(),
+                    currency = "USD",
+                    onTipSelected = { tipAmount ->
+                        viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
+                        if (dismissBeforeNext) secondaryTipController.dismiss()
+                        onTipApplied()
+                    },
+                    onCancelled = {
                         viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                        secondaryTipController.dismiss()
-                        viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
                     }
+                )
+                if (!shown) {
+                    viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
+                    if (dismissBeforeNext) secondaryTipController.dismiss()
+                    onTipApplied()
                 }
-                Unit
-            } else {
-                if (state.secondaryDisplayAdEnabled) {
-                    // Hide secondary ads before entering settle screen
-                    secondaryTipController.dismiss()
-                }
-                viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
             }
+        } else {
+            if (state.secondaryDisplayAdEnabled) {
+                // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
+                secondaryTipController.dismiss()
+            }
+            onTipApplied()
         }
     }
 
     /**
-     * Shared pay-click behavior:
-     * 1) If secondary display ad is enabled, supports tip, tipConfig is null, and no pre-set tip amount, request tip on secondary screen first.
-     * 2) After tip selection, write tip to state and then continue payment flow.
+     * Landscape pay-click: tip selection on secondary screen → navigate to settle screen.
+     */
+    val onPayClickLandscape = remember(state, secondaryTipController, secondaryScreenScope, context) {
+        {
+            trySecondaryTipThenProceed(
+                onTipApplied = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) },
+                dismissBeforeNext = true
+            )
+        }
+    }
+
+    /**
+     * Portrait pay-click: tip selection on secondary screen → start payment directly.
      */
     val onPayClick = remember(state, secondaryTipController, secondaryScreenScope, context) {
         {
-            val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(context)
-            val tipConfigIsNull = tipConfig == null
-            val hasTipAmount = state.additionalAmounts["Tip"] != null
-            
-            if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
-                viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
-                secondaryScreenScope.launch {
-                    val shown = secondaryTipController.showTipSelection(
-                        subtotalAmount = state.getItemsSubtotal(),
-                        currency = "USD",
-                        onTipSelected = { tipAmount ->
-                            viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
-                            viewModel.handleIntent(MainIntent.ProcessPayment)
-                        },
-                        onCancelled = {
-                            viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                        }
-                    )
-                    if (!shown) {
-                        viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                        viewModel.handleIntent(MainIntent.ProcessPayment)
-                    }
-                }
-                Unit
-            } else {
-                if (state.secondaryDisplayAdEnabled) {
-                    // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
-                    secondaryTipController.dismiss()
-                }
-                viewModel.handleIntent(MainIntent.ProcessPayment)
-            }
+            trySecondaryTipThenProceed(
+                onTipApplied = { viewModel.handleIntent(MainIntent.ProcessPayment) },
+                dismissBeforeNext = false
+            )
         }
     }
 

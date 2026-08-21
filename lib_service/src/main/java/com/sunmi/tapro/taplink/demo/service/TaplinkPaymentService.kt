@@ -91,6 +91,10 @@ class TaplinkPaymentService : PaymentService {
     /** SDK print receipt option. Set from app/app-compose when loading preferences; default NONE. */
     private var printReceipt: PrintReceipt = PrintReceipt.NONE
 
+    /** Whether this app has enabled the secondary display in Settings. */
+    @Volatile
+    private var secondaryDisplayEnabled = true
+
     /**
      * Optional: initialize with application context (e.g. for future use).
      * Not required for basic payment operations.
@@ -106,6 +110,10 @@ class TaplinkPaymentService : PaymentService {
      */
     fun setPrintReceipt(receipt: PrintReceipt) {
         this.printReceipt = receipt
+    }
+
+    override fun setSecondaryDisplayEnabled(enabled: Boolean) {
+        secondaryDisplayEnabled = enabled
     }
 
     private fun getClient(): com.sunmi.tapro.taplink.sdk.TaplinkClient {
@@ -468,7 +476,9 @@ class TaplinkPaymentService : PaymentService {
             handleConnectionLost("Payment error: ${error.message}")
         }
         // 交易失败也视作交易结束，按需求在结束时再次请求副屏播放器就绪。
-        ensureUsbScreenPlayerReady()
+        if (secondaryDisplayEnabled) {
+            ensureUsbScreenPlayerReady()
+        }
         callback.onFailure(error.code, error.message)
     }
 
@@ -579,7 +589,7 @@ class TaplinkPaymentService : PaymentService {
         )
         // 仅在终态（成功/失败）时触发“交易结束”时机的副屏播放器就绪请求。
         // abort 响应不触发，避免干扰 Tapro 侧仍在进行中的交易。
-        if (triggerScreenReady && result.isTerminal()) {
+        if (secondaryDisplayEnabled && triggerScreenReady && result.isTerminal()) {
             ensureUsbScreenPlayerReady()
         }
         callback.onSuccess(result)
@@ -595,8 +605,14 @@ class TaplinkPaymentService : PaymentService {
 
     /**
      * 通过 OPEN_USB_SCREEN_PLAYER 控制指令通知 tapro 拉起其副屏播放器。
+     *
+     * 此方法为可选功能：若 SDK 不支持或运行时失败，仅记录警告日志，不中断核心业务流程。
      */
     override fun ensureUsbScreenPlayerReady() {
+        if (!secondaryDisplayEnabled) {
+            Log.d(TAG, "USB screen player request skipped: secondary display is disabled")
+            return
+        }
         val callback = object : SdkPaymentCallback {
             override fun onSuccess(result: SdkPaymentResult) {
                 Log.d(
@@ -619,6 +635,18 @@ class TaplinkPaymentService : PaymentService {
 
         try {
             TaplinkSDK.openUsbScreenPlayer(callback)
+        } catch (e: NoSuchMethodError) {
+            // SDK 版本不支持此功能 - 仅记录，不阻断业务流程
+            Log.w(
+                TAG,
+                "openUsbScreenPlayer not supported in this SDK version: ${e.message}"
+            )
+        } catch (e: LinkageError) {
+            // SDK 内部链接错误 - 仅记录，不阻断业务流程
+            Log.w(
+                TAG,
+                "openUsbScreenPlayer linkage error (SDK incompatibility): ${e.message}"
+            )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to invoke openUsbScreenPlayer: ${e.message}")
         }

@@ -393,6 +393,7 @@ class SettingsViewModel(
     private fun updateSecondaryDisplayAdEnabled(enabled: Boolean) {
         _state.update { it.copy(secondaryDisplayAdEnabled = enabled) }
         ConnectionPreferences.saveSecondaryDisplayAdEnabled(getApplication<Application>(), enabled)
+        DependencyProvider.taplinkPaymentService.setSecondaryDisplayEnabled(enabled)
     }
 
     private fun updateSdkAppId(appId: String) {

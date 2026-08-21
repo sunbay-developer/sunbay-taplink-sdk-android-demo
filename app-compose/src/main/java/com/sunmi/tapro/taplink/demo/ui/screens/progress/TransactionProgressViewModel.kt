@@ -1247,31 +1247,9 @@ class TransactionProgressViewModel(
 
         val callback = object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                if (result.isSuccess()) {
-                    // Abort was accepted — the transaction was actually cancelled.
-                    transactionRepository.updateTransactionStatus(
-                        transactionRequestId = transaction.transactionRequestId,
-                        status = TransactionStatus.FAILED,
-                        transactionId = result.originalTransactionId ?: transaction.transactionId
-                    )
-                } else {
-                    // Abort returned a non-success response (e.g., 307 "No transaction to cancel").
-                    // This means the terminal could not cancel the transaction at this stage.
-                    // Do NOT mark as failed — the original transaction is still running on the
-                    // Tapro side and its own callback will arrive separately. Keep waiting.
-                    Log.w(TAG, "abortTransaction not accepted: code=${result.code} msg=${result.message} — continuing to wait for transaction callback")
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            message = Message(
-                                type = MessageType.WARNING,
-                                title = "Abort Rejected",
-                                content = "The transaction cannot be cancelled at this stage. Please complete the transaction on the terminal.",
-                                actions = listOf(MessageAction.DISMISS)
-                            )
-                        )
-                    }
-                }
+                // Abort is only a control request. The original payment callback
+                // remains the sole source of truth for the transaction status.
+                Log.d(TAG, "abortTransaction accepted: code=${result.code} msg=${result.message} — waiting for payment callback")
             }
 
             override fun onFailure(code: String, message: String) {

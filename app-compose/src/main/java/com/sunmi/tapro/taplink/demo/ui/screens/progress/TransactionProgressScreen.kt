@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -73,6 +75,8 @@ import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.components.CardReadAnimation
 import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
 import com.sunmi.tapro.taplink.demo.ui.screens.progress.table.TransactionProgressTableScreen
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
+import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
@@ -117,7 +121,32 @@ fun TransactionProgressScreen(
     LaunchedEffect(transactionId) {
         viewModel.handleIntent(TransactionProgressIntent.LoadTransaction(transactionId))
     }
-    
+
+    // Secondary display: show customer-facing order list when waiting for payment selection.
+    val context = LocalContext.current
+    val secondaryController = DependencyProvider.secondaryTipSelectionController
+    val isSecondaryEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
+
+    // Dismiss when leaving this screen so MainScreen can re-show the ad carousel.
+    DisposableEffect(secondaryController) {
+        onDispose {
+            if (isSecondaryEnabled) {
+                secondaryController.dismiss()
+            }
+        }
+    }
+
+    // Show or hide the customer-facing order summary on the secondary screen.
+    LaunchedEffect(state.isReadyForPaymentSelection(), state.isLoading, state.orderItems) {
+        if (!isSecondaryEnabled || state.isLoading) return@LaunchedEffect
+        if (state.isReadyForPaymentSelection()) {
+            val orderState = buildSettleSecondaryOrderState(state)
+            secondaryController.showAdCarousel(orderState)
+        } else {
+            secondaryController.dismiss()
+        }
+    }
+
     // Handle navigation events
     LaunchedEffect(state.navigationEvent) {
         state.navigationEvent?.let { event ->
@@ -1528,4 +1557,33 @@ private fun TransactionProgressScreenPreview(
             }
         }
     }
+}
+
+/**
+ * Convert a [TransactionProgressState] into a [SecondaryOrderState] suitable for
+ * the customer-facing secondary display during the READY_TO_PAY settle phase.
+ *
+ * Mirrors the logic in MainScreen's [buildSecondaryOrderState] so that the
+ * customer sees the same order-list format they saw while items were being added.
+ *
+ * Returns null when the transaction has no order items (fallback: ad carousel only).
+ */
+private fun buildSettleSecondaryOrderState(state: TransactionProgressState): SecondaryOrderState? {
+    if (state.orderItems.isEmpty()) return null
+    val lines = state.orderItems.map { item ->
+        SecondaryOrderLine(
+            name = item.product.name,
+            quantity = item.quantity,
+            unitPrice = item.product.price,
+            subtotal = item.calculateSubtotal()
+        )
+    }
+    val totalAmount = state.transaction?.totalAmount
+        ?: state.orderItems.fold(BigDecimal.ZERO) { acc, item -> acc + item.calculateSubtotal() }
+    return SecondaryOrderState(
+        lines = lines,
+        totalAmount = totalAmount,
+        totalItemCount = state.orderItems.sumOf { it.quantity },
+        currency = "USD"
+    )
 }
