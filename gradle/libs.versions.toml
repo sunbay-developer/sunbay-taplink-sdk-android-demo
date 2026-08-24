@@ -30,6 +30,7 @@ multidex = "2.0.1"
 navigationCompose = "2.4.0"
 okhttpVersion = "4.12.0"
 okio = "3.14.0"
+sunbayTaplinkSdkAndroid = "1.0.8.5-SNAPSHOT"
 sunmidockSdk = "1.0.3"
 sunmiprotocolsdk = "1.0.0"
 workRuntimeKtx = "2.10.3"
@@ -109,6 +110,7 @@ adapter-rxjava2 = { module = "com.squareup.retrofit2:adapter-rxjava2", version.r
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "adapterRxjava2" }
 printerx = { module = "com.sunmi:printerx", version.ref = "printerx" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koinAndroid" }
+sunbay-taplink-sdk-android = { module = "com.sunmi:sunbay-taplink-sdk-android", version.ref = "sunbayTaplinkSdkAndroid" }
 sunmi-ecr-service={group = "com.sunmi",name="sunmi-ecr-service",version.ref="sunmiEcr"}
 sunmidock-sdk = { module = "com.sunmi:SunmiDock-SDK", version.ref = "sunmidockSdk" }
 sunmiprotocolsdk = { module = "com.sunmi:SunmiProtocolSDK", version.ref = "sunmiprotocolsdk" }

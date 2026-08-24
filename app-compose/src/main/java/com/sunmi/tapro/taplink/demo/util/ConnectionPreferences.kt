@@ -34,7 +34,8 @@ object ConnectionPreferences {
         APP_TO_APP,
         CABLE,
         LAN,
-        CLOUD
+        CLOUD,
+        SECONDARY_DISPLAY
     }
 
     enum class CableProtocol {

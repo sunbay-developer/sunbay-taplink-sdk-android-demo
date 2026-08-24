@@ -43,7 +43,7 @@ android {
 dependencies {
     // Taplink SDK - use the published Maven build that includes top-level tipConfig support.
 //    api("com.sunmi:sunbay-taplink-sdk-android:1.0.8")
-    api("com.sunmi:sunbay-taplink-sdk-android:1.0.8.4-SNAPSHOT")
+    api(libs.sunbay.taplink.sdk.android)
 
 //    api(project(":lib_taplink_sdk"))
 

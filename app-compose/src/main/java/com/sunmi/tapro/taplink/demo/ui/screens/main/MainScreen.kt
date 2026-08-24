@@ -79,11 +79,11 @@ fun MainScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
-    val secondaryTipController = DependencyProvider.secondaryTipSelectionController
-    // 副屏投放需要等待副屏播放器就绪，必须在协程中执行。
+    val secondaryDisplayManager = DependencyProvider.secondaryDisplayManager
+    // Secondary display operations require coroutine scope (async display readiness).
     val secondaryScreenScope = rememberCoroutineScope()
 
-    // 从 Settings 页返回时重新读取设置（含 secondaryDisplayAdEnabled）。
+    // Reload settings (including secondaryDisplayAdEnabled) when returning from Settings screen.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -98,16 +98,17 @@ fun MainScreen(
     /**
      * Ensure secondary presentation is dismissed when MainScreen leaves composition.
      */
-    DisposableEffect(secondaryTipController) {
+    DisposableEffect(secondaryDisplayManager) {
         onDispose {
-            secondaryTipController.dismiss()
+            secondaryDisplayManager.release()
         }
     }
 
     /**
      * Build a customer-facing order snapshot for the secondary display.
      *
-     * 当订单含商品时，副屏左侧展示商品清单（名称、数量、单价、小计、合计）。
+     * When the order contains items, the secondary display shows the order list
+     * (name, quantity, unit price, subtotal, and total) alongside the ad carousel.
      */
     val secondaryOrderState = remember(state.orderItems, state.totalAmount) {
         buildSecondaryOrderState(state)
@@ -115,9 +116,9 @@ fun MainScreen(
 
     /**
      * Idle behavior for secondary display:
-     * - 副屏广告功能未开启时：dismiss 副屏，不做任何投放。
-     * - App idle on main screen: show ad carousel (订单非空时左侧叠加订单清单).
-     * - During payment initiation: hide secondary display content.
+     * - Secondary display ads not enabled: release display, do nothing.
+     * - App idle on main screen: show idle content (order list + ads when order exists).
+     * - During payment initiation: dismiss display content for TaPro to take over.
      * - During tip selection: keep current secondary tip presentation alive.
      */
     LaunchedEffect(
@@ -128,16 +129,16 @@ fun MainScreen(
         secondaryOrderState
     ) {
         if (!state.secondaryDisplayAdEnabled) {
-            secondaryTipController.dismiss()
+            secondaryDisplayManager.onPaymentStarted()
         } else if (state.isInitiatingPayment) {
-            secondaryTipController.dismiss()
+            secondaryDisplayManager.onPaymentStarted()
         } else if (!state.isAwaitingSecondaryTipSelection) {
-            secondaryTipController.showAdCarousel(secondaryOrderState)
+            secondaryDisplayManager.showIdle(secondaryOrderState)
         }
     }
 
     /**
-     * When the terminal becomes connected, refresh the idle ad carousel once more.
+     * When the terminal becomes connected, refresh the idle content once more.
      *
      * This keeps the secondary screen in the expected idle state after the warm-up
      * request sent by the connection flow.
@@ -148,19 +149,19 @@ fun MainScreen(
             !state.isInitiatingPayment &&
             !state.isAwaitingSecondaryTipSelection
         ) {
-            Log.d("MainScreen", "Connection became connected, refreshing secondary ad carousel")
-            secondaryTipController.showAdCarousel(secondaryOrderState)
+            Log.d("MainScreen", "Connection became connected, refreshing secondary idle content")
+            secondaryDisplayManager.showIdle(secondaryOrderState)
         }
     }
 
     /**
-     * Attempt secondary-display tip selection, then invoke [onComplete] with the
+     * Attempt secondary-display tip selection, then invoke [onTipApplied] with the
      * chosen next step (ProcessPayment or BeginCheckoutFlow).
      *
      * Shared logic for both portrait and landscape pay-click flows:
      * 1) Check if secondary tip selection should be shown.
      * 2) If yes, launch it on the secondary screen; on result, apply tip and proceed.
-     * 3) If no secondary display (returns false), fall back directly to [onComplete].
+     * 3) If no secondary display (returns false), fall back directly to [onTipApplied].
      *
      * @param onTipApplied Called after the tip is applied (or skipped). Should dispatch
      *        the next navigation intent (ProcessPayment or BeginCheckoutFlow).
@@ -178,12 +179,12 @@ fun MainScreen(
         if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
             viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
             secondaryScreenScope.launch {
-                val shown = secondaryTipController.showTipSelection(
-                    subtotalAmount = state.getItemsSubtotal(),
+                val shown = secondaryDisplayManager.showTipSelection(
+                    subtotal = state.getItemsSubtotal(),
                     currency = "USD",
                     onTipSelected = { tipAmount ->
                         viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
-                        if (dismissBeforeNext) secondaryTipController.dismiss()
+                        if (dismissBeforeNext) secondaryDisplayManager.onPaymentStarted()
                         onTipApplied()
                     },
                     onCancelled = {
@@ -192,14 +193,14 @@ fun MainScreen(
                 )
                 if (!shown) {
                     viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                    if (dismissBeforeNext) secondaryTipController.dismiss()
+                    if (dismissBeforeNext) secondaryDisplayManager.onPaymentStarted()
                     onTipApplied()
                 }
             }
         } else {
             if (state.secondaryDisplayAdEnabled) {
-                // 进入交易前立刻隐藏副屏广告，避免交易中仍显示广告内容。
-                secondaryTipController.dismiss()
+                // Dismiss secondary display content before transaction to avoid showing ads during payment.
+                secondaryDisplayManager.onPaymentStarted()
             }
             onTipApplied()
         }
@@ -208,7 +209,7 @@ fun MainScreen(
     /**
      * Landscape pay-click: tip selection on secondary screen → navigate to settle screen.
      */
-    val onPayClickLandscape = remember(state, secondaryTipController, secondaryScreenScope, context) {
+    val onPayClickLandscape = remember(state, secondaryDisplayManager, secondaryScreenScope, context) {
         {
             trySecondaryTipThenProceed(
                 onTipApplied = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) },
@@ -220,7 +221,7 @@ fun MainScreen(
     /**
      * Portrait pay-click: tip selection on secondary screen → start payment directly.
      */
-    val onPayClick = remember(state, secondaryTipController, secondaryScreenScope, context) {
+    val onPayClick = remember(state, secondaryDisplayManager, secondaryScreenScope, context) {
         {
             trySecondaryTipThenProceed(
                 onTipApplied = { viewModel.handleIntent(MainIntent.ProcessPayment) },
@@ -447,8 +448,9 @@ fun MainScreen(
  * - Only when tipConfig is not configured (null).
  * - Only when current order has no pre-set tip amount.
  *
- * 副屏是否真正可用不在这里判断：副屏播放器是异步拉起的，Display 可能尚未注册。
- * 由 [SecondaryTipSelectionController.showTipSelection] 返回 false 时回退到主屏流程。
+ * Whether the secondary display is actually available is not decided here —
+ * display readiness is asynchronous. [SecondaryDisplayManager.showTipSelection]
+ * returning false triggers fallback to the primary screen flow.
  */
 private fun shouldShowSecondaryTipSelection(
     state: MainState,
@@ -463,10 +465,12 @@ private fun shouldShowSecondaryTipSelection(
  * Build a secondary-screen order snapshot from the current main state.
  *
  * Business rule:
- * - 订单无商品时返回 null，副屏全屏播放广告。
- * - 订单含商品时返回清单，副屏左侧显示名称/数量/单价/小计，并汇总件数与合计。
+ * - When the order has no items, returns null so the secondary display shows full-screen ads.
+ * - When the order has items, returns a line-item list (name/qty/unit price/subtotal)
+ *   plus total item count and total amount.
  *
- * 合计金额采用商品小计之和（getItemsSubtotal），与副屏小费场景保持一致口径。
+ * The total amount uses the items subtotal (getItemsSubtotal) to stay consistent
+ * with the tip selection amount.
  */
 private fun buildSecondaryOrderState(state: MainState): SecondaryOrderState? {
     if (!state.hasItems()) {

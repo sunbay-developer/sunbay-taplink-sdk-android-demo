@@ -26,5 +26,12 @@ enum class ConnectionMode {
      * Cloud connection mode
      * Direct HTTP API connection to Sunbay cloud service via Nexus SDK
      */
-    CLOUD
+    CLOUD,
+
+    /**
+     * Secondary Display connection mode
+     * Connects via USB VSP (Virtual Serial Port) and automatically opens the
+     * secondary display on the payment terminal for customer-facing content.
+     */
+    SECONDARY_DISPLAY
 }

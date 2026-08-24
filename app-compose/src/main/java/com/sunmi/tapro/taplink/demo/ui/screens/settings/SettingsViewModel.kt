@@ -151,6 +151,7 @@ class SettingsViewModel(
                     ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
                     ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
                     ConnectionPreferences.ConnectionMode.CLOUD -> ConnectionMode.CLOUD
+                    ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY -> ConnectionMode.SECONDARY_DISPLAY
                 }
                 
                 // Load Cable protocol
@@ -1322,6 +1323,10 @@ class SettingsViewModel(
                     return false
                 }
             }
+            ConnectionMode.SECONDARY_DISPLAY -> {
+                // No additional configuration needed for Secondary Display mode
+                return true
+            }
         }
         
         return true
@@ -1343,6 +1348,7 @@ class SettingsViewModel(
                 ConnectionMode.CABLE -> ConnectionPreferences.ConnectionMode.CABLE
                 ConnectionMode.LAN -> ConnectionPreferences.ConnectionMode.LAN
                 ConnectionMode.CLOUD -> ConnectionPreferences.ConnectionMode.CLOUD
+                ConnectionMode.SECONDARY_DISPLAY -> ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY
             }
             
             ConnectionPreferences.saveConnectionMode(context, prefMode)

@@ -122,28 +122,29 @@ fun TransactionProgressScreen(
         viewModel.handleIntent(TransactionProgressIntent.LoadTransaction(transactionId))
     }
 
-    // Secondary display: show customer-facing order list when waiting for payment selection.
+    // Secondary display: manage customer-facing content during payment lifecycle.
     val context = LocalContext.current
-    val secondaryController = DependencyProvider.secondaryTipSelectionController
+    val secondaryDisplayManager = DependencyProvider.secondaryDisplayManager
     val isSecondaryEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
 
-    // Dismiss when leaving this screen so MainScreen can re-show the ad carousel.
-    DisposableEffect(secondaryController) {
+    // Cleanup is handled by SecondaryDisplayManager's lifecycle; no dismiss needed here.
+    DisposableEffect(secondaryDisplayManager) {
         onDispose {
-            if (isSecondaryEnabled) {
-                secondaryController.dismiss()
-            }
+            // SecondaryDisplayManager handles its own lifecycle cleanup
         }
     }
 
-    // Show or hide the customer-facing order summary on the secondary screen.
+    // Transition secondary display between payment phases:
+    // - Payment in progress → dismiss content (TaPro takes over the display)
+    // - Payment completed (ready for selection or result shown) → restore idle/ads
     LaunchedEffect(state.isReadyForPaymentSelection(), state.isLoading, state.orderItems) {
         if (!isSecondaryEnabled || state.isLoading) return@LaunchedEffect
         if (state.isReadyForPaymentSelection()) {
-            val orderState = buildSettleSecondaryOrderState(state)
-            secondaryController.showAdCarousel(orderState)
+            // Payment completed or ready to select — restore idle/ads on secondary display
+            secondaryDisplayManager.onPaymentCompleted()
         } else {
-            secondaryController.dismiss()
+            // Payment is in progress — dismiss so TaPro can use the display
+            secondaryDisplayManager.onPaymentStarted()
         }
     }
 

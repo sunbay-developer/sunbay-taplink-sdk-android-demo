@@ -566,6 +566,7 @@ class ConnectionManager(
             ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
             ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
             ConnectionPreferences.ConnectionMode.CLOUD -> ConnectionMode.CLOUD
+            ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY -> ConnectionMode.SECONDARY_DISPLAY
         }
     }
     
@@ -610,6 +611,10 @@ class ConnectionManager(
                 // Return a placeholder App mode config since ConnectionConfig is not used for Cloud
                 Log.d(TAG, "Creating Cloud connection config (placeholder)")
                 ConnectionConfig.createAppMode()
+            }
+            ConnectionMode.SECONDARY_DISPLAY -> {
+                Log.d(TAG, "Creating Secondary Display connection config")
+                ConnectionConfig.createSecondaryDisplayMode()
             }
         }
     }

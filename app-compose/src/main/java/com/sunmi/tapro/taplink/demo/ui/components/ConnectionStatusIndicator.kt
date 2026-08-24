@@ -149,7 +149,7 @@ private fun getStatusConfig(connectionState: ConnectionState): ConnectionStatusC
                 ConnectionMode.CABLE -> "Cable"
                 ConnectionMode.LAN -> "LAN"
                 ConnectionMode.CLOUD -> "Cloud"
-
+                ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display"
             },
             contentColor = MaterialTheme.colorScheme.tertiary,
             backgroundColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)

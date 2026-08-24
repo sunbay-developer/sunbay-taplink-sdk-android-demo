@@ -137,6 +137,7 @@ data class SettingsState(
             ConnectionMode.CABLE -> true // Cable mode only requires protocol selection
             ConnectionMode.LAN -> ipAddress.isNotBlank() && port.isNotBlank() && isValidPort()
             ConnectionMode.CLOUD -> cloudApiKey.isNotBlank() && cloudBaseUrl.isNotBlank() && cloudAppId.isNotBlank()
+            ConnectionMode.SECONDARY_DISPLAY -> true // No additional configuration needed
         }
     }
     
@@ -178,6 +179,7 @@ data class SettingsState(
             ConnectionMode.CABLE -> cableProtocol.name
             ConnectionMode.LAN -> "$ipAddress:$port"
             ConnectionMode.CLOUD -> cloudBaseUrl
+            ConnectionMode.SECONDARY_DISPLAY -> "VSP + Secondary Display"
         }
     }
 

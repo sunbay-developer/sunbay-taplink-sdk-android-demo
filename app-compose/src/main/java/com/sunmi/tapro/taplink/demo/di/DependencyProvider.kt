@@ -11,6 +11,7 @@ import com.sunmi.tapro.taplink.demo.service.cloud.CloudPaymentService
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
+import com.sunmi.tapro.taplink.demo.service.SecondaryDisplayManager
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryTipSelectionController
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.PrintReceiptMapping
@@ -193,5 +194,15 @@ object DependencyProvider {
      */
     val secondaryTipSelectionController: SecondaryTipSelectionController by lazy {
         SecondaryTipSelectionController(requireApplication())
+    }
+
+    /**
+     * Secondary display manager for coordinating all secondary display content.
+     *
+     * Manages the lifecycle of secondary display presentations including
+     * tip selection, transaction progress, and idle advertisements.
+     */
+    val secondaryDisplayManager: SecondaryDisplayManager by lazy {
+        SecondaryDisplayManager(requireApplication())
     }
 }

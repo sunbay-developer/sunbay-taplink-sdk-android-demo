@@ -782,6 +782,7 @@ private fun ConnectionSectionContent(
             onAddOption = { field, value -> onIntent(SettingsIntent.AddCloudOption(field, value)) },
             onPushToTerminalChange = { onIntent(SettingsIntent.UpdateCloudPushToTerminal(it)) }
         )
+        ConnectionMode.SECONDARY_DISPLAY -> SecondaryDisplayModeConfiguration()
     }
 }
 
@@ -1468,6 +1469,7 @@ private fun getModeName(mode: ConnectionMode): String = when (mode) {
     ConnectionMode.CABLE -> "Cable"
     ConnectionMode.LAN -> "LAN"
     ConnectionMode.CLOUD -> "Cloud"
+    ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display (VSP)"
 }
 
 private fun getModeDescription(mode: ConnectionMode): String = when (mode) {
@@ -1475,6 +1477,7 @@ private fun getModeDescription(mode: ConnectionMode): String = when (mode) {
     ConnectionMode.CABLE -> "Direct USB/serial connection"
     ConnectionMode.LAN -> "Network connection"
     ConnectionMode.CLOUD -> "Cloud API connection"
+    ConnectionMode.SECONDARY_DISPLAY -> "VSP connection with secondary display"
 }
 
 private fun getModeIcon(mode: ConnectionMode): ImageVector = when (mode) {
@@ -1482,6 +1485,7 @@ private fun getModeIcon(mode: ConnectionMode): ImageVector = when (mode) {
     ConnectionMode.CABLE -> Icons.Default.Cable
     ConnectionMode.LAN -> Icons.Default.Wifi
     ConnectionMode.CLOUD -> Icons.Default.Cloud
+    ConnectionMode.SECONDARY_DISPLAY -> Icons.Default.Print
 }
 
 // ─── Dialogs (kept for reference, not shown in main screen) ───────────────────
@@ -1956,6 +1960,54 @@ fun LanConfiguration(
                 Text("This mode connects to the payment terminal over a local area network. Ensure both devices are on the same network.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("• Auto Discover: finds Taplink services on the LAN and connects automatically.\n• Scan QR: scans the QR code shown on the terminal's LAN screen to connect.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun SecondaryDisplayModeConfiguration() {
+    Column {
+        Text(
+            "Secondary Display Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "✓ VSP + Secondary Display",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "This mode connects via USB Virtual Serial Port (VSP) and automatically " +
+                        "opens the secondary display on the payment terminal. No additional " +
+                        "configuration is required.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Requirements:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "• Payment terminal must support secondary display\n" +
+                        "• USB cable must be connected between devices\n" +
+                        "• Terminal must have VSP driver enabled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
