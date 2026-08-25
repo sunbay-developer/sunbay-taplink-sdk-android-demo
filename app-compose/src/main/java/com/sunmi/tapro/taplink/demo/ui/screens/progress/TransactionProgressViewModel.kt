@@ -657,7 +657,11 @@ class TransactionProgressViewModel(
      */
     private fun retryTransaction() {
         val transaction = currentTransaction ?: return
-        
+
+        // Guard: a QUERY is still in-flight — terminal is busy processing it.
+        // Sending a new SALE now would race with the QUERY and trigger error 307.
+        if (_state.value.isQuerying) return
+
         // Check if transaction is complete (success or failed)
         val isComplete = transaction.status == TransactionStatus.SUCCESS ||
                         transaction.status == TransactionStatus.FAILED

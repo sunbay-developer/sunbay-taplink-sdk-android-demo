@@ -1011,6 +1011,7 @@ internal fun SettleRightPanel(
                 if (state.canRetry) {
                     OutlinedButton(
                         onClick = onRetry,
+                        enabled = !state.isQuerying,
                         modifier = Modifier.height(48.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
