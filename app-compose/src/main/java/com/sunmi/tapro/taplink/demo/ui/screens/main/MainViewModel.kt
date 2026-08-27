@@ -424,17 +424,17 @@ class MainViewModel(
      */
     private fun applyTipFromSecondary(tipAmount: BigDecimal) {
         val normalizedTip = tipAmount.setScale(2, RoundingMode.HALF_UP)
-        val updatedAmounts = _state.value.additionalAmounts.toMutableMap()
+        val updatedManualAmounts = _state.value.manualAdditionalAmounts.toMutableMap()
         if (normalizedTip > BigDecimal.ZERO) {
-            updatedAmounts["Tip"] = normalizedTip
+            updatedManualAmounts["Tip"] = normalizedTip
         } else {
-            updatedAmounts.remove("Tip")
+            updatedManualAmounts.remove("Tip")
         }
 
         android.util.Log.d(TAG, "Secondary tip selected: $normalizedTip")
         _state.update {
             it.copy(
-                additionalAmounts = updatedAmounts,
+                manualAdditionalAmounts = updatedManualAmounts,
                 isAwaitingSecondaryTipSelection = false
             )
         }
@@ -488,6 +488,7 @@ class MainViewModel(
                     currency = CURRENCY,
                     timestamp = timestamp,
                     description = "Sale - ${_state.value.orderItems.size} items",
+                    attach = null,
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],

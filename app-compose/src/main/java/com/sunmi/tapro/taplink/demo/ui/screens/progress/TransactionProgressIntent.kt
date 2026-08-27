@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.progress
 
 import com.sunmi.tapro.taplink.demo.ui.screens.main.PaymentOption
+import java.math.BigDecimal
 
 /**
  * Sealed class representing all possible user intents/actions on the Transaction Progress Screen
@@ -97,4 +98,16 @@ sealed class TransactionProgressIntent {
      * and navigate back to main so the user can continue editing the order.
      */
     object CancelOrder : TransactionProgressIntent()
+
+    object StartSecondaryMemberInput : TransactionProgressIntent()
+
+    object CancelSecondaryMemberInput : TransactionProgressIntent()
+
+    data class ApplySecondaryMemberInput(val memberInput: String) : TransactionProgressIntent()
+
+    object StartSecondaryTipSelection : TransactionProgressIntent()
+
+    object CancelSecondaryTipSelection : TransactionProgressIntent()
+
+    data class ApplySecondaryTip(val tipAmount: BigDecimal) : TransactionProgressIntent()
 }

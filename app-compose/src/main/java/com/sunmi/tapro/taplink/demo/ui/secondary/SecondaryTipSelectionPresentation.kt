@@ -165,6 +165,51 @@ class SecondaryTipSelectionController(private val context: Context) {
                 onCancelled()
             }
         }
+
+    }
+
+    suspend fun showMemberInput(
+        onConfirmed: (String) -> Unit,
+        onCancelled: () -> Unit
+    ): Boolean {
+        val secondaryDisplay = awaitSecondaryDisplayReady() ?: return false
+        dismiss()
+
+        var isCompleted = false
+        fun finishWithMember(memberInput: String) {
+            if (isCompleted) return
+            isCompleted = true
+            onConfirmed(memberInput)
+            dismiss()
+        }
+        fun finishWithCancel() {
+            if (isCompleted) return
+            isCompleted = true
+            onCancelled()
+            dismiss()
+        }
+
+        val newPresentation = SecondaryMemberInputPresentation(
+            outerContext = context,
+            display = secondaryDisplay,
+            onConfirmed = ::finishWithMember,
+            onCancelled = ::finishWithCancel
+        )
+        newPresentation.setOnDismissListener {
+            if (!isCompleted) {
+                isCompleted = true
+                onCancelled()
+            }
+            presentation = null
+        }
+
+        return showPresentationSafely(newPresentation).also { shown ->
+            if (shown) {
+                presentation = newPresentation
+            } else {
+                onCancelled()
+            }
+        }
     }
 
     /**
@@ -299,6 +344,51 @@ private class SecondaryTipSelectionPresentation(
                         subtotalAmount = subtotalAmount,
                         currency = currency,
                         onTipSelected = onTipSelected,
+                        onCancelled = onCancelled
+                    )
+                }
+
+            }
+        }
+        setContentView(composeView)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        composeOwner.onStart()
+    }
+
+    override fun onStop() {
+        composeOwner.onStop()
+        super.onStop()
+    }
+
+    override fun onDetachedFromWindow() {
+        composeOwner.onDestroy()
+        super.onDetachedFromWindow()
+    }
+}
+
+private class SecondaryMemberInputPresentation(
+    outerContext: Context,
+    display: Display,
+    private val onConfirmed: (String) -> Unit,
+    private val onCancelled: () -> Unit
+) : Presentation(outerContext, display) {
+
+    private val composeOwner = PresentationComposeViewTreeOwner()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        composeOwner.onCreate()
+        val composeView = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(composeOwner)
+            setViewTreeViewModelStoreOwner(composeOwner)
+            setViewTreeSavedStateRegistryOwner(composeOwner)
+            setContent {
+                TaplinkTheme {
+                    SecondaryMemberInputContent(
+                        onConfirmed = onConfirmed,
                         onCancelled = onCancelled
                     )
                 }

@@ -129,6 +129,7 @@ interface PaymentService {
         surchargeAmount: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
+        attach: String? = null,
         callback: PaymentCallback
     ) {
         executeSale(
@@ -148,6 +149,7 @@ interface PaymentService {
             surchargeAmount = surchargeAmount,
             staffInfo = staffInfo,
             tipConfig = tipConfig,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -175,6 +177,7 @@ interface PaymentService {
         surchargeAmount: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
+        attach: String? = null,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     )
@@ -186,6 +189,7 @@ interface PaymentService {
         currency: String,
         description: String,
         staffInfo: StaffInfo? = null,
+        attach: String? = null,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -195,6 +199,7 @@ interface PaymentService {
             currency = currency,
             description = description,
             staffInfo = staffInfo,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -212,6 +217,7 @@ interface PaymentService {
         currency: String,
         description: String,
         staffInfo: StaffInfo? = null,
+        attach: String? = null,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     )
@@ -225,6 +231,7 @@ interface PaymentService {
         tipAmount: BigDecimal? = null,
         taxAmount: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
+        attach: String? = null,
         callback: PaymentCallback
     )
 

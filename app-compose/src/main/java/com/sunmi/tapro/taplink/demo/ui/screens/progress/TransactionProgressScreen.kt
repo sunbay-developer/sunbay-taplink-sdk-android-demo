@@ -34,6 +34,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +55,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +86,7 @@ import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import java.math.BigDecimal
+import kotlinx.coroutines.launch
 
 /**
  * Transaction Progress Screen
@@ -116,6 +120,7 @@ fun TransactionProgressScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showManualEntryInputs by rememberSaveable(transactionId) { mutableStateOf(false) }
+    val secondaryScreenScope = rememberCoroutineScope()
     
     // Load transaction on first composition
     LaunchedEffect(transactionId) {
@@ -220,6 +225,14 @@ fun TransactionProgressScreen(
             if (screenConfig.isLandscape) {
                 TransactionProgressTableScreen(
                     state = state,
+                    showMemberInputButton = ConnectionPreferences.getConnectionMode(context) ==
+                        ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY,
+                    showTipSelectionButton =
+                        ConnectionPreferences.getConnectionMode(context) ==
+                            ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY &&
+                            com.sunmi.tapro.taplink.demo.util.TipConfigBuilder
+                                .buildFromPreferences(context) == null &&
+                            state.transaction?.tipAmount == null,
                     canSwitchToManualEntry = canSwitchToManualEntry,
                     showInlineManualEntry = showInlineManualEntry,
                     onAbort = { viewModel.handleIntent(TransactionProgressIntent.AbortTransaction) },
@@ -253,6 +266,44 @@ fun TransactionProgressScreen(
                     onStartSplitLinePayment = { index ->
                         viewModel.handleIntent(TransactionProgressIntent.StartSplitLinePayment(index))
                     },
+                    onMemberInput = {
+                        viewModel.handleIntent(TransactionProgressIntent.StartSecondaryMemberInput)
+                        secondaryScreenScope.launch {
+                            val shown = secondaryDisplayManager.showMemberInput(
+                                onConfirmed = { memberInput ->
+                                    viewModel.handleIntent(
+                                        TransactionProgressIntent.ApplySecondaryMemberInput(memberInput)
+                                    )
+                                },
+                                onCancelled = {
+                                    viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryMemberInput)
+                                }
+                            )
+                            if (!shown) {
+                                viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryMemberInput)
+                            }
+                        }
+                    },
+                    onTipSelection = {
+                        viewModel.handleIntent(TransactionProgressIntent.StartSecondaryTipSelection)
+                        secondaryScreenScope.launch {
+                            val shown = secondaryDisplayManager.showTipSelection(
+                                subtotal = state.transaction?.amount ?: state.amount,
+                                currency = state.transaction?.currency ?: "USD",
+                                onTipSelected = { tipAmount ->
+                                    viewModel.handleIntent(
+                                        TransactionProgressIntent.ApplySecondaryTip(tipAmount)
+                                    )
+                                },
+                                onCancelled = {
+                                    viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
+                                }
+                            )
+                            if (!shown) {
+                                viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
+                            }
+                        }
+                    },
                     onCancelOrder = {
                         viewModel.handleIntent(TransactionProgressIntent.CancelOrder)
                     },
@@ -283,6 +334,50 @@ fun TransactionProgressScreen(
                     onQuery = { viewModel.handleIntent(TransactionProgressIntent.QueryTransaction) },
                     onCheckOut = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) },
                     onDone = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
+                )
+            }
+
+            if (state.isAwaitingSecondaryMemberInput) {
+                AlertDialog(
+                    onDismissRequest = {
+                        viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryMemberInput)
+                        secondaryDisplayManager.dismiss()
+                    },
+                    title = { Text("Waiting for Member ID") },
+                    text = { Text("Please enter the member ID on the customer display.") },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryMemberInput)
+                                secondaryDisplayManager.dismiss()
+                            }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (state.isAwaitingSecondaryTipSelection) {
+                AlertDialog(
+                    onDismissRequest = {
+                        viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
+                        secondaryDisplayManager.dismiss()
+                    },
+                    title = { Text("Waiting for Tip Selection") },
+                    text = { Text("Please select a tip on the customer display.") },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
+                                secondaryDisplayManager.dismiss()
+                            }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
                 )
             }
 
@@ -363,7 +458,10 @@ private fun PortraitProgressLayout(
 }
 
 @Composable
-internal fun SettleLeftPanel(state: TransactionProgressState) {
+internal fun SettleLeftPanel(
+    state: TransactionProgressState,
+    modifier: Modifier = Modifier
+) {
     val goodsAmount = resolveGoodsAmount(state)
     val tipAmount = state.transaction?.tipAmount ?: BigDecimal.ZERO
     val taxAmount = state.transaction?.taxAmount ?: BigDecimal.ZERO
@@ -382,7 +480,7 @@ internal fun SettleLeftPanel(state: TransactionProgressState) {
         ?: state.transactionType
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(14.dp)
@@ -434,6 +532,27 @@ internal fun SettleLeftPanel(state: TransactionProgressState) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         AmountLine(paymentLabel, paidAmount)
+
+        if (state.memberInput.isNotBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Member ID",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = state.memberInput,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -972,7 +1091,12 @@ internal fun SettleRightPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
                 if (canAbortPayment) {
-                    OutlinedButton(onClick = onAbort) { Text("Abort") }
+                    OutlinedButton(
+                        onClick = onAbort,
+                        enabled = !state.isAborting
+                    ) {
+                        Text(if (state.isAborting) "Aborting..." else "Abort")
+                    }
                 }
                 if (canSwitchToManualEntry) {
                     OutlinedButton(onClick = onSwitchToManualEntry) { Text("Switch Manual") }

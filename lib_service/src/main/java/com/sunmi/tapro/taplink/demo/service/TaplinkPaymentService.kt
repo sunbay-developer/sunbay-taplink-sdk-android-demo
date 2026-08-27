@@ -669,6 +669,7 @@ class TaplinkPaymentService : PaymentService {
         surchargeAmount: BigDecimal?,
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
+        attach: String?,
         callback: PaymentCallback
     ) {
         executeSale(
@@ -688,6 +689,7 @@ class TaplinkPaymentService : PaymentService {
             surchargeAmount = surchargeAmount,
             staffInfo = staffInfo,
             tipConfig = tipConfig,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -710,6 +712,7 @@ class TaplinkPaymentService : PaymentService {
         surchargeAmount: BigDecimal?,
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
+        attach: String?,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
@@ -733,7 +736,7 @@ class TaplinkPaymentService : PaymentService {
             description,
             buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
             sdkCardNetworkType,
-            null,
+            attach,
             null,
             null,
             staffInfo,
@@ -756,6 +759,7 @@ class TaplinkPaymentService : PaymentService {
         currency: String,
         description: String,
         staffInfo: StaffInfo?,
+        attach: String?,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -765,6 +769,7 @@ class TaplinkPaymentService : PaymentService {
             currency = currency,
             description = description,
             staffInfo = staffInfo,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -777,6 +782,7 @@ class TaplinkPaymentService : PaymentService {
         currency: String,
         description: String,
         staffInfo: StaffInfo?,
+        attach: String?,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
@@ -786,6 +792,7 @@ class TaplinkPaymentService : PaymentService {
             amount = buildAuthAmountInfo(amount, currency),
             description = description,
             staffInfo = staffInfo,
+            attach = attach,
             printReceipt = printReceipt,
             signatureConfig = signatureConfig
         )
@@ -806,6 +813,7 @@ class TaplinkPaymentService : PaymentService {
         tipAmount: BigDecimal?,
         taxAmount: BigDecimal?,
         staffInfo: StaffInfo?,
+        attach: String?,
         callback: PaymentCallback
     ) {
         val forcedAuthRequest = ForcedAuthRequest(
@@ -814,6 +822,7 @@ class TaplinkPaymentService : PaymentService {
             amount = buildAuthAmountInfo(amount, currency),
             description = description,
             staffInfo = staffInfo,
+            attach = attach,
             printReceipt = printReceipt
         )
         logSdkRequest("FORCED_AUTH", forcedAuthRequest)
@@ -1057,9 +1066,21 @@ class TaplinkPaymentService : PaymentService {
         )
         logSdkRequest("ABORT", abortRequest)
         getClient().abort(abortRequest, object : SdkPaymentCallback {
-            override fun onSuccess(result: SdkPaymentResult) { handlePaymentResult(result, callback, triggerScreenReady = false) }
-            override fun onFailure(error: SdkPaymentError) { handlePaymentFailure("ABORT", error, callback) }
-            override fun onProgress(event: SdkPaymentEvent) { forwardProgress(callback, event, "ABORT") }
+            override fun onSuccess(result: SdkPaymentResult) {
+                Log.d(TAG, "SDK_RESULT [ABORT]: code=${result.code}, msg=${result.message}, " +
+                    "transactionRequestId=${result.transactionRequestId}, transactionStatus=${result.transactionStatus}")
+                handlePaymentResult(result, callback, triggerScreenReady = false)
+            }
+
+            override fun onFailure(error: SdkPaymentError) {
+                Log.e(TAG, "SDK_FAILURE [ABORT]: code=${error.code}, msg=${error.message}")
+                handlePaymentFailure("ABORT", error, callback)
+            }
+
+            override fun onProgress(event: SdkPaymentEvent) {
+                Log.d(TAG, "SDK_PROGRESS [ABORT]: code=${event.eventCode}, msg=${event.eventMsg}")
+                forwardProgress(callback, event, "ABORT")
+            }
         })
     }
 

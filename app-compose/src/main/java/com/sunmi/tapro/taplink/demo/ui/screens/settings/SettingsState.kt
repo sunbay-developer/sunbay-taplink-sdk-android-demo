@@ -173,7 +173,7 @@ data class SettingsState(
             }
         }
     }
-    
+
     /**
      * Get configuration value for current mode
      */

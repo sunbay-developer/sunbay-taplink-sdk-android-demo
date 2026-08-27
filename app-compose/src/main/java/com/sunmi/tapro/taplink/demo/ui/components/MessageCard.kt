@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +49,7 @@ fun MessageCard(
     modifier: Modifier = Modifier
 ) {
     val typeConfig = getMessageTypeConfig(message.type)
+    val dialogSurface = if (isSystemInDarkTheme()) Color(0xFF202124) else Color.White
 
     Card(
         modifier = modifier
@@ -55,7 +57,7 @@ fun MessageCard(
             .shadow(6.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = dialogSurface
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -103,7 +105,7 @@ fun MessageCard(
                     // Title
                     Text(
                         text = message.title,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -130,9 +132,9 @@ fun MessageCard(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = message.content,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 4,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 8,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(start = 48.dp)
                     )
@@ -178,7 +180,12 @@ private fun MessageActionButton(
                 onClick = onDismiss,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                Text("Dismiss", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    "Dismiss",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = typeConfig.accentColor,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
         MessageAction.RETRY -> {
@@ -192,7 +199,7 @@ private fun MessageActionButton(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Retry", style = MaterialTheme.typography.labelMedium)
+                Text("Retry", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
         MessageAction.SETTINGS -> {
@@ -201,7 +208,7 @@ private fun MessageActionButton(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Settings", style = MaterialTheme.typography.labelMedium)
+                Text("Settings", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
         MessageAction.DETAILS -> {
@@ -210,7 +217,7 @@ private fun MessageActionButton(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Details", style = MaterialTheme.typography.labelMedium)
+                Text("Details", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
         MessageAction.CANCEL -> {
@@ -219,7 +226,7 @@ private fun MessageActionButton(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                Text("Cancel", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
         MessageAction.CONTACT_SUPPORT -> {
@@ -228,7 +235,7 @@ private fun MessageActionButton(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Support", style = MaterialTheme.typography.labelMedium)
+                Text("Support", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -261,8 +268,8 @@ private fun getMessageTypeConfig(type: MessageType): MessageTypeConfig {
         )
         MessageType.WARNING -> MessageTypeConfig(
             icon = Icons.Default.Warning,
-            accentColor = MaterialTheme.colorScheme.secondary,
-            iconBackground = MaterialTheme.colorScheme.secondaryContainer
+            accentColor = if (isSystemInDarkTheme()) Color(0xFFFFB74D) else Color(0xFFE65100),
+            iconBackground = if (isSystemInDarkTheme()) Color(0xFF3A3A3A) else Color(0xFFF1F3F4)
         )
         MessageType.INFO -> MessageTypeConfig(
             icon = Icons.Default.Info,

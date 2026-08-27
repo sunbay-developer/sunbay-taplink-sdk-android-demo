@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -62,6 +63,10 @@ fun PosDialog(
     confirmLoading: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val dialogSurface = if (isSystemInDarkTheme()) Color(0xFF202124) else Color.White
+    val dialogText = if (isSystemInDarkTheme()) Color(0xFFF1F3F4) else Color(0xFF202124)
+    val dialogSecondaryText = if (isSystemInDarkTheme()) Color(0xFFDADCE0) else Color(0xFF4A4A4A)
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
@@ -76,7 +81,7 @@ fun PosDialog(
             shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = dialogSurface
             )
         ) {
             Column(
@@ -107,9 +112,9 @@ fun PosDialog(
                 // Title
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = dialogText,
                     textAlign = TextAlign.Center
                 )
 
@@ -118,8 +123,8 @@ fun PosDialog(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = dialogSecondaryText,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -151,7 +156,9 @@ fun PosDialog(
                         ) {
                             Text(
                                 text = dismissText,
-                                fontWeight = FontWeight.Medium
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSystemInDarkTheme()) Color(0xFFFFB74D) else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -175,7 +182,8 @@ fun PosDialog(
                         }
                         Text(
                             text = confirmText,
-                            fontWeight = FontWeight.SemiBold
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }

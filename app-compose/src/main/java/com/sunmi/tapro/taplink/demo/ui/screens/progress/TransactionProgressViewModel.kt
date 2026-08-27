@@ -169,7 +169,53 @@ class TransactionProgressViewModel(
                 startSplitLinePayment(intent.index)
             }
             is TransactionProgressIntent.CancelOrder -> cancelOrder()
+            is TransactionProgressIntent.StartSecondaryMemberInput -> {
+                if (_state.value.isReadyForPaymentSelection()) {
+                    _state.update { it.copy(isAwaitingSecondaryMemberInput = true) }
+                }
+            }
+            is TransactionProgressIntent.CancelSecondaryMemberInput -> {
+                _state.update { it.copy(isAwaitingSecondaryMemberInput = false) }
+            }
+            is TransactionProgressIntent.ApplySecondaryMemberInput -> {
+                val memberInput = intent.memberInput.trim()
+                currentTransaction?.let { transaction ->
+                    transactionRepository.updateTransaction(transaction.transactionRequestId) {
+                        it.copy(attach = memberInput)
+                    }
+                }
+                _state.update {
+                    it.copy(
+                        memberInput = memberInput,
+                        isAwaitingSecondaryMemberInput = false
+                    )
+                }
+            }
+            is TransactionProgressIntent.StartSecondaryTipSelection -> {
+                if (_state.value.isReadyForPaymentSelection()) {
+                    _state.update { it.copy(isAwaitingSecondaryTipSelection = true) }
+                }
+            }
+            is TransactionProgressIntent.CancelSecondaryTipSelection -> {
+                _state.update { it.copy(isAwaitingSecondaryTipSelection = false) }
+            }
+            is TransactionProgressIntent.ApplySecondaryTip -> applySecondaryTip(intent.tipAmount)
         }
+    }
+
+    private fun applySecondaryTip(tipAmount: BigDecimal) {
+        val transaction = currentTransaction ?: return
+        val normalizedTip = tipAmount.setScale(2, java.math.RoundingMode.HALF_UP)
+        val previousTip = transaction.tipAmount ?: BigDecimal.ZERO
+        val currentTotal = transaction.totalAmount ?: transaction.amount
+        val updatedTotal = currentTotal.subtract(previousTip).add(normalizedTip)
+        transactionRepository.updateTransaction(transaction.transactionRequestId) {
+            it.copy(
+                tipAmount = normalizedTip,
+                totalAmount = updatedTotal
+            )
+        }
+        _state.update { it.copy(isAwaitingSecondaryTipSelection = false) }
     }
 
     /**
@@ -179,10 +225,14 @@ class TransactionProgressViewModel(
      * The underlying order (referenceOrderId) is preserved so the user can edit and retry.
      */
     private fun cancelOrder() {
+        if (_state.value.isAborting) return
+
         val transaction = currentTransaction ?: run {
             navigateBack()
             return
         }
+
+        _state.update { it.copy(isAborting = true) }
 
         // Mark cancelled locally so the repository is consistent.
         transactionRepository.updateTransactionStatus(
@@ -311,6 +361,7 @@ class TransactionProgressViewModel(
                 transactionType = transaction.getDisplayName(),
                 amount = displayAmount,
                 status = transaction.status,
+                isAborting = if (isComplete) false else current.isAborting,
                 progressStatus = transaction.progressStatus,
                 progressMessage = transaction.progressMessage,
                 headlessProgressEvent = transaction.headlessProgressEvent,
@@ -567,6 +618,7 @@ class TransactionProgressViewModel(
                 taxAmount = if (stateValue.isSplitMode) null else txn.taxAmount,
                 serviceFee = if (stateValue.isSplitMode) null else txn.serviceFee,
                 surchargeAmount = if (stateValue.isSplitMode) null else txn.surchargeAmount,
+                attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: txn.attach,
                 progressStatus = "INITIATING_PAYMENT",
                 progressMessage = if (stateValue.isSplitMode) {
                     "Initiating split payment..."
@@ -598,6 +650,7 @@ class TransactionProgressViewModel(
                         taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
                         serviceFee = if (stateValue.isSplitMode) null else transactionForRequest.serviceFee,
                         surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
+                        attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: transactionForRequest.attach,
                         staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         tipConfig = tipConfig,
                         callback = callback,
@@ -612,6 +665,7 @@ class TransactionProgressViewModel(
                         amount = requestedAmount,
                         currency = transactionForRequest.currency,
                         description = "Auth - ${_state.value.orderItems.size} items",
+                        attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: transactionForRequest.attach,
                         staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         callback = callback,
                         signatureConfig = resolveSignatureForSaleOrAuth()
@@ -627,6 +681,7 @@ class TransactionProgressViewModel(
                         description = "Forced Auth - ${_state.value.orderItems.size} items",
                         tipAmount = if (stateValue.isSplitMode) null else transactionForRequest.tipAmount,
                         taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
+                        attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: transactionForRequest.attach,
                         staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         callback = callback
                     )
@@ -829,6 +884,7 @@ class TransactionProgressViewModel(
                     cashbackAmount = transaction.cashbackAmount,
                     serviceFee = transaction.serviceFee,
                     surchargeAmount = transaction.surchargeAmount,
+                    attach = transaction.attach,
                     staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     tipConfig = tipConfig,
                     callback = callback,
@@ -842,6 +898,7 @@ class TransactionProgressViewModel(
                     amount = transaction.amount,
                     currency = transaction.currency,
                     description = transaction.description ?: "Auth - 0 items",
+                    attach = transaction.attach,
                     staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     callback = callback,
                     signatureConfig = resolveSignatureForSaleOrAuth()
@@ -856,6 +913,7 @@ class TransactionProgressViewModel(
                     description = transaction.description ?: "Forced Auth - 0 items",
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
+                    attach = transaction.attach,
                     staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     callback = callback
                 )
@@ -1209,6 +1267,7 @@ class TransactionProgressViewModel(
      */
     private fun abortTransaction() {
         val transaction = currentTransaction ?: return
+        if (_state.value.isAborting) return
 
         // Only allow abort when transaction is still pending/processing
         if (transaction.status != TransactionStatus.PENDING &&
@@ -1228,6 +1287,7 @@ class TransactionProgressViewModel(
         _state.update {
             it.copy(
                 isLoading = true,
+                isAborting = true,
                 canRetry = false,
                 canNavigateBack = false
             )
@@ -1238,6 +1298,19 @@ class TransactionProgressViewModel(
                 // Abort is only a control request. The original payment callback
                 // remains the sole source of truth for the transaction status.
                 Log.d(TAG, "abortTransaction accepted: code=${result.code} msg=${result.message} — waiting for payment callback")
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        message = Message(
+                            type = MessageType.INFO,
+                            title = "Abort Request",
+                            content = result.message.ifBlank {
+                                "Abort request accepted. Waiting for the terminal to finish cancelling the transaction."
+                            },
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
             }
 
             override fun onFailure(code: String, message: String) {
@@ -1248,10 +1321,13 @@ class TransactionProgressViewModel(
                 _state.update {
                     it.copy(
                         isLoading = false,
+                        isAborting = false,
                         message = Message(
                             type = MessageType.WARNING,
                             title = "Abort Rejected",
-                            content = "The transaction cannot be cancelled at this stage. Please complete the transaction on the terminal.",
+                            content = message.ifBlank {
+                                "The transaction cannot be cancelled at this stage. Please complete the transaction on the terminal."
+                            },
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )
@@ -1274,12 +1350,28 @@ class TransactionProgressViewModel(
         }
 
         // Execute abort using original transaction identifiers
-        paymentService.executeAbort(
-            originalTransactionId = transaction.transactionId,
-            originalTransactionRequestId = transaction.transactionRequestId,
-            description = "user close the payment",
-            callback = callback
-        )
+        try {
+            paymentService.executeAbort(
+                originalTransactionId = transaction.transactionId,
+                originalTransactionRequestId = transaction.transactionRequestId,
+                description = "user close the payment",
+                callback = callback
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "abortTransaction failed to start", e)
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    isAborting = false,
+                    message = Message(
+                        type = MessageType.ERROR,
+                        title = "Abort Failed",
+                        content = e.message ?: "Unable to send the abort request.",
+                        actions = listOf(MessageAction.DISMISS)
+                    )
+                )
+            }
+        }
     }
 
     /**

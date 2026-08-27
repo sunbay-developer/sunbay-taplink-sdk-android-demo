@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -71,7 +72,8 @@ class ComposeMainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val connectionState by DependencyProvider.connectionManager.connectionState.collectAsState(initial = ConnectionState.Disconnected)
                 val isInitializing = connectionState is ConnectionState.Connecting
-                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = currentBackStackEntry?.destination?.route
                 val isOnSettingsScreen = currentRoute == Screen.Settings.route
                 val showInitializingOverlay = isInitializing && !isOnSettingsScreen
 

@@ -1,5 +1,7 @@
 package com.sunmi.tapro.taplink.demo.ui.navigation
 
+import android.net.Uri
+
 /**
  * Sealed class defining all navigation routes in the application.
  * Each screen has a route string and helper methods for creating routes with arguments.
@@ -20,7 +22,7 @@ sealed class Screen(val route: String) {
          * @param transactionId The ID of the transaction to display
          * @return The complete route string
          */
-        fun createRoute(transactionId: String) = "progress/$transactionId"
+        fun createRoute(transactionId: String) = "progress/${Uri.encode(transactionId)}"
     }
     
     /**
@@ -38,7 +40,7 @@ sealed class Screen(val route: String) {
          * @param transactionId The ID of the transaction to display
          * @return The complete route string
          */
-        fun createRoute(transactionId: String) = "detail/$transactionId"
+        fun createRoute(transactionId: String) = "detail/${Uri.encode(transactionId)}"
     }
     
     /**

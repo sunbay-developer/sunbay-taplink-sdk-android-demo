@@ -18,11 +18,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,6 +80,7 @@ internal fun SecondaryTipSelectionContent(
         ) {
             Text("Cancel")
         }
+
     }
 }
 
@@ -88,6 +91,57 @@ private fun TipActionButton(label: String, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(label)
+    }
+}
+
+@Composable
+internal fun SecondaryMemberInputContent(
+    onConfirmed: (String) -> Unit,
+    onCancelled: () -> Unit
+) {
+    var memberInput by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Member Entry",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Please enter your member ID",
+            style = MaterialTheme.typography.titleMedium
+        )
+        OutlinedTextField(
+            value = memberInput,
+            onValueChange = { memberInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Member ID") }
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onCancelled,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cancel")
+            }
+            Button(
+                onClick = { onConfirmed(memberInput.trim()) },
+                enabled = memberInput.isNotBlank(),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Confirm")
+            }
+        }
     }
 }
 

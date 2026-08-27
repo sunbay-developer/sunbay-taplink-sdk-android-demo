@@ -43,7 +43,11 @@ data class TransactionProgressState(
     // UI control flags
     val isLoading: Boolean = true,
     val isQuerying: Boolean = false,
+    val isAborting: Boolean = false,
     val isStartingPayment: Boolean = false,
+    val isAwaitingSecondaryMemberInput: Boolean = false,
+    val memberInput: String = "",
+    val isAwaitingSecondaryTipSelection: Boolean = false,
     val isSplitMode: Boolean = false,
     val splitAmountInput: String = "",
     val splitCount: Int = 2,

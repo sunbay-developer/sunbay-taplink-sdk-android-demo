@@ -136,7 +136,7 @@ object ConnectionPreferences {
 
     /**
      * Whether the terminal (host) signature configuration should be used instead of the
-     * per-transaction one. Defaults to true, matching the SDK default.
+     * local per-transaction configuration. The settings UI exposes the inverse.
      */
     fun saveSignatureUseHostConfig(context: Context, useHostConfig: Boolean) {
         getPreferences(context).edit(commit = true) {

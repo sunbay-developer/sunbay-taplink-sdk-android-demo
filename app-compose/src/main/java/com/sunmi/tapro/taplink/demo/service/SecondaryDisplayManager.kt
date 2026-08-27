@@ -164,6 +164,18 @@ class SecondaryDisplayManager(context: Context) {
         return shown
     }
 
+    suspend fun showMemberInput(
+        onConfirmed: (String) -> Unit,
+        onCancelled: () -> Unit
+    ): Boolean {
+        val shown = controller.showMemberInput(
+            onConfirmed = onConfirmed,
+            onCancelled = onCancelled
+        )
+        updateDisplayAvailability(shown)
+        return shown
+    }
+
     /**
      * Dismiss secondary display content before payment processing begins.
      *
@@ -192,6 +204,10 @@ class SecondaryDisplayManager(context: Context) {
         Log.d(TAG, "onPaymentCompleted() - restoring idle content")
         currentPhase = DisplayPhase.IDLE
         showIdle(lastOrderState)
+    }
+
+    fun dismiss() {
+        controller.dismiss()
     }
 
     /**

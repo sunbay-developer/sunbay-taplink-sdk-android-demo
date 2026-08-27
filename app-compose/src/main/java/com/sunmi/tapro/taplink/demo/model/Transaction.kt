@@ -56,6 +56,7 @@ data class Transaction(
     val originalTransactionId: String? = null,
     val originalTransactionRequestId: String? = null,
     val description: String? = null,
+    val attach: String? = null,
     val reason: String? = null,
     val surchargeAmount: BigDecimal? = null,
     val tipAmount: BigDecimal? = null,

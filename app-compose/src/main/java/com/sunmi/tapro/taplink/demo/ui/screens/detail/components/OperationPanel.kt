@@ -2,6 +2,7 @@ package com.sunmi.tapro.taplink.demo.ui.screens.detail.components
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,6 +109,7 @@ fun OperationPanel(
 
     // POS-style operations dialog
     if (showActionsDialog && !showDirectButton) {
+        val dialogSurface = if (isSystemInDarkTheme()) Color(0xFF202124) else Color.White
         Dialog(
             onDismissRequest = { showActionsDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -119,7 +121,7 @@ fun OperationPanel(
                 shape = RoundedCornerShape(20.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = dialogSurface
                 )
             ) {
                 Column(
@@ -127,23 +129,23 @@ fun OperationPanel(
                         .fillMaxWidth()
                         .padding(24.dp)
                 ) {
-//                    Text(
-//                        text = "Operations",
-//                        style = MaterialTheme.typography.titleLarge,
-//                        fontWeight = FontWeight.Bold,
-//                        color = MaterialTheme.colorScheme.onSurface
-//                    )
-//                    Spacer(modifier = Modifier.height(4.dp))
-//                    Text(
-//                        text = "Select an operation to perform",
-//                        style = MaterialTheme.typography.bodyMedium,
-//                        color = MaterialTheme.colorScheme.onSurfaceVariant
-//                    )
-//                    Spacer(modifier = Modifier.height(16.dp))
-//                    HorizontalDivider(
-//                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-//                    )
-//                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Operations",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSystemInDarkTheme()) Color(0xFFF1F3F4) else Color(0xFF202124)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Select an operation to perform",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isSystemInDarkTheme()) Color(0xFFDADCE0) else Color(0xFF4A4A4A)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     availableOperations.forEach { operationType ->
                         val label = labelOverrides[operationType] ?: operationType.displayName()

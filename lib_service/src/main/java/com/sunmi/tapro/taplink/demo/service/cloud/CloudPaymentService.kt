@@ -267,7 +267,7 @@ class CloudPaymentService : PaymentService {
         tipAmount: BigDecimal?, taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
         surchargeAmount: BigDecimal?,
-        staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback
+        staffInfo: StaffInfo?, tipConfig: TipConfig?, attach: String?, callback: PaymentCallback
     ) {
         executeSale(
             referenceOrderId = referenceOrderId,
@@ -286,6 +286,7 @@ class CloudPaymentService : PaymentService {
             surchargeAmount = surchargeAmount,
             staffInfo = staffInfo,
             tipConfig = tipConfig,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -301,7 +302,7 @@ class CloudPaymentService : PaymentService {
         tipAmount: BigDecimal?, taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
         surchargeAmount: BigDecimal?,
-        staffInfo: StaffInfo?, tipConfig: TipConfig?, callback: PaymentCallback,
+        staffInfo: StaffInfo?, tipConfig: TipConfig?, attach: String?, callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
         val body = baseJson().apply {
@@ -319,6 +320,7 @@ class CloudPaymentService : PaymentService {
             set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
             cardNetworkType?.let { put("cardNetworkType", it) }
             staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
+            attach?.let { put("attach", it) }
             signatureConfig?.let { config ->
                 set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
             }
@@ -343,7 +345,7 @@ class CloudPaymentService : PaymentService {
     override fun executeAuth(
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
-        staffInfo: StaffInfo?,
+        staffInfo: StaffInfo?, attach: String?,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -353,6 +355,7 @@ class CloudPaymentService : PaymentService {
             currency = currency,
             description = description,
             staffInfo = staffInfo,
+            attach = attach,
             callback = callback,
             signatureConfig = null
         )
@@ -361,7 +364,7 @@ class CloudPaymentService : PaymentService {
     override fun executeAuth(
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
-        staffInfo: StaffInfo?,
+        staffInfo: StaffInfo?, attach: String?,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
@@ -370,6 +373,7 @@ class CloudPaymentService : PaymentService {
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
+            attach?.let { put("attach", it) }
             put("printReceipt", printReceipt)
             signatureConfig?.let { config ->
                 set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
@@ -393,7 +397,7 @@ class CloudPaymentService : PaymentService {
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
         tipAmount: BigDecimal?, taxAmount: BigDecimal?,
-        staffInfo: StaffInfo?,
+        staffInfo: StaffInfo?, attach: String?,
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
@@ -401,6 +405,7 @@ class CloudPaymentService : PaymentService {
             put("transactionRequestId", transactionRequestId)
             put("description", description)
             staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
+            attach?.let { put("attach", it) }
             put("printReceipt", printReceipt)
             applyNotifyUrl()
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))

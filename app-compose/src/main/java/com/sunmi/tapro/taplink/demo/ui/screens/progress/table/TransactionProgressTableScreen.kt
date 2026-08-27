@@ -2,14 +2,19 @@ package com.sunmi.tapro.taplink.demo.ui.screens.progress.table
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +41,10 @@ fun TransactionProgressTableScreen(
     onSplitLinePaymentOptionChange: (Int, PaymentOption) -> Unit,
     onSplitLineAmountChange: (Int, String) -> Unit,
     onStartSplitLinePayment: (Int) -> Unit,
+    onMemberInput: () -> Unit,
+    showMemberInputButton: Boolean,
+    onTipSelection: () -> Unit,
+    showTipSelectionButton: Boolean,
     onDone: () -> Unit = {},
     onCancelOrder: () -> Unit = {}
 ) {
@@ -54,7 +63,37 @@ fun TransactionProgressTableScreen(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            SettleLeftPanel(state = state)
+            Column(modifier = Modifier.fillMaxSize()) {
+                SettleLeftPanel(
+                    state = state,
+                    modifier = Modifier.weight(1f)
+                )
+                if (showMemberInputButton && state.isReadyForPaymentSelection()) {
+                    Button(
+                        onClick = onMemberInput,
+                        enabled = !state.isAwaitingSecondaryMemberInput,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text("Enter Member ID on Customer Display")
+                    }
+                }
+                if (showTipSelectionButton &&
+                    state.isReadyForPaymentSelection() &&
+                    state.transaction?.tipAmount == null
+                ) {
+                    OutlinedButton(
+                        onClick = onTipSelection,
+                        enabled = !state.isAwaitingSecondaryTipSelection,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text("Select Tip on Customer Display")
+                    }
+                }
+            }
         }
 
         Card(

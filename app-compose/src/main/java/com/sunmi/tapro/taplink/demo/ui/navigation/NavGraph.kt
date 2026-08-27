@@ -1,10 +1,16 @@
 package com.sunmi.tapro.taplink.demo.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sunmi.tapro.taplink.demo.ui.screens.main.MainScreen
@@ -25,6 +31,32 @@ fun NavGraph(
     navController: NavHostController = rememberNavController(),
     startDestination: String = Screen.Main.route
 ) {
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    var navigationLocked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentBackStackEntry?.id) {
+        navigationLocked = false
+    }
+
+    fun navigateOnce(route: String) {
+        if (!navigationLocked && navController.currentDestination?.route != route) {
+            navigationLocked = true
+            navController.navigate(route) {
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    fun popBackStackOnce() {
+        if (!navigationLocked) {
+            navigationLocked = true
+            if (!navController.popBackStack()) {
+                navigationLocked = false
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -33,13 +65,13 @@ fun NavGraph(
         composable(Screen.Main.route) {
             MainScreen(
                 onNavigateToTransactionList = {
-                    navController.navigate(Screen.TransactionList.route)
+                    navigateOnce(Screen.TransactionList.route)
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
+                    navigateOnce(Screen.Settings.route)
                 },
                 onNavigateToProgress = { transactionId ->
-                    navController.navigate(Screen.TransactionProgress.createRoute(transactionId))
+                    navigateOnce(Screen.TransactionProgress.createRoute(transactionId))
                 }
             )
         }
@@ -57,12 +89,17 @@ fun NavGraph(
             TransactionProgressScreen(
                 transactionId = transactionId,
                 onNavigateBack = { 
-                    navController.popBackStack() 
+                    popBackStackOnce()
                 },
                 onNavigateToDetail = { id ->
-                    // Pop progress so back from detail goes to Main (not progress/result)
-                    navController.popBackStack()
-                    navController.navigate(Screen.TransactionDetail.createRoute(id))
+                    // Replace progress so back from detail returns to the previous list/main screen.
+                    if (!navigationLocked) {
+                        navigationLocked = true
+                        navController.navigate(Screen.TransactionDetail.createRoute(id)) {
+                            popUpTo(Screen.TransactionProgress.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                 }
             )
         }
@@ -71,13 +108,13 @@ fun NavGraph(
         composable(Screen.TransactionList.route) {
             TransactionListScreen(
                 onNavigateToDetail = { transactionId ->
-                    navController.navigate(Screen.TransactionDetail.createRoute(transactionId))
+                    navigateOnce(Screen.TransactionDetail.createRoute(transactionId))
                 },
                 onNavigateBack = { 
-                    navController.popBackStack() 
+                    popBackStackOnce()
                 },
                 onNavigateToProgress = { transactionId ->
-                    navController.navigate(Screen.TransactionProgress.createRoute(transactionId))
+                    navigateOnce(Screen.TransactionProgress.createRoute(transactionId))
                 }
             )
         }
@@ -95,10 +132,10 @@ fun NavGraph(
             TransactionDetailScreen(
                 transactionId = transactionId,
                 onNavigateBack = { 
-                    navController.popBackStack() 
+                    popBackStackOnce()
                 },
                 onNavigateToProgress = { id ->
-                    navController.navigate(Screen.TransactionProgress.createRoute(id))
+                    navigateOnce(Screen.TransactionProgress.createRoute(id))
                 }
             )
         }
@@ -107,7 +144,7 @@ fun NavGraph(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onNavigateBack = { 
-                    navController.popBackStack() 
+                    popBackStackOnce()
                 }
             )
         }

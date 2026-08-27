@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -900,7 +901,7 @@ private fun SignatureSectionContent(
     )
     Spacer(modifier = Modifier.height(4.dp))
     Text(
-        text = "When enabled, Sale/Auth requests include signatureConfig.",
+        text = "Turn on the switch to include signatureConfig in Sale/Auth requests.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -913,9 +914,13 @@ private fun SignatureSectionContent(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text("Enable Signature Field", style = MaterialTheme.typography.bodyLarge)
+            Text("Enable Signature Configuration", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Disabled = do not send signature",
+                if (state.signatureEnabled) {
+                    "Enabled — signatureConfig will be included"
+                } else {
+                    "Disabled — signatureConfig will not be included"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -940,18 +945,21 @@ private fun SignatureSectionContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Use Terminal Configuration", style = MaterialTheme.typography.bodyLarge)
+                    Text("Use Local Signature Configuration", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "On = terminal decides signature capture; " +
-                                "Off = use the options below",
+                        if (!state.signatureUseHostConfig) {
+                            "Enabled — local signature options are used for transactions"
+                        } else {
+                            "Disabled — terminal signature configuration is used"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
-                    checked = state.signatureUseHostConfig,
+                    checked = !state.signatureUseHostConfig,
                     onCheckedChange = {
-                        onIntent(SettingsIntent.UpdateSignatureUseHostConfig(it))
+                        onIntent(SettingsIntent.UpdateSignatureUseHostConfig(!it))
                     }
                 )
             }
@@ -1611,7 +1619,7 @@ fun SdkParamsConfigDialog(
         subtitle = "Used to initialize TaplinkSDK. Takes effect after save.",
         icon = Icons.Default.Settings,
         iconTint = MaterialTheme.colorScheme.secondary,
-        iconBackgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+        iconBackgroundColor = MaterialTheme.colorScheme.surfaceVariant,
         confirmText = "Save & Apply",
         onConfirm = onApply,
         confirmEnabled = isValid,
@@ -2327,9 +2335,17 @@ private fun AddCloudOptionDialog(
     onDismiss: () -> Unit
 ) {
     var inputValue by remember { mutableStateOf("") }
+    val dialogSurface = if (isSystemInDarkTheme()) Color(0xFF202124) else Color.White
+    val dialogText = if (isSystemInDarkTheme()) Color(0xFFF1F3F4) else Color(0xFF202124)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add $fieldLabel") },
+        title = {
+            Text(
+                "Add $fieldLabel",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             OutlinedTextField(
                 value = inputValue,
@@ -2339,13 +2355,30 @@ private fun AddCloudOptionDialog(
                 singleLine = true
             )
         },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = dialogSurface,
+        titleContentColor = dialogText,
+        textContentColor = dialogText,
         confirmButton = {
-            TextButton(onClick = { onConfirm(inputValue.trim()) }, enabled = inputValue.trim().isNotEmpty()) {
-                Text("Add")
+            TextButton(
+                onClick = { onConfirm(inputValue.trim()) },
+                enabled = inputValue.trim().isNotEmpty()
+            ) {
+                Text(
+                    "Add",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text(
+                    "Cancel",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     )
 }
