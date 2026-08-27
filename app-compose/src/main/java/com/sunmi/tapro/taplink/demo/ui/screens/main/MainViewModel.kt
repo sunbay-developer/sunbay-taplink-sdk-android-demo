@@ -17,6 +17,7 @@ import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+import com.sunmi.tapro.taplink.demo.util.StaffInfoPreferences
 import com.sunmi.tapro.taplink.demo.service.HeadlessProgressEvent
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
 import com.sunmi.tapro.taplink.demo.service.PaymentResult
@@ -486,6 +487,7 @@ class MainViewModel(
                     totalAmount = _state.value.totalAmount,
                     currency = CURRENCY,
                     timestamp = timestamp,
+                    description = "Sale - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
@@ -588,6 +590,7 @@ class MainViewModel(
                     totalAmount = payableAmount,
                     currency = "USD",
                     timestamp = System.currentTimeMillis(),
+                    description = "Sale - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
@@ -626,6 +629,7 @@ class MainViewModel(
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(getApplication()),
                     tipConfig = tipConfig,
                     callback = createNavigatingPaymentCallback(transactionRequestId),
                     signatureConfig = resolveSignatureForSaleOrAuth()
@@ -692,7 +696,8 @@ class MainViewModel(
                     amount = payableAmount,
                     totalAmount = payableAmount,
                     currency = "USD",
-                    timestamp = System.currentTimeMillis()
+                    timestamp = System.currentTimeMillis(),
+                    description = "Auth - ${_state.value.orderItems.size} items"
                 )
                 
                 // Add to repository
@@ -710,6 +715,7 @@ class MainViewModel(
                     amount = payableAmount,
                     currency = CURRENCY,
                     description = "Auth - ${_state.value.orderItems.size} items",
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(getApplication()),
                     callback = createNavigatingPaymentCallback(transactionRequestId),
                     signatureConfig = resolveSignatureForSaleOrAuth()
                 )
@@ -776,6 +782,7 @@ class MainViewModel(
                     totalAmount = payableAmount,
                     currency = "USD",
                     timestamp = System.currentTimeMillis(),
+                    description = "Forced Auth - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"]
                 )
@@ -797,6 +804,7 @@ class MainViewModel(
                     description = "Forced Auth - ${_state.value.orderItems.size} items",
                     tipAmount = _state.value.additionalAmounts["Tip"],
                     taxAmount = _state.value.additionalAmounts["Tax"],
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(getApplication()),
                     callback = createNavigatingPaymentCallback(transactionRequestId)
                 )
 

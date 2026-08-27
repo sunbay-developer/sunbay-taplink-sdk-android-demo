@@ -59,6 +59,8 @@ sealed class SettingsIntent {
     // Tax Configuration
     data class UpdateTaxConfigEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateTaxRate(val rate: Int) : SettingsIntent()
+    data class UpdateStaffOperatorId(val operatorId: String) : SettingsIntent()
+    data class UpdateStaffTipRecipientId(val tipRecipientId: String) : SettingsIntent()
     
     // Actions
     object TestConnection : SettingsIntent()

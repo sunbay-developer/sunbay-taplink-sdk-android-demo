@@ -25,6 +25,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OrderInfoSectio
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.PaymentInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.CardInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OperationPanel
+import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.SignatureSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.table.TransactionDetailTableScreen
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
@@ -270,6 +271,13 @@ private fun TransactionDetailContent(
                         transaction = transaction,
                         isExpanded = state.isCardInfoExpanded,
                         onToggleExpanded = { viewModel.handleIntent(TransactionDetailIntent.ToggleCardInfoExpanded) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                transaction.receiptJson?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SignatureSection(
+                        receiptJson = it,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }

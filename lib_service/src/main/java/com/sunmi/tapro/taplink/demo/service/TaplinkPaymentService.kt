@@ -755,6 +755,7 @@ class TaplinkPaymentService : PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -763,6 +764,7 @@ class TaplinkPaymentService : PaymentService {
             amount = amount,
             currency = currency,
             description = description,
+            staffInfo = staffInfo,
             callback = callback,
             signatureConfig = null
         )
@@ -774,21 +776,18 @@ class TaplinkPaymentService : PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
         val authRequest = AuthRequest(
-            referenceOrderId,
-            transactionRequestId,
-            buildAuthAmountInfo(amount, currency),
-            description,
-            null,
-            null,
-            null,
-            null,
-            null,
-            printReceipt,
-            signatureConfig,
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = buildAuthAmountInfo(amount, currency),
+            description = description,
+            staffInfo = staffInfo,
+            printReceipt = printReceipt,
+            signatureConfig = signatureConfig
         )
         logSdkRequest("AUTH", authRequest)
         getClient().auth(authRequest, object : SdkPaymentCallback {
@@ -806,6 +805,7 @@ class TaplinkPaymentService : PaymentService {
         description: String,
         tipAmount: BigDecimal?,
         taxAmount: BigDecimal?,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         val forcedAuthRequest = ForcedAuthRequest(
@@ -813,6 +813,7 @@ class TaplinkPaymentService : PaymentService {
             transactionRequestId = transactionRequestId,
             amount = buildAuthAmountInfo(amount, currency),
             description = description,
+            staffInfo = staffInfo,
             printReceipt = printReceipt
         )
         logSdkRequest("FORCED_AUTH", forcedAuthRequest)
@@ -834,6 +835,7 @@ class TaplinkPaymentService : PaymentService {
         reason: String?,
         paymentCategory: PaymentCategory?,
         cardNetworkType: String?,
+        staffInfo: StaffInfo?,
         signatureConfig: SignatureConfig?,
         callback: PaymentCallback
     ) {
@@ -873,6 +875,7 @@ class TaplinkPaymentService : PaymentService {
             referenceOrderId = if (!isReferenced) referenceOrderId else null,
             paymentMethod = paymentMethodInfo,
             cardNetworkType = refundCardNetworkType,
+            staffInfo = staffInfo,
             printReceipt = printReceipt,
             // Only an unreferenced refund can capture a signature.
             signatureConfig = signatureConfig.takeIf { !isReferenced }
@@ -924,6 +927,7 @@ class TaplinkPaymentService : PaymentService {
         taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?,
         serviceFee: BigDecimal?,
+        staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
@@ -938,6 +942,7 @@ class TaplinkPaymentService : PaymentService {
             transactionRequestId = transactionRequestId,
             amount = amountInfo,
             description = description,
+            staffInfo = staffInfo,
             tipConfig = tipConfig,
             printReceipt = printReceipt
         )
@@ -956,6 +961,7 @@ class TaplinkPaymentService : PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         val incrementalAuthRequest = IncrementalAuthRequest(
@@ -963,6 +969,7 @@ class TaplinkPaymentService : PaymentService {
             transactionRequestId = transactionRequestId,
             amount = buildAuthAmountInfo(amount, currency),
             description = description,
+            staffInfo = staffInfo,
             printReceipt = printReceipt
         )
         logSdkRequest("INCREMENTAL_AUTH", incrementalAuthRequest)

@@ -19,6 +19,7 @@ import com.sunmi.tapro.taplink.demo.util.TaplinkSdkInitializer
 import com.sunmi.tapro.taplink.demo.util.TaplinkSdkPreferences
 import com.sunmi.tapro.taplink.demo.util.TaxConfigPreferences
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
+import com.sunmi.tapro.taplink.demo.util.StaffInfoPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -124,6 +125,9 @@ class SettingsViewModel(
             is SettingsIntent.SaveTipConfig -> saveTipConfig()
             is SettingsIntent.UpdateTaxConfigEnabled -> updateTaxConfigEnabled(intent.enabled)
             is SettingsIntent.UpdateTaxRate -> updateTaxRate(intent.rate)
+            is SettingsIntent.UpdateStaffOperatorId -> updateStaffOperatorId(intent.operatorId)
+            is SettingsIntent.UpdateStaffTipRecipientId ->
+                updateStaffTipRecipientId(intent.tipRecipientId)
             is SettingsIntent.TestConnection -> testConnection()
             is SettingsIntent.AutoDiscoverAndConnect -> autoDiscoverAndConnect()
             is SettingsIntent.ScanQrAndConnect -> scanQrAndConnect()
@@ -202,6 +206,7 @@ class SettingsViewModel(
 
                 // Load Tax Configuration
                 val taxConfig = TaxConfigPreferences.getConfig(context)
+                val staffConfig = StaffInfoPreferences.getConfig(context)
                 
                 // Update state with loaded values
                 // For security: don't show existing secret key, only track its existence
@@ -259,6 +264,8 @@ class SettingsViewModel(
                         tipSuggestionName3 = tipConfig.suggestionName3,
                         taxConfigEnabled = taxConfig.enabled,
                         taxRate = taxConfig.taxRate,
+                        staffOperatorId = staffConfig.operatorId,
+                        staffTipRecipientId = staffConfig.tipRecipientId,
                         isLoading = false
                     )
                 }
@@ -751,6 +758,27 @@ class SettingsViewModel(
     private fun updateTaxRate(rate: Int) {
         _state.update { it.copy(taxRate = rate) }
         persistTaxConfig()
+    }
+
+    private fun updateStaffOperatorId(operatorId: String) {
+        _state.update { it.copy(staffOperatorId = operatorId) }
+        persistStaffInfo()
+    }
+
+    private fun updateStaffTipRecipientId(tipRecipientId: String) {
+        _state.update { it.copy(staffTipRecipientId = tipRecipientId) }
+        persistStaffInfo()
+    }
+
+    private fun persistStaffInfo() {
+        val current = _state.value
+        StaffInfoPreferences.saveConfig(
+            getApplication(),
+            StaffInfoPreferences.StaffInfoConfig(
+                operatorId = current.staffOperatorId,
+                tipRecipientId = current.staffTipRecipientId
+            )
+        )
     }
 
     /**
@@ -1341,6 +1369,13 @@ class SettingsViewModel(
         try {
             val currentState = _state.value
             val context = getApplication<Application>()
+            StaffInfoPreferences.saveConfig(
+                context,
+                StaffInfoPreferences.StaffInfoConfig(
+                    operatorId = currentState.staffOperatorId,
+                    tipRecipientId = currentState.staffTipRecipientId
+                )
+            )
             
             // Save connection mode
             val prefMode = when (currentState.selectedMode) {

@@ -21,6 +21,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.CardInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OperationPanel
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OrderInfoSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.PaymentInfoSection
+import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.SignatureSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.TransactionHeader
 
 @Composable
@@ -76,6 +77,12 @@ fun TransactionDetailTableScreen(
                             transaction = transaction,
                             isExpanded = isCardInfoExpanded,
                             onToggleExpanded = onToggleCardInfo,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    transaction.receiptJson?.let {
+                        SignatureSection(
+                            receiptJson = it,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

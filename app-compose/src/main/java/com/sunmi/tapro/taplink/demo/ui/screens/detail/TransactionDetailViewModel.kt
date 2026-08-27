@@ -9,6 +9,7 @@ import com.sunmi.tapro.taplink.demo.model.OrderItem
 import com.sunmi.tapro.taplink.demo.model.Transaction
 import com.sunmi.tapro.taplink.demo.model.TransactionStatus
 import com.sunmi.tapro.taplink.demo.model.TransactionType
+import com.sunmi.tapro.taplink.demo.util.StaffInfoPreferences
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.demo.repository.TransactionRepository
 import com.sunmi.tapro.taplink.demo.service.PaymentCallback
@@ -297,6 +298,11 @@ class TransactionDetailViewModel(
                     TransactionType.REFUND -> amount ?: originalDisplayAmount
                     else -> amount ?: originalTransaction.amount
                 }
+                val operationPaymentCategory = if (operationType == TransactionType.REFUND) {
+                    resolveRefundPaymentCategory(originalTransaction)
+                } else {
+                    originalTransaction.paymentCategory
+                }
                 
                 // Create new transaction record
                 val newTransaction = Transaction(
@@ -313,6 +319,21 @@ class TransactionDetailViewModel(
                     status = TransactionStatus.PENDING,
                     timestamp = System.currentTimeMillis(),
                     originalTransactionId = originalTransactionId,
+                    originalTransactionRequestId = originalTransactionRequestId,
+                    description = when (operationType) {
+                        TransactionType.REFUND -> "Refund for ${originalTransaction.type.name}"
+                        TransactionType.VOID -> "Void for ${originalTransaction.type.name}"
+                        TransactionType.POST_AUTH -> "Post-authorization completion"
+                        TransactionType.TIP_ADJUST -> "Tip adjustment"
+                        else -> operationType.name
+                    },
+                    reason = when (operationType) {
+                        TransactionType.REFUND -> "Customer request"
+                        TransactionType.VOID -> "Transaction cancellation"
+                        else -> null
+                    },
+                    paymentCategory = operationPaymentCategory,
+                    cardNetworkType = originalTransaction.cardNetworkType,
                     tipAmount = tipAmount,
                     taxAmount = taxAmount,
                     // UI 输入项目前命名是 surcharge，这里沿用现有 demo/service 映射到 serviceFee。
@@ -350,6 +371,7 @@ class TransactionDetailViewModel(
                             description = "Refund for ${originalTransaction.type.name}",
                             reason = "Customer request",
                             paymentCategory = refundPaymentCategory,
+                            staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                             callback = callback
                         )
                     }
@@ -388,6 +410,7 @@ class TransactionDetailViewModel(
                             tipAmount = tipAmount,
                             taxAmount = taxAmount,
                             serviceFee = surchargeAmount,
+                            staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                             tipConfig = tipConfig,
                             callback = callback
                         )
@@ -400,6 +423,7 @@ class TransactionDetailViewModel(
                             amount = amount ?: BigDecimal.ZERO,
                             currency = originalTransaction.currency,
                             description = "Incremental authorization",
+                            staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                             callback = callback
                         )
                     }

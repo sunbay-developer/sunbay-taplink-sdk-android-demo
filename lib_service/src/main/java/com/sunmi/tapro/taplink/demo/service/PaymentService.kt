@@ -185,6 +185,7 @@ interface PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo? = null,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -193,6 +194,7 @@ interface PaymentService {
             amount = amount,
             currency = currency,
             description = description,
+            staffInfo = staffInfo,
             callback = callback,
             signatureConfig = null
         )
@@ -209,6 +211,7 @@ interface PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo? = null,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     )
@@ -221,6 +224,7 @@ interface PaymentService {
         description: String,
         tipAmount: BigDecimal? = null,
         taxAmount: BigDecimal? = null,
+        staffInfo: StaffInfo? = null,
         callback: PaymentCallback
     )
 
@@ -254,6 +258,7 @@ interface PaymentService {
         reason: String?,
         paymentCategory: PaymentCategory? = null,
         cardNetworkType: String? = null,
+        staffInfo: StaffInfo? = null,
         signatureConfig: SignatureConfig? = null,
         callback: PaymentCallback
     )
@@ -278,6 +283,7 @@ interface PaymentService {
         taxAmount: BigDecimal? = null,
         cashbackAmount: BigDecimal? = null,
         serviceFee: BigDecimal? = null,
+        staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
         callback: PaymentCallback
     )
@@ -289,6 +295,7 @@ interface PaymentService {
         amount: BigDecimal,
         currency: String,
         description: String,
+        staffInfo: StaffInfo? = null,
         callback: PaymentCallback
     )
 

@@ -66,7 +66,12 @@ import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 
 // Settings page sections
-private enum class SettingsSection { CONFIGURATION, DIAGNOSTICS }
+private enum class SettingsSection {
+    CONNECTION,
+    TRANSACTION_AMOUNT,
+    PARAMETERS,
+    DIAGNOSTICS
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +95,7 @@ fun SettingsScreen(
     }
 
     // Landscape: track which section is open in the right panel
-    var selectedSection by remember { mutableStateOf(SettingsSection.CONFIGURATION) }
+    var selectedSection by remember { mutableStateOf(SettingsSection.CONNECTION) }
 
     val onIntent: (SettingsIntent) -> Unit = { viewModel.handleIntent(it) }
 
@@ -142,26 +147,31 @@ fun SettingsScreen(
                     },
                     detailContent = {
                         when (selectedSection) {
-                            SettingsSection.CONFIGURATION -> {
-                                UnifiedConfigurationSectionContent(
-                                    state = state,
-                                    onIntent = onIntent
-                                )
-                                if (state.testResult != null) {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    TestResultCard(
-                                        result = state.testResult!!,
-                                        isSuccess = state.testSuccess
-                                    )
-                                }
-                            }
-
+                            SettingsSection.CONNECTION -> ConnectionSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
+                            SettingsSection.TRANSACTION_AMOUNT -> TransactionAmountSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
+                            SettingsSection.PARAMETERS -> ParameterConfigurationSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
                             SettingsSection.DIAGNOSTICS -> CheckSectionContent()
+                        }
+                        if (selectedSection != SettingsSection.DIAGNOSTICS && state.testResult != null) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TestResultCard(
+                                result = state.testResult!!,
+                                isSuccess = state.testSuccess
+                            )
                         }
                     }
                 )
             } else {
-                // Portrait: three section cards stacked + fixed bottom action bar
+                // Portrait: independent section cards stacked + fixed bottom action bar
                 Column(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -170,18 +180,38 @@ fun SettingsScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // 1. Unified configuration
+                        // Connection settings remain independent from transaction settings.
                         PortraitSectionCard(
-                            title = "Configuration",
+                            title = "Connection Mode",
                             icon = Icons.Default.Wifi
                         ) {
-                            UnifiedConfigurationSectionContent(
+                            ConnectionSectionContent(
                                 state = state,
                                 onIntent = onIntent
                             )
                         }
 
-                        // 2. Diagnostics (collapsible, default collapsed; version info loaded when expanded)
+                        PortraitSectionCard(
+                            title = "Transaction Amount",
+                            icon = Icons.Default.Add
+                        ) {
+                            TransactionAmountSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
+                        }
+
+                        PortraitSectionCard(
+                            title = "Parameter Configuration",
+                            icon = Icons.Default.Tune
+                        ) {
+                            ParameterConfigurationSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
+                        }
+
+                        // Diagnostics (collapsible, default collapsed; version info loaded when expanded)
                         var diagnosticsExpanded by remember { mutableStateOf(false) }
                         ConfigGroupCard(
                             title = "Diagnostics",
@@ -261,60 +291,71 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun UnifiedConfigurationSectionContent(
+private fun TransactionAmountSectionContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit
 ) {
-    var basicExpanded by remember { mutableStateOf(true) }
-    var transactionExpanded by remember { mutableStateOf(false) }
-    var advancedExpanded by remember { mutableStateOf(false) }
+    TipConfigSectionContent(state = state, onIntent = onIntent)
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    TaxConfigSectionContent(state = state, onIntent = onIntent)
+}
 
-    ConfigGroupCard(
-        title = "Basic",
-        subtitle = "Connection mode and cloud parameters",
-        expanded = basicExpanded,
-        onToggle = { basicExpanded = !basicExpanded }
-    ) {
-        ConnectionSectionContent(state = state, onIntent = onIntent)
-    }
+@Composable
+private fun ParameterConfigurationSectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    PrintingSectionContent(state = state, onIntent = onIntent)
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    SignatureSectionContent(state = state, onIntent = onIntent)
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    StaffInfoSectionContent(state = state, onIntent = onIntent)
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    SecondaryDisplaySectionContent(state = state, onIntent = onIntent)
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    SdkSectionContent(state = state, onIntent = onIntent)
+}
 
-    Spacer(modifier = Modifier.height(12.dp))
-
-    ConfigGroupCard(
-        title = "Transaction",
-        subtitle = "Receipt and transaction output settings",
-        expanded = transactionExpanded,
-        onToggle = { transactionExpanded = !transactionExpanded }
-    ) {
-        PrintingSectionContent(state = state, onIntent = onIntent)
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        SignatureSectionContent(state = state, onIntent = onIntent)
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        TipConfigSectionContent(state = state, onIntent = onIntent)
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        TaxConfigSectionContent(state = state, onIntent = onIntent)
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        SecondaryDisplaySectionContent(state = state, onIntent = onIntent)
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    ConfigGroupCard(
-        title = "Advanced",
-        subtitle = "SDK parameters and environment switch",
-        expanded = advancedExpanded,
-        onToggle = { advancedExpanded = !advancedExpanded }
-    ) {
-        SdkSectionContent(state = state, onIntent = onIntent)
-    }
+@Composable
+private fun StaffInfoSectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Text("Staff Information", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        "Optional staff identifiers included in SALE requests.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    OutlinedTextField(
+        value = state.staffOperatorId,
+        onValueChange = { onIntent(SettingsIntent.UpdateStaffOperatorId(it)) },
+        label = { Text("Operator ID") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = state.staffTipRecipientId,
+        onValueChange = { onIntent(SettingsIntent.UpdateStaffTipRecipientId(it)) },
+        label = { Text("Tip Recipient ID") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium
+    )
 }
 
 @Composable
@@ -1455,12 +1496,16 @@ private fun SdkSectionContent(
 // ─── Helper functions ──────────────────────────────────────────────────────────
 
 private fun getSectionName(section: SettingsSection): String = when (section) {
-    SettingsSection.CONFIGURATION -> "Configuration"
+    SettingsSection.CONNECTION -> "Connection Mode"
+    SettingsSection.TRANSACTION_AMOUNT -> "Transaction Amount"
+    SettingsSection.PARAMETERS -> "Parameter Configuration"
     SettingsSection.DIAGNOSTICS -> "Diagnostics"
 }
 
 private fun getSectionIcon(section: SettingsSection): ImageVector = when (section) {
-    SettingsSection.CONFIGURATION -> Icons.Default.Tune
+    SettingsSection.CONNECTION -> Icons.Default.Wifi
+    SettingsSection.TRANSACTION_AMOUNT -> Icons.Default.Add
+    SettingsSection.PARAMETERS -> Icons.Default.Tune
     SettingsSection.DIAGNOSTICS -> Icons.Default.Info
 }
 

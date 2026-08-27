@@ -21,6 +21,7 @@ import com.sunmi.tapro.taplink.demo.util.Constants
 import com.sunmi.tapro.taplink.demo.util.ErrorHandler
 import com.sunmi.tapro.taplink.demo.util.RetryManager
 import com.sunmi.tapro.taplink.demo.util.RetryManagerFactory
+import com.sunmi.tapro.taplink.demo.util.StaffInfoPreferences
 import com.sunmi.tapro.taplink.demo.di.DependencyProvider
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import kotlinx.coroutines.Job
@@ -597,6 +598,7 @@ class TransactionProgressViewModel(
                         taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
                         serviceFee = if (stateValue.isSplitMode) null else transactionForRequest.serviceFee,
                         surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
+                        staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         tipConfig = tipConfig,
                         callback = callback,
                         signatureConfig = resolveSignatureForSaleOrAuth()
@@ -610,6 +612,7 @@ class TransactionProgressViewModel(
                         amount = requestedAmount,
                         currency = transactionForRequest.currency,
                         description = "Auth - ${_state.value.orderItems.size} items",
+                        staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         callback = callback,
                         signatureConfig = resolveSignatureForSaleOrAuth()
                     )
@@ -624,6 +627,7 @@ class TransactionProgressViewModel(
                         description = "Forced Auth - ${_state.value.orderItems.size} items",
                         tipAmount = if (stateValue.isSplitMode) null else transactionForRequest.tipAmount,
                         taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
+                        staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         callback = callback
                     )
                 }
@@ -810,28 +814,22 @@ class TransactionProgressViewModel(
                 val tipConfig = com.sunmi.tapro.taplink.demo.util.TipConfigBuilder.buildFromPreferences(
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.requireContext()
                 )
-                // Resolve paymentCategory from the stored paymentMethodId.
-                // If the original transaction specified EBT or QR_MPM/QR_CPM, reuse it.
-                // Otherwise default to CARD.
-                val paymentCategory = resolvePaymentCategory(transaction)
-                val paymentMethodId = transaction.paymentMethodId
-                val subPaymentMethodId = transaction.subPaymentMethodId
-                val cardNetworkType = transaction.cardNetworkType
-
                 paymentService.executeSale(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
                     amount = transaction.amount,
                     currency = transaction.currency,
-                    description = "Retry: ${transaction.getDisplayName()}",
-                    paymentCategory = paymentCategory,
-                    paymentMethodId = paymentMethodId,
-                    subPaymentMethodId = subPaymentMethodId,
-                    cardNetworkType = cardNetworkType,
+                    description = transaction.description ?: "Sale - 0 items",
+                    paymentCategory = transaction.paymentCategory ?: PaymentCategory.CARD,
+                    paymentMethodId = transaction.paymentMethodId,
+                    subPaymentMethodId = transaction.subPaymentMethodId,
+                    cardNetworkType = transaction.cardNetworkType,
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
                     cashbackAmount = transaction.cashbackAmount,
                     serviceFee = transaction.serviceFee,
+                    surchargeAmount = transaction.surchargeAmount,
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     tipConfig = tipConfig,
                     callback = callback,
                     signatureConfig = resolveSignatureForSaleOrAuth()
@@ -843,7 +841,8 @@ class TransactionProgressViewModel(
                     transactionRequestId = transaction.transactionRequestId,
                     amount = transaction.amount,
                     currency = transaction.currency,
-                    description = "Retry: ${transaction.getDisplayName()}",
+                    description = transaction.description ?: "Auth - 0 items",
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     callback = callback,
                     signatureConfig = resolveSignatureForSaleOrAuth()
                 )
@@ -854,25 +853,26 @@ class TransactionProgressViewModel(
                     transactionRequestId = transaction.transactionRequestId,
                     amount = transaction.amount,
                     currency = transaction.currency,
-                    description = "Retry: ${transaction.getDisplayName()}",
+                    description = transaction.description ?: "Forced Auth - 0 items",
                     tipAmount = transaction.tipAmount,
                     taxAmount = transaction.taxAmount,
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     callback = callback
                 )
             }
             TransactionType.REFUND -> {
-                // Resolve paymentCategory for refund retry based on original payment method
-                val paymentCategory = resolvePaymentCategory(transaction)
                 paymentService.executeRefund(
                     referenceOrderId = transaction.referenceOrderId ?: "",
                     transactionRequestId = transaction.transactionRequestId,
                     originalTransactionId = transaction.originalTransactionId ?: "",
-                    originalTransactionRequestId = "",
+                    originalTransactionRequestId = transaction.originalTransactionRequestId ?: "",
                     amount = transaction.amount,
                     currency = transaction.currency,
-                    description = "Retry: ${transaction.getDisplayName()}",
-                    reason = "Retry: ${transaction.getDisplayName()}",
-                    paymentCategory = paymentCategory,
+                    description = transaction.description ?: "Refund",
+                    reason = transaction.reason ?: "Customer request",
+                    paymentCategory = transaction.paymentCategory,
+                    cardNetworkType = transaction.cardNetworkType,
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                     callback = callback
                 )
             }
@@ -888,23 +888,6 @@ class TransactionProgressViewModel(
         }
     }
     
-    /**
-     * Resolve the payment category for a transaction based on its stored payment method info.
-     *
-     * - If paymentMethodId is "EBT" → PaymentCategory.EBT
-     * - If paymentMethodId is "QR_MPM" → PaymentCategory.QR_MPM
-     * - If paymentMethodId is "QR_CPM" → PaymentCategory.QR_CPM
-     * - Otherwise (including null / card payments) → PaymentCategory.CARD
-     */
-    private fun resolvePaymentCategory(transaction: Transaction): com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory {
-        return when (transaction.paymentMethodId) {
-            "EBT" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.EBT
-            "QR_MPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_MPM
-            "QR_CPM" -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
-            else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
-        }
-    }
-
     private fun resolveSignatureForSaleOrAuth() =
         com.sunmi.tapro.taplink.demo.util.SignatureConfigBuilder.buildFromPreferences(
             DependencyProvider.requireContext()
@@ -1024,7 +1007,8 @@ class TransactionProgressViewModel(
                     cashbackAmount = result.amount?.cashbackAmount,
                     serviceFee = result.amount?.serviceFee,
                     completeTime = result.completeTime,
-                    cardInfo = cardInfo
+                    cardInfo = cardInfo,
+                    receiptJson = result.receiptJson
                 )
             }
             

@@ -85,6 +85,10 @@ data class SettingsState(
     /** Tax rate as integer percentage (e.g. 8 = 8%) */
     val taxRate: Int = 0,
 
+    // Staff information included in SALE requests
+    val staffOperatorId: String = "",
+    val staffTipRecipientId: String = "",
+
     // Tip Configuration (only for SALE and POST_AUTH)
     val tipConfigEnabled: Boolean = false,
     /** When true the terminal (host) tip configuration is used for the transaction. */

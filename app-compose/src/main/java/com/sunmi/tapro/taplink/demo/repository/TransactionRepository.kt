@@ -100,12 +100,14 @@ class TransactionRepository private constructor(context: Context) {
             batchNo: Int? = null,
             batchCloseInfo: BatchCloseInfo? = null,
             completeTime: String? = null,
-            cardInfo: com.sunmi.tapro.taplink.demo.model.CardInfo? = null
+            cardInfo: com.sunmi.tapro.taplink.demo.model.CardInfo? = null,
+            receiptJson: String? = null
         ): Boolean {
             return instance?.updateTransactionWithAmounts(
                 transactionRequestId, status, transactionId, authCode, errorCode, errorMessage,
                 orderAmount, totalAmount, tipAmount, taxAmount, cashbackAmount,
-                serviceFee, batchNo, batchCloseInfo, completeTime, cardInfo
+                serviceFee, batchNo, batchCloseInfo, completeTime, cardInfo,
+                receiptJson = receiptJson
             ) ?: false
         }
         
@@ -423,7 +425,8 @@ class TransactionRepository private constructor(context: Context) {
         completeTime: String? = null,
         cardInfo: com.sunmi.tapro.taplink.demo.model.CardInfo? = null,
         transactionBatchStatus: String? = null,
-        relatedTransactionStatus: String? = null
+        relatedTransactionStatus: String? = null,
+        receiptJson: String? = null
     ): Boolean {
         return updateTransaction(transactionRequestId) { transaction ->
             transaction.copy(
@@ -444,7 +447,8 @@ class TransactionRepository private constructor(context: Context) {
                 completeTime = completeTime ?: transaction.completeTime,
                 cardInfo = cardInfo ?: transaction.cardInfo,
                 transactionBatchStatus = transactionBatchStatus ?: transaction.transactionBatchStatus,
-                relatedTransactionStatus = relatedTransactionStatus ?: transaction.relatedTransactionStatus
+                relatedTransactionStatus = relatedTransactionStatus ?: transaction.relatedTransactionStatus,
+                receiptJson = receiptJson ?: transaction.receiptJson
             )
         }
     }

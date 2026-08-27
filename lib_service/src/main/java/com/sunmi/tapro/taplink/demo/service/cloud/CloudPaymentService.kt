@@ -152,6 +152,7 @@ class CloudPaymentService : PaymentService {
         if (tipConfig.useHostConfig) {
             return@apply
         }
+
         put("onScreenTip", tipConfig.onScreenTip)
         if (includeTipModeField) {
             put("tipMode", tipConfig.tipMode.name)
@@ -170,6 +171,11 @@ class CloudPaymentService : PaymentService {
                 }
             })
         }
+    }
+
+    private fun buildStaffInfoJson(staffInfo: StaffInfo): ObjectNode = objectMapper.createObjectNode().apply {
+        put("operatorId", staffInfo.operatorId)
+        put("tipRecipientId", staffInfo.tipRecipientId)
     }
 
     /** Print receipt mode for cloud transactions. Set from app layer when loading preferences. */
@@ -312,6 +318,7 @@ class CloudPaymentService : PaymentService {
             applyNotifyUrl()
             set<ObjectNode>("paymentMethod", paymentMethodJson(paymentCategory, paymentMethodId, subPaymentMethodId))
             cardNetworkType?.let { put("cardNetworkType", it) }
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             signatureConfig?.let { config ->
                 set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
             }
@@ -336,6 +343,7 @@ class CloudPaymentService : PaymentService {
     override fun executeAuth(
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         executeAuth(
@@ -344,6 +352,7 @@ class CloudPaymentService : PaymentService {
             amount = amount,
             currency = currency,
             description = description,
+            staffInfo = staffInfo,
             callback = callback,
             signatureConfig = null
         )
@@ -352,6 +361,7 @@ class CloudPaymentService : PaymentService {
     override fun executeAuth(
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback,
         signatureConfig: SignatureConfig?
     ) {
@@ -359,6 +369,7 @@ class CloudPaymentService : PaymentService {
             put("referenceOrderId", referenceOrderId)
             put("transactionRequestId", transactionRequestId)
             put("description", description)
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             put("printReceipt", printReceipt)
             signatureConfig?.let { config ->
                 set<ObjectNode>("signatureConfig", buildSignatureConfigJson(config))
@@ -382,12 +393,14 @@ class CloudPaymentService : PaymentService {
         referenceOrderId: String, transactionRequestId: String,
         amount: BigDecimal, currency: String, description: String,
         tipAmount: BigDecimal?, taxAmount: BigDecimal?,
+        staffInfo: StaffInfo?,
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
             put("referenceOrderId", referenceOrderId)
             put("transactionRequestId", transactionRequestId)
             put("description", description)
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             put("printReceipt", printReceipt)
             applyNotifyUrl()
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency))
@@ -403,6 +416,7 @@ class CloudPaymentService : PaymentService {
         description: String, reason: String?,
         paymentCategory: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory?,
         cardNetworkType: String?,
+        staffInfo: StaffInfo?,
         signatureConfig: SignatureConfig?,
         callback: PaymentCallback
     ) {
@@ -439,6 +453,7 @@ class CloudPaymentService : PaymentService {
                 applyPushToTerminal()
             }
             cardNetworkType?.let { put("cardNetworkType", it) }
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             // Only an unreferenced refund can capture a signature.
             if (!isReferenced) {
                 signatureConfig?.let { config ->
@@ -473,6 +488,7 @@ class CloudPaymentService : PaymentService {
         originalTransactionId: String, amount: BigDecimal, currency: String,
         description: String, tipAmount: BigDecimal?, taxAmount: BigDecimal?,
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
+        staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
         callback: PaymentCallback
     ) {
@@ -480,6 +496,7 @@ class CloudPaymentService : PaymentService {
             put("transactionRequestId", transactionRequestId)
             put("originalTransactionId", originalTransactionId)
             put("description", description)
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             put("printReceipt", printReceipt)
             applyNotifyUrl()
             applyPushToTerminal()
@@ -502,12 +519,13 @@ class CloudPaymentService : PaymentService {
     override fun executeIncrementalAuth(
         referenceOrderId: String, transactionRequestId: String,
         originalTransactionId: String, amount: BigDecimal, currency: String,
-        description: String, callback: PaymentCallback
+        description: String, staffInfo: StaffInfo?, callback: PaymentCallback
     ) {
         val body = baseJson().apply {
             put("transactionRequestId", transactionRequestId)
             put("originalTransactionId", originalTransactionId)
             put("description", description)
+            staffInfo?.let { set<ObjectNode>("staffInfo", buildStaffInfoJson(it)) }
             put("printReceipt", printReceipt)
             applyNotifyUrl()
             applyPushToTerminal()

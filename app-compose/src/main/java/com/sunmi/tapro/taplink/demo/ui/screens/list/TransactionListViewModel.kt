@@ -20,6 +20,7 @@ import com.sunmi.tapro.taplink.demo.service.PaymentService
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.util.Constants
+import com.sunmi.tapro.taplink.demo.util.StaffInfoPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -541,6 +542,7 @@ class TransactionListViewModel(
                     reason = "Standalone refund",
                     paymentCategory = paymentCategory,
                     cardNetworkType = cardNetworkType,
+                    staffInfo = StaffInfoPreferences.buildSdkStaffInfo(getApplication()),
                     // Unreferenced refund requires a card, so it supports signature configuration.
                     signatureConfig = com.sunmi.tapro.taplink.demo.util.SignatureConfigBuilder
                         .buildFromPreferences(getApplication<android.app.Application>()),

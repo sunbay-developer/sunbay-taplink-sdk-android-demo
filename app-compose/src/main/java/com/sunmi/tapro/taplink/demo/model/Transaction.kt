@@ -22,6 +22,9 @@ import java.math.BigDecimal
  * @property errorCode Error code (returned when transaction fails)
  * @property errorMessage Error message (returned when transaction fails)
  * @property originalTransactionId Original transaction ID (used for REFUND, VOID and other follow-up operations)
+ * @property originalTransactionRequestId Original transaction request ID (used for referenced follow-up operations)
+ * @property description Original request description
+ * @property reason Original request reason
  * @property surchargeAmount Surcharge amount (optional)
  * @property tipAmount Tip amount (optional)
  * @property cashbackAmount Cashback amount (optional)
@@ -51,6 +54,9 @@ data class Transaction(
     val errorCode: String? = null,
     val errorMessage: String? = null,
     val originalTransactionId: String? = null,
+    val originalTransactionRequestId: String? = null,
+    val description: String? = null,
+    val reason: String? = null,
     val surchargeAmount: BigDecimal? = null,
     val tipAmount: BigDecimal? = null,
     val taxAmount: BigDecimal? = null,
@@ -68,7 +74,8 @@ data class Transaction(
     val subPaymentMethodId: String? = null,
     val cardNetworkType: String? = null,
     val transactionBatchStatus: String? = null,
-    val relatedTransactionStatus: String? = null
+    val relatedTransactionStatus: String? = null,
+    val receiptJson: String? = null
 ) {
     /**
      * Check if transaction is successful
