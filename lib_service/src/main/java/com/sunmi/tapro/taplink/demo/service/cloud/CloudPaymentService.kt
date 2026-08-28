@@ -419,7 +419,7 @@ class CloudPaymentService : PaymentService {
         originalTransactionId: String, originalTransactionRequestId: String,
         amount: BigDecimal, currency: String,
         description: String, reason: String?,
-        paymentCategory: com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory?,
+        paymentCategory: PaymentCategory?,
         cardNetworkType: String?,
         staffInfo: StaffInfo?,
         signatureConfig: SignatureConfig?,

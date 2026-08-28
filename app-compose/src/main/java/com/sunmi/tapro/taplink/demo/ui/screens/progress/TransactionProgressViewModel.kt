@@ -1295,18 +1295,41 @@ class TransactionProgressViewModel(
 
         val callback = object : PaymentCallback {
             override fun onSuccess(result: PaymentResult) {
-                // Abort is only a control request. The original payment callback
-                // remains the sole source of truth for the transaction status.
-                Log.d(TAG, "abortTransaction accepted: code=${result.code} msg=${result.message} — waiting for payment callback")
+                val currentTransaction = currentTransaction ?: return
+                if (result.isFailed()) {
+                    Log.w(TAG, "abortTransaction result rejected: code=${result.code} msg=${result.message}")
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            isAborting = false,
+                            message = Message(
+                                type = MessageType.WARNING,
+                                title = "Abort Rejected",
+                                content = result.message.ifBlank {
+                                    "The transaction cannot be cancelled at this stage."
+                                },
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return
+                }
+
+                Log.d(TAG, "abortTransaction result completed: code=${result.code} msg=${result.message}")
+                transactionRepository.updateTransactionStatus(
+                    transactionRequestId = currentTransaction.transactionRequestId,
+                    status = TransactionStatus.FAILED,
+                    errorCode = result.transactionResultCode ?: "USER_CANCELLED",
+                    errorMessage = result.message ?: "Transaction cancelled by user"
+                )
                 _state.update {
                     it.copy(
                         isLoading = false,
+                        isAborting = false,
                         message = Message(
                             type = MessageType.INFO,
                             title = "Abort Request",
-                            content = result.message.ifBlank {
-                                "Abort request accepted. Waiting for the terminal to finish cancelling the transaction."
-                            },
+                            content = result.message.ifBlank { "Transaction cancelled by user." },
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )

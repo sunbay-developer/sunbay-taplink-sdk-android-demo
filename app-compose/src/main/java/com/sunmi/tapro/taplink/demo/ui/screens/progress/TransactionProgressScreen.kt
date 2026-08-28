@@ -84,6 +84,8 @@ import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
+import com.sunmi.tapro.taplink.demo.model.ConnectionMode
+import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
 import java.math.BigDecimal
 import kotlinx.coroutines.launch
@@ -119,6 +121,7 @@ fun TransactionProgressScreen(
     )
 ) {
     val state by viewModel.state.collectAsState()
+    val connectionState by DependencyProvider.connectionManager.connectionState.collectAsState()
     var showManualEntryInputs by rememberSaveable(transactionId) { mutableStateOf(false) }
     val secondaryScreenScope = rememberCoroutineScope()
     
@@ -131,6 +134,8 @@ fun TransactionProgressScreen(
     val context = LocalContext.current
     val secondaryDisplayManager = DependencyProvider.secondaryDisplayManager
     val isSecondaryEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
+    val isSecondaryDisplayConnected =
+        (connectionState as? ConnectionState.Connected)?.mode == ConnectionMode.SECONDARY_DISPLAY
 
     // Cleanup is handled by SecondaryDisplayManager's lifecycle; no dismiss needed here.
     DisposableEffect(secondaryDisplayManager) {
@@ -225,11 +230,9 @@ fun TransactionProgressScreen(
             if (screenConfig.isLandscape) {
                 TransactionProgressTableScreen(
                     state = state,
-                    showMemberInputButton = ConnectionPreferences.getConnectionMode(context) ==
-                        ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY,
+                    showMemberInputButton = isSecondaryDisplayConnected,
                     showTipSelectionButton =
-                        ConnectionPreferences.getConnectionMode(context) ==
-                            ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY &&
+                        isSecondaryDisplayConnected &&
                             com.sunmi.tapro.taplink.demo.util.TipConfigBuilder
                                 .buildFromPreferences(context) == null &&
                             state.transaction?.tipAmount == null,

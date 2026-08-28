@@ -831,23 +831,24 @@ class TransactionDetailViewModel(
     }
 
     /**
-     * Determine the payment category for a refund based on the original transaction's card info.
-     *
-     * QR payment methods (WECHAT_PAY, ALIPAY, DANA) indicate the original transaction was a QR
-     * payment, so the refund should use QR_CPM category to route correctly on the terminal.
-     * Card payment methods (VISA, MASTERCARD, etc.) or null use the default CARD category.
-     *
-     * @param originalTransaction the original transaction being refunded
-     * @return the PaymentCategory to pass to executeRefund, or null for default (CARD) behavior
+     * Determine the payment category for a refund from the original transaction.
      */
     private fun resolveRefundPaymentCategory(
         originalTransaction: Transaction
     ): com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory? {
-        val paymentMethodId = originalTransaction.cardInfo?.paymentMethodId ?: return null
-        return when (paymentMethodId.uppercase()) {
-            "WECHAT_PAY", "ALIPAY", "DANA" ->
+        val originalCategory = originalTransaction.paymentCategory
+        if (originalCategory == com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM ||
+            originalCategory == com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_MPM
+        ) {
+            return originalCategory
+        }
+
+        return when (originalTransaction.cardInfo?.paymentMethodId?.uppercase()) {
+            "CPM", "QR_CPM", "WECHAT_PAY", "ALIPAY", "DANA" ->
                 com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_CPM
-            else -> com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.CARD
+            "MPM", "QR_MPM" ->
+                com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory.QR_MPM
+            else -> null
         }
     }
 }
