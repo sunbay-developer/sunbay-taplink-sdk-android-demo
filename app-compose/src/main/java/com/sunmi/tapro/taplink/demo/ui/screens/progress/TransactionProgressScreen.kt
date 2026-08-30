@@ -1,5 +1,6 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.progress
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -470,6 +471,7 @@ internal fun SettleLeftPanel(
     val taxAmount = state.transaction?.taxAmount ?: BigDecimal.ZERO
     val surchargeAmount = state.transaction?.surchargeAmount ?: BigDecimal.ZERO
     val valueAddedFee = state.transaction?.serviceFee ?: BigDecimal.ZERO
+    val cashbackAmount = state.transaction?.cashbackAmount ?: BigDecimal.ZERO
     val receivableAmount = state.transaction?.totalAmount ?: state.amount
     val paidAmount = if (state.isSuccess()) receivableAmount else BigDecimal.ZERO
     val remainingAmount = when {
@@ -525,6 +527,7 @@ internal fun SettleLeftPanel(
         AmountLine("Tip", tipAmount)
         AmountLine("Tax", taxAmount)
         AmountLine("Surcharge", surchargeAmount)
+        AmountLine("Cashback", cashbackAmount)
         AmountLine("Value-added fee", valueAddedFee)
         AmountLine("Receivable", receivableAmount, emphasize = true)
 
@@ -663,13 +666,6 @@ internal fun SettleRightPanel(
     onStartSplitLinePayment: (Int) -> Unit = {},
     useTableSplitUi: Boolean = false
 ) {
-    val paymentLabel = state.transaction?.headlessPaymentMethodLabel()
-        .takeUnless { it.isNullOrBlank() }
-        ?: state.transactionType
-    val successColor = Color(0xFF35A854)
-    val groupedOptions = PaymentOption.entries.groupBy { it.group }
-    var paymentOptionsExpanded by rememberSaveable { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -687,490 +683,551 @@ internal fun SettleRightPanel(
             }
         ) {
             when {
-                state.isReadyForPaymentSelection() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Top bar: payment option switch (left) + split toggle (right)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box {
-                                OutlinedButton(
-                                    onClick = { paymentOptionsExpanded = true },
-                                    modifier = Modifier
-                                        .width(220.dp)
-                                        .height(46.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                    )
-                                ) {
-                                    Text(
-                                        text = state.selectedPaymentOption.label,
-                                        modifier = Modifier.weight(1f),
-                                        textAlign = TextAlign.Start,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select payment option",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = paymentOptionsExpanded,
-                                    onDismissRequest = { paymentOptionsExpanded = false }
-                                ) {
-                                    var isFirstGroup = true
-                                    groupedOptions.forEach { (group, options) ->
-                                        if (!isFirstGroup) {
-                                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                        }
-                                        isFirstGroup = false
-
-                                        Text(
-                                            text = group,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                                        )
-
-                                        options.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        text = option.label,
-                                                        fontWeight = if (option == state.selectedPaymentOption) {
-                                                            FontWeight.Bold
-                                                        } else {
-                                                            FontWeight.Normal
-                                                        }
-                                                    )
-                                                },
-                                                onClick = {
-                                                    paymentOptionsExpanded = false
-                                                    onSelectPaymentOption(option)
-                                                },
-                                                leadingIcon = if (option == state.selectedPaymentOption) {
-                                                    {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Check,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.primary
-                                                        )
-                                                    }
-                                                } else {
-                                                    null
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            val allSplitPaid = useTableSplitUi && state.isSplitMode &&
-                                state.splitLines.isNotEmpty() &&
-                                state.splitLines.all { it.isPaid }
-                            if (useTableSplitUi && !allSplitPaid) {
-                                OutlinedButton(
-                                    onClick = onToggleSplit,
-                                    modifier = Modifier.height(42.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (state.isSplitMode) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline
-                                    )
-                                ) {
-                                    Text(if (state.isSplitMode) "Cancel" else "Split")
-                                }
-                            }
-                        }
-
-                        if (useTableSplitUi && state.isSplitMode) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    // Split count control: - N +
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        IconButton(
-                                            onClick = { onSplitCountChange(state.splitCount - 1) },
-                                            enabled = state.splitCount > 1
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Remove,
-                                                contentDescription = "Decrease split count",
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                        }
-                                        Text(
-                                            text = "${state.splitCount}",
-                                            style = MaterialTheme.typography.headlineMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 16.dp)
-                                        )
-                                        IconButton(
-                                            onClick = { onSplitCountChange(state.splitCount + 1) },
-                                            enabled = state.splitCount < 10
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = "Increase split count",
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = "Pay",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    // Split lines - each with independent payment option, amount, and charge button
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .verticalScroll(rememberScrollState()),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        state.splitLines.forEachIndexed { index, line ->
-                                            SplitLineRow(
-                                                index = index,
-                                                line = line,
-                                                isPaid = line.isPaid,
-                                                isStartingPayment = state.isStartingPayment,
-                                                onPaymentOptionChange = { option ->
-                                                    onSplitLinePaymentOptionChange(index, option)
-                                                },
-                                                onAmountChange = { input ->
-                                                    onSplitLineAmountChange(index, input)
-                                                },
-                                                onCharge = { onStartSplitLinePayment(index) }
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Bottom action buttons: Cancel + Payment
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = onCancelOrder,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(52.dp),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        Text(
-                                            text = "Cancel",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Button(
-                                        onClick = onStartPayment,
-                                        enabled = !state.isStartingPayment,
-                                        modifier = Modifier
-                                            .weight(2f)
-                                            .height(52.dp),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        if (state.isStartingPayment) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = MaterialTheme.colorScheme.onPrimary,
-                                                strokeWidth = 2.dp
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                        }
-                                        Text(
-                                            text = if (state.isStartingPayment) "Starting..." else "Payment",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            // Non-split mode: keep portrait simple (Payment only), table shows Cancel+Payment.
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                            ) {
-                                Text(
-                                    text = AmountFormatter.format(state.amount),
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.align(Alignment.Center)
-                                )
-                                if (useTableSplitUi) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .align(Alignment.BottomCenter),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = onCancelOrder,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(52.dp),
-                                            shape = RoundedCornerShape(10.dp)
-                                        ) {
-                                            Text(
-                                                text = "Cancel",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        Button(
-                                            onClick = onStartPayment,
-                                            enabled = !state.isStartingPayment,
-                                            modifier = Modifier
-                                                .weight(2f)
-                                                .height(52.dp),
-                                            shape = RoundedCornerShape(10.dp)
-                                        ) {
-                                            if (state.isStartingPayment) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(18.dp),
-                                                    color = MaterialTheme.colorScheme.onPrimary,
-                                                    strokeWidth = 2.dp
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                            }
-                                            Text(
-                                                text = if (state.isStartingPayment) "Starting..." else "Payment",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Button(
-                                        onClick = onStartPayment,
-                                        enabled = !state.isStartingPayment,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .align(Alignment.BottomCenter)
-                                            .height(52.dp),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        if (state.isStartingPayment) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = MaterialTheme.colorScheme.onPrimary,
-                                                strokeWidth = 2.dp
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                        }
-                                        Text(
-                                            text = if (state.isStartingPayment) "Starting..." else "Payment",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                showInlineManualEntry -> {
-                    InlineManualEntryForm()
-                }
-
-                state.isPending() -> {
-                    // Show card animation when waiting for card, otherwise show spinner
-                    val isWaitingCard = state.headlessProgressEvent?.eventCode
-                        ?.equals("WAITING_CARD", ignoreCase = true) == true ||
-                        state.progressStatus.equals("WAITING_CARD", ignoreCase = true)
-
-                    if (isWaitingCard) {
-                        val cardTypeStrings = state.headlessProgressEvent?.waitingCardTypes
-                            ?: emptyList()
-                        val animResId = com.sunmi.tapro.taplink.demo.device.getCardAnimationResIdFromStrings(cardTypeStrings)
-                        CardReadAnimation(
-                            animationResId = animResId,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = state.getStatusDisplayText(),
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center
-                        )
-                    } else {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(68.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 6.dp
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = state.getStatusDisplayText(),
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-
-                state.isSuccess() -> {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = "Success",
-                        tint = successColor,
-                        modifier = Modifier.size(70.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Payment succeeded",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                else -> {
-                    Icon(
-                        imageVector = Icons.Filled.Warning,
-                        contentDescription = "Failed",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(70.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = state.getStatusDisplayText(),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-                    if (state.errorMessage.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = state.errorMessage,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                state.isReadyForPaymentSelection() -> SettlePaymentSelectionContent(
+                    state = state,
+                    useTableSplitUi = useTableSplitUi,
+                    onSelectPaymentOption = onSelectPaymentOption,
+                    onToggleSplit = onToggleSplit,
+                    onSplitCountChange = onSplitCountChange,
+                    onSplitLinePaymentOptionChange = onSplitLinePaymentOptionChange,
+                    onSplitLineAmountChange = onSplitLineAmountChange,
+                    onStartSplitLinePayment = onStartSplitLinePayment,
+                    onStartPayment = onStartPayment,
+                    onCancelOrder = onCancelOrder,
+                )
+                showInlineManualEntry -> InlineManualEntryForm()
+                else -> SettleTransactionStatusContent(state = state)
             }
         }
 
-        val canAbortPayment = state.isPending() && !state.isReadyForPaymentSelection()
-        if (canAbortPayment || canSwitchToManualEntry) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-            ) {
-                if (canAbortPayment) {
-                    OutlinedButton(
-                        onClick = onAbort,
-                        enabled = !state.isAborting
-                    ) {
-                        Text(if (state.isAborting) "Aborting..." else "Abort")
-                    }
-                }
-                if (canSwitchToManualEntry) {
-                    OutlinedButton(onClick = onSwitchToManualEntry) { Text("Switch Manual") }
-                }
-            }
-        }
+        SettleBottomActionButtons(
+            state = state,
+            canSwitchToManualEntry = canSwitchToManualEntry,
+            onAbort = onAbort,
+            onSwitchToManualEntry = onSwitchToManualEntry,
+            onRetry = onRetry,
+            onQuery = onQuery,
+            onDone = onDone,
+        )
+    }
+}
 
-        // Action buttons when transaction is complete
-        if (state.isComplete()) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (!state.isSuccess() && state.transaction?.type != TransactionType.BATCH_CLOSE) {
-                    OutlinedButton(
-                        onClick = onQuery,
-                        enabled = !state.isQuerying,
-                        modifier = Modifier.height(48.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (state.isQuerying) "Querying..." else "Query",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                if (state.canRetry) {
-                    OutlinedButton(
-                        onClick = onRetry,
-                        enabled = !state.isQuerying,
-                        modifier = Modifier.height(48.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Retry",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                Button(
-                    onClick = onDone,
+@Composable
+private fun SettlePaymentSelectionContent(
+    state: TransactionProgressState,
+    useTableSplitUi: Boolean,
+    onSelectPaymentOption: (PaymentOption) -> Unit,
+    onToggleSplit: () -> Unit,
+    onSplitCountChange: (Int) -> Unit,
+    onSplitLinePaymentOptionChange: (Int, PaymentOption) -> Unit,
+    onSplitLineAmountChange: (Int, String) -> Unit,
+    onStartSplitLinePayment: (Int) -> Unit,
+    onStartPayment: () -> Unit,
+    onCancelOrder: () -> Unit,
+) {
+    val groupedOptions = PaymentOption.entries.groupBy { it.group }
+    var paymentOptionsExpanded by rememberSaveable { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Top bar: payment option switch (left) + split toggle (right)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box {
+                OutlinedButton(
+                    onClick = { paymentOptionsExpanded = true },
                     modifier = Modifier
-                        .width(160.dp)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(10.dp)
+                        .width(220.dp)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
                 ) {
                     Text(
-                        text = "Done",
+                        text = state.selectedPaymentOption.label,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Start,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Select payment option",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
+                DropdownMenu(
+                    expanded = paymentOptionsExpanded,
+                    onDismissRequest = { paymentOptionsExpanded = false }
+                ) {
+                    var isFirstGroup = true
+                    groupedOptions.forEach { (group, options) ->
+                        if (!isFirstGroup) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        }
+                        isFirstGroup = false
+
+                        Text(
+                            text = group,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+
+                        options.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = option.label,
+                                        fontWeight = if (option == state.selectedPaymentOption) {
+                                            FontWeight.Bold
+                                        } else {
+                                            FontWeight.Normal
+                                        }
+                                    )
+                                },
+                                onClick = {
+                                    paymentOptionsExpanded = false
+                                    onSelectPaymentOption(option)
+                                },
+                                leadingIcon = if (option == state.selectedPaymentOption) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                } else {
+                                    null
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            val allSplitPaid = useTableSplitUi && state.isSplitMode &&
+                state.splitLines.isNotEmpty() &&
+                state.splitLines.all { it.isPaid }
+            if (useTableSplitUi && !allSplitPaid) {
+                OutlinedButton(
+                    onClick = onToggleSplit,
+                    modifier = Modifier.height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (state.isSplitMode) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outline
+                    )
+                ) {
+                    Text(if (state.isSplitMode) "Cancel" else "Split")
+                }
+            }
+        }
+
+        if (useTableSplitUi && state.isSplitMode) {
+            SettleSplitModeContent(
+                state = state,
+                onSplitCountChange = onSplitCountChange,
+                onSplitLinePaymentOptionChange = onSplitLinePaymentOptionChange,
+                onSplitLineAmountChange = onSplitLineAmountChange,
+                onStartSplitLinePayment = onStartSplitLinePayment,
+                onStartPayment = onStartPayment,
+                onCancelOrder = onCancelOrder,
+            )
+        } else {
+            SettleNonSplitModeContent(
+                state = state,
+                useTableSplitUi = useTableSplitUi,
+                onStartPayment = onStartPayment,
+                onCancelOrder = onCancelOrder,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.SettleSplitModeContent(
+    state: TransactionProgressState,
+    onSplitCountChange: (Int) -> Unit,
+    onSplitLinePaymentOptionChange: (Int, PaymentOption) -> Unit,
+    onSplitLineAmountChange: (Int, String) -> Unit,
+    onStartSplitLinePayment: (Int) -> Unit,
+    onStartPayment: () -> Unit,
+    onCancelOrder: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Split count control: - N +
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { onSplitCountChange(state.splitCount - 1) },
+                    enabled = state.splitCount > 1
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = "Decrease split count",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Text(
+                    text = "${state.splitCount}",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                IconButton(
+                    onClick = { onSplitCountChange(state.splitCount + 1) },
+                    enabled = state.splitCount < 10
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Increase split count",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+            Text(
+                text = "Pay",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Split lines - each with independent payment option, amount, and charge button
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                state.splitLines.forEachIndexed { index, line ->
+                    SplitLineRow(
+                        index = index,
+                        line = line,
+                        isPaid = line.isPaid,
+                        isStartingPayment = state.isStartingPayment,
+                        onPaymentOptionChange = { option ->
+                            onSplitLinePaymentOptionChange(index, option)
+                        },
+                        onAmountChange = { input ->
+                            onSplitLineAmountChange(index, input)
+                        },
+                        onCharge = { onStartSplitLinePayment(index) }
+                    )
+                }
+            }
+        }
+
+        // Bottom action buttons: Cancel + Payment
+        SettleCancelPaymentRow(
+            isStartingPayment = state.isStartingPayment,
+            onStartPayment = onStartPayment,
+            onCancelOrder = onCancelOrder,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.SettleNonSplitModeContent(
+    state: TransactionProgressState,
+    useTableSplitUi: Boolean,
+    onStartPayment: () -> Unit,
+    onCancelOrder: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+    ) {
+        Text(
+            text = AmountFormatter.format(state.amount),
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.align(Alignment.Center)
+        )
+        if (useTableSplitUi) {
+            SettleCancelPaymentRow(
+                isStartingPayment = state.isStartingPayment,
+                onStartPayment = onStartPayment,
+                onCancelOrder = onCancelOrder,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+            )
+        } else {
+            Button(
+                onClick = onStartPayment,
+                enabled = !state.isStartingPayment,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(52.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                if (state.isStartingPayment) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = if (state.isStartingPayment) "Starting..." else "Payment",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettleCancelPaymentRow(
+    isStartingPayment: Boolean,
+    onStartPayment: () -> Unit,
+    onCancelOrder: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        OutlinedButton(
+            onClick = onCancelOrder,
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "Cancel",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Button(
+            onClick = onStartPayment,
+            enabled = !isStartingPayment,
+            modifier = Modifier
+                .weight(2f)
+                .height(52.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            if (isStartingPayment) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = if (isStartingPayment) "Starting..." else "Payment",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettleTransactionStatusContent(state: TransactionProgressState) {
+    val successColor = Color(0xFF35A854)
+    when {
+        state.isPending() -> {
+            val isWaitingCard = state.headlessProgressEvent?.eventCode
+                ?.equals("WAITING_CARD", ignoreCase = true) == true ||
+                state.progressStatus.equals("WAITING_CARD", ignoreCase = true)
+
+            if (isWaitingCard) {
+                val cardTypeStrings = state.headlessProgressEvent?.waitingCardTypes ?: emptyList()
+                val animResId = com.sunmi.tapro.taplink.demo.device.getCardAnimationResIdFromStrings(cardTypeStrings)
+                CardReadAnimation(
+                    animationResId = animResId,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = state.getStatusDisplayText(),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(68.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 6.dp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = state.getStatusDisplayText(),
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        state.isSuccess() -> {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "Success",
+                tint = successColor,
+                modifier = Modifier.size(70.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Payment succeeded",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        else -> {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = "Failed",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(70.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = state.getStatusDisplayText(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            if (state.errorMessage.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = state.errorMessage,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettleBottomActionButtons(
+    state: TransactionProgressState,
+    canSwitchToManualEntry: Boolean,
+    onAbort: () -> Unit,
+    onSwitchToManualEntry: () -> Unit,
+    onRetry: () -> Unit,
+    onQuery: () -> Unit,
+    onDone: () -> Unit,
+) {
+    val canAbortPayment = state.isPending() && !state.isReadyForPaymentSelection()
+    if (canAbortPayment || canSwitchToManualEntry) {
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+        ) {
+            if (canAbortPayment) {
+                OutlinedButton(
+                    onClick = onAbort,
+                    enabled = !state.isAborting
+                ) {
+                    Text(if (state.isAborting) "Aborting..." else "Abort")
+                }
+            }
+            if (canSwitchToManualEntry) {
+                OutlinedButton(onClick = onSwitchToManualEntry) { Text("Switch Manual") }
+            }
+        }
+    }
+
+    if (state.isComplete()) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (!state.isSuccess() && state.transaction?.type != TransactionType.BATCH_CLOSE && state.transaction?.type != TransactionType.TIP_ADJUST) {
+                OutlinedButton(
+                    onClick = onQuery,
+                    enabled = !state.isQuerying,
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (state.isQuerying) "Querying..." else "Query",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            if (state.canRetry) {
+                OutlinedButton(
+                    onClick = onRetry,
+                    enabled = !state.isQuerying,
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Retry",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Button(
+                onClick = onDone,
+                modifier = Modifier
+                    .width(160.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text = "Done",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

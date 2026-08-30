@@ -381,6 +381,7 @@ private fun formatAdditionalAmountLabel(type: String): String {
         "tip" -> "Tip"
         "tax" -> "Tax"
         "servicefee" -> "Service Fee"
+        "cashback" -> "Cashback"
         else -> type.replaceFirstChar { it.uppercase() }
     }
 }

@@ -618,6 +618,7 @@ class TransactionProgressViewModel(
                 taxAmount = if (stateValue.isSplitMode) null else txn.taxAmount,
                 serviceFee = if (stateValue.isSplitMode) null else txn.serviceFee,
                 surchargeAmount = if (stateValue.isSplitMode) null else txn.surchargeAmount,
+                cashbackAmount = if (stateValue.isSplitMode) null else txn.cashbackAmount,
                 attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: txn.attach,
                 progressStatus = "INITIATING_PAYMENT",
                 progressMessage = if (stateValue.isSplitMode) {
@@ -650,6 +651,7 @@ class TransactionProgressViewModel(
                         taxAmount = if (stateValue.isSplitMode) null else transactionForRequest.taxAmount,
                         serviceFee = if (stateValue.isSplitMode) null else transactionForRequest.serviceFee,
                         surchargeAmount = if (stateValue.isSplitMode) null else transactionForRequest.surchargeAmount,
+                        cashbackAmount = if (stateValue.isSplitMode) null else transactionForRequest.cashbackAmount,
                         attach = stateValue.memberInput.takeIf { it.isNotBlank() } ?: transactionForRequest.attach,
                         staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                         tipConfig = tipConfig,
@@ -1523,7 +1525,27 @@ class TransactionProgressViewModel(
                 val callback = object : PaymentCallback {
                     override fun onSuccess(result: PaymentResult) {
                         viewModelScope.launch {
-                            // Update transaction with query result
+                            val status = mapCloudStatus(result.transactionStatus)
+                            val isInProgress = status == TransactionStatus.PROCESSING ||
+                                    status == TransactionStatus.PENDING
+
+                            if (isInProgress) {
+                                // Transaction is still in progress — only show result, do not update state
+                                _state.update {
+                                    it.copy(
+                                        isQuerying = false,
+                                        message = Message(
+                                            type = MessageType.INFO,
+                                            title = "Query Successful",
+                                            content = "Transaction is still in progress (status: ${status.name})",
+                                            actions = listOf(MessageAction.DISMISS)
+                                        )
+                                    )
+                                }
+                                return@launch
+                            }
+
+                            // Transaction has a final status — update repository and state
                             val cardInfo = result.cardInfo?.let { sdkCard ->
                                 CardInfo(
                                     maskedPan = sdkCard.maskedPan,
@@ -1538,8 +1560,6 @@ class TransactionProgressViewModel(
                                     cardBrand = sdkCard.cardBrand
                                 )
                             }
-                            
-                            val status = mapCloudStatus(result.transactionStatus)
                             
                             transactionRepository.updateTransactionWithAmounts(
                                 transactionRequestId = transaction.transactionRequestId,

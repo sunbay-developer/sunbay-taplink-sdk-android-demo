@@ -77,6 +77,7 @@ fun PosDialog(
             modifier = Modifier
                 .widthIn(max = 480.dp)
                 .fillMaxWidth(0.92f)
+                .heightIn(max = 640.dp)
                 .padding(vertical = 24.dp),
             shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
@@ -135,6 +136,7 @@ fun PosDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState()),
                     content = content
                 )

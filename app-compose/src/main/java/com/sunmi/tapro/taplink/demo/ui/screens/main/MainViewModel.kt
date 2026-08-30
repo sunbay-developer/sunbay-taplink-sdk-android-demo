@@ -493,6 +493,7 @@ class MainViewModel(
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    cashbackAmount = _state.value.additionalAmounts["Cashback"],
                     paymentCategory = PaymentCategory.CARD,
                     progressStatus = "READY_TO_PAY",
                     progressMessage = "Select payment method to continue"
@@ -596,6 +597,7 @@ class MainViewModel(
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    cashbackAmount = _state.value.additionalAmounts["Cashback"],
                     // Persist the original payment method so a result-page retry keeps EBT/SNAP
                     // instead of falling back to the executeSale default CARD category.
                     paymentCategory = paymentCategory,
@@ -630,6 +632,7 @@ class MainViewModel(
                     taxAmount = _state.value.additionalAmounts["Tax"],
                     serviceFee = _state.value.additionalAmounts["Service Fee"],
                     surchargeAmount = _state.value.additionalAmounts["Surcharge"],
+                    cashbackAmount = _state.value.additionalAmounts["Cashback"],
                     staffInfo = StaffInfoPreferences.buildSdkStaffInfo(getApplication()),
                     tipConfig = tipConfig,
                     callback = createNavigatingPaymentCallback(transactionRequestId),

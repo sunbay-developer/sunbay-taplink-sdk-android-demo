@@ -35,9 +35,12 @@ sealed class TransactionListIntent {
     object NavigateBack : TransactionListIntent()
     
     /**
-     * Query transaction by request ID or transaction ID
+     * Query transaction by request ID and/or transaction ID
      */
-    data class QueryTransaction(val queryId: String) : TransactionListIntent()
+    data class QueryTransaction(
+        val transactionId: String,
+        val requestId: String
+    ) : TransactionListIntent()
     
     /**
      * Show query transaction dialog

@@ -89,7 +89,10 @@ class TransactionListViewModel(
             is TransactionListIntent.SelectFilter -> selectFilter(intent.filter)
             is TransactionListIntent.NavigateToDetail -> navigateToDetail(intent.transactionId)
             is TransactionListIntent.NavigateBack -> navigateBack()
-            is TransactionListIntent.QueryTransaction -> queryTransaction(intent.queryId)
+            is TransactionListIntent.QueryTransaction -> queryTransaction(
+                transactionId = intent.transactionId,
+                requestId = intent.requestId
+            )
             is TransactionListIntent.ShowQueryDialog -> showQueryDialog()
             is TransactionListIntent.HideQueryDialog -> hideQueryDialog()
             is TransactionListIntent.BatchClose -> batchClose(intent.printReceipt)
@@ -308,10 +311,12 @@ class TransactionListViewModel(
      * 
      * @param queryId Transaction request ID or transaction ID to query
      */
-    private fun queryTransaction(queryId: String) {
+    private fun queryTransaction(transactionId: String, requestId: String) {
         viewModelScope.launch {
             try {
-                if (queryId.isBlank()) {
+                val normalizedTransactionId = transactionId.trim()
+                val normalizedRequestId = requestId.trim()
+                if (normalizedTransactionId.isBlank() && normalizedRequestId.isBlank()) {
                     _state.update {
                         it.copy(
                             message = Message(
@@ -332,18 +337,15 @@ class TransactionListViewModel(
                     ) 
                 }
                 
-                // Try to determine if it's a transaction ID or request ID
-                val isRequestId = queryId.contains("REQ")
-                
-                if (isRequestId) {
+                if (normalizedRequestId.isNotBlank()) {
                     paymentService.executeQuery(
-                        transactionRequestId = queryId,
-                        callback = createQueryCallback(queryId)
+                        transactionRequestId = normalizedRequestId,
+                        callback = createQueryCallback(normalizedRequestId)
                     )
                 } else {
                     paymentService.executeQueryByTransactionId(
-                        transactionId = queryId,
-                        callback = createQueryCallback(queryId)
+                        transactionId = normalizedTransactionId,
+                        callback = createQueryCallback(normalizedTransactionId)
                     )
                 }
                 

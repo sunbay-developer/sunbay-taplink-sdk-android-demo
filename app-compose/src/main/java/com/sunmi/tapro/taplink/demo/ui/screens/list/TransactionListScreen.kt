@@ -295,9 +295,15 @@ fun TransactionListScreen(
     // Query Transaction Dialog
     if (state.showQueryDialog) {
         QueryTransactionDialog(
+            transactions = state.transactions,
             onDismiss = { viewModel.handleIntent(TransactionListIntent.HideQueryDialog) },
-            onQuery = { queryId ->
-                viewModel.handleIntent(TransactionListIntent.QueryTransaction(queryId))
+            onQuery = { transactionId, requestId ->
+                viewModel.handleIntent(
+                    TransactionListIntent.QueryTransaction(
+                        transactionId = transactionId,
+                        requestId = requestId
+                    )
+                )
             }
         )
     }
@@ -366,38 +372,103 @@ fun TransactionListScreen(
  *
  * Dialog for querying a transaction by request ID or transaction ID
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueryTransactionDialog(
+    transactions: List<com.sunmi.tapro.taplink.demo.model.Transaction>,
     onDismiss: () -> Unit,
-    onQuery: (String) -> Unit
+    onQuery: (String, String) -> Unit
 ) {
-    var queryId by remember { mutableStateOf("") }
+    var transactionId by remember { mutableStateOf("") }
+    var requestId by remember { mutableStateOf("") }
+    var transactionIdExpanded by remember { mutableStateOf(false) }
+    var requestIdExpanded by remember { mutableStateOf(false) }
+    val transactionIdOptions = remember(transactions) {
+        transactions.mapNotNull { it.transactionId?.trim() }.filter { it.isNotEmpty() }.distinct()
+    }
+    val requestIdOptions = remember(transactions) {
+        transactions.map { it.transactionRequestId.trim() }.filter { it.isNotEmpty() }.distinct()
+    }
+    val canQuery = transactionId.isNotBlank() || requestId.isNotBlank()
 
     PosDialog(
         onDismissRequest = onDismiss,
         title = "Query Transaction",
-        subtitle = "Enter transaction ID or request ID to look up",
+        subtitle = "Enter request ID or transaction ID to look up",
         icon = Icons.Default.Search,
         iconTint = MaterialTheme.colorScheme.primary,
         iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
         confirmText = "Query",
         onConfirm = {
-            if (queryId.isNotBlank()) {
-                onQuery(queryId)
+            if (canQuery) {
+                onQuery(transactionId, requestId)
             }
         },
-        confirmEnabled = queryId.isNotBlank(),
+        confirmEnabled = canQuery,
         dismissText = "Cancel",
         onDismiss = onDismiss
     ) {
-        OutlinedTextField(
-            value = queryId,
-            onValueChange = { queryId = it },
-            label = { Text("Transaction ID / Request ID") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
-        )
+        ExposedDropdownMenuBox(
+            expanded = transactionIdExpanded,
+            onExpandedChange = { transactionIdExpanded = !transactionIdExpanded }
+        ) {
+            OutlinedTextField(
+                value = transactionId,
+                onValueChange = { transactionId = it },
+                label = { Text("Transaction ID (optional)") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryEditable, enabled = true),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = transactionIdExpanded) },
+                shape = MaterialTheme.shapes.medium
+            )
+            ExposedDropdownMenu(
+                expanded = transactionIdExpanded,
+                onDismissRequest = { transactionIdExpanded = false }
+            ) {
+                transactionIdOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            transactionId = option
+                            transactionIdExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        ExposedDropdownMenuBox(
+            expanded = requestIdExpanded,
+            onExpandedChange = { requestIdExpanded = !requestIdExpanded }
+        ) {
+            OutlinedTextField(
+                value = requestId,
+                onValueChange = { requestId = it },
+                label = { Text("Request ID (optional)") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryEditable, enabled = true),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = requestIdExpanded) },
+                shape = MaterialTheme.shapes.medium
+            )
+            ExposedDropdownMenu(
+                expanded = requestIdExpanded,
+                onDismissRequest = { requestIdExpanded = false }
+            ) {
+                requestIdOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            requestId = option
+                            requestIdExpanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
