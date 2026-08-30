@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sunmi.tapro.taplink.demo.model.ConnectionMode
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.util.CloudPreferences
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 
@@ -284,7 +285,7 @@ fun SdkCredentialsCard(
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = secretKey, onValueChange = onSecretKeyChange, label = { Text("Secret Key") }, placeholder = { if (hasExistingSecretKey && secretKey.isEmpty()) Text("••••••••") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), supportingText = { Text(if (hasExistingSecretKey && secretKey.isEmpty()) "Existing key hidden." else "Can be empty for some environments") })
             Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onApply, modifier = Modifier.fillMaxWidth(), enabled = isValid && !isApplying) {
+            Button(onClick = rememberDebouncedClick(onClick = onApply), modifier = Modifier.fillMaxWidth(), enabled = isValid && !isApplying) {
                 if (isApplying) { CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary); Spacer(modifier = Modifier.width(8.dp)) }
                 Text("Save & Apply SDK Params")
             }
@@ -311,7 +312,7 @@ fun AppToAppConfiguration(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.CUSTOM) }
+                        .clickable(onClick = rememberDebouncedClick { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.CUSTOM) })
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -328,7 +329,7 @@ fun AppToAppConfiguration(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) }
+                        .clickable(onClick = rememberDebouncedClick { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) })
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -362,7 +363,7 @@ fun CableConfiguration(
         Text("Connection Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(4.dp))
         ConnectionPreferences.CableProtocol.values().forEach { protocol ->
-            Row(modifier = Modifier.fillMaxWidth().clickable { onCableProtocolChange(protocol) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable(onClick = rememberDebouncedClick { onCableProtocolChange(protocol) }).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = cableProtocol == protocol, onClick = { onCableProtocolChange(protocol) })
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
@@ -407,7 +408,7 @@ fun LanConfiguration(
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = onAutoDiscover,
+                onClick = rememberDebouncedClick(onClick = onAutoDiscover),
                 enabled = !actionInProgress,
                 modifier = Modifier.weight(1f)
             ) {
@@ -420,7 +421,7 @@ fun LanConfiguration(
                 Text("Auto Discover")
             }
             OutlinedButton(
-                onClick = onScanQr,
+                onClick = rememberDebouncedClick(onClick = onScanQr),
                 enabled = !actionInProgress,
                 modifier = Modifier.weight(1f)
             ) {
@@ -576,7 +577,7 @@ private fun CloudDropdownField(
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(if (isMasked) maskValue(option.label) else option.label, maxLines = 1) },
-                    onClick = { onValueChange(fieldName, option.value); expanded = false },
+                    onClick = rememberDebouncedClick { onValueChange(fieldName, option.value); expanded = false },
                     contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                 )
             }
@@ -637,7 +638,7 @@ fun AddCloudOptionDialog(
         textContentColor = dialogText,
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(inputValue.trim()) },
+                onClick = rememberDebouncedClick { onConfirm(inputValue.trim()) },
                 enabled = inputValue.trim().isNotEmpty()
             ) {
                 Text(
@@ -648,7 +649,7 @@ fun AddCloudOptionDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = rememberDebouncedClick(onClick = onDismiss)) {
                 Text(
                     "Cancel",
                     style = MaterialTheme.typography.labelLarge,

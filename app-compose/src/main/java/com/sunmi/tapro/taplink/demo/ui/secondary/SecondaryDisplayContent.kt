@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import java.math.BigDecimal
 import java.math.RoundingMode
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 
 // ─── Tip Selection ────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ internal fun SecondaryTipSelectionContent(
         TipActionButton(label = "20%") { onTipSelected(calculateTip(subtotalAmount, BigDecimal("0.20"))) }
 
         OutlinedButton(
-            onClick = onCancelled,
+            onClick = rememberDebouncedClick(onClick = onCancelled),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp)
@@ -87,7 +88,7 @@ internal fun SecondaryTipSelectionContent(
 @Composable
 private fun TipActionButton(label: String, onClick: () -> Unit) {
     Button(
-        onClick = onClick,
+        onClick = rememberDebouncedClick(onClick = onClick),
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(label)
@@ -129,13 +130,13 @@ internal fun SecondaryMemberInputContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = onCancelled,
+                onClick = rememberDebouncedClick(onClick = onCancelled),
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Cancel")
             }
             Button(
-                onClick = { onConfirmed(memberInput.trim()) },
+                onClick = rememberDebouncedClick { onConfirmed(memberInput.trim()) },
                 enabled = memberInput.isNotBlank(),
                 modifier = Modifier.weight(1f)
             ) {

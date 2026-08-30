@@ -27,6 +27,7 @@ import com.sunmi.tapro.taplink.demo.model.Product
 import com.sunmi.tapro.taplink.demo.ui.screens.main.EnhancedOrderSummary
 import com.sunmi.tapro.taplink.demo.ui.components.ProductGrid
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import java.math.BigDecimal
 
 @Composable
@@ -118,7 +119,7 @@ fun MainTableScreen(
                 )
 
                 Button(
-                    onClick = onPay,
+                    onClick = rememberDebouncedClick(onClick = onPay),
                     enabled = canProcessPayment && totalAmount > BigDecimal.ZERO,
                     modifier = Modifier
                         .fillMaxWidth()

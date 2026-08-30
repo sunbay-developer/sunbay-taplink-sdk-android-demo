@@ -32,6 +32,7 @@ import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.util.TipConfigBuilder
 import kotlinx.coroutines.launch
@@ -306,7 +307,7 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.outlineVariant
                         )
                         Button(
-                            onClick = onPayClickLandscape,
+                            onClick = rememberDebouncedClick(onClick = onPayClickLandscape),
                             enabled = state.canProcessPayment && !state.isAwaitingSecondaryTipSelection,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -538,7 +539,7 @@ private fun ModernTopBar(
                 
                 // Settings button
                 IconButton(
-                    onClick = onSettingsClick,
+                    onClick = rememberDebouncedClick(onClick = onSettingsClick),
                     colors = IconButtonDefaults.iconButtonColors(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
@@ -551,7 +552,7 @@ private fun ModernTopBar(
                 
                 // History button
                 IconButton(
-                    onClick = onHistoryClick,
+                    onClick = rememberDebouncedClick(onClick = onHistoryClick),
                     colors = IconButtonDefaults.iconButtonColors(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
@@ -637,7 +638,7 @@ private fun ModernPaymentButton(
             ) {
                 // Main Pay button
                 Button(
-                    onClick = onPay,
+                    onClick = rememberDebouncedClick(onClick = onPay),
                     enabled = enabled && !isLoading,
                     modifier = Modifier
                         .weight(1f)
@@ -720,7 +721,7 @@ private fun ModernPaymentButton(
                                     fontWeight = if (option == selectedOption) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 onSelectOption(option)
                                 expanded = false
                             },

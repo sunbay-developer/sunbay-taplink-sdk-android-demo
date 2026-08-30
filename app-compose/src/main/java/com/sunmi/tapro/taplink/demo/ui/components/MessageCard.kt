@@ -23,6 +23,7 @@ import com.sunmi.tapro.taplink.demo.model.Message
 import com.sunmi.tapro.taplink.demo.model.MessageAction
 import com.sunmi.tapro.taplink.demo.model.MessageType
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 
 /**
  * MessageCard - POS-style notification banner for displaying messages,
@@ -115,7 +116,7 @@ fun MessageCard(
 
                     // Dismiss button
                     IconButton(
-                        onClick = onDismiss,
+                        onClick = rememberDebouncedClick(onClick = onDismiss),
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
@@ -177,7 +178,7 @@ private fun MessageActionButton(
     when (action) {
         MessageAction.DISMISS -> {
             TextButton(
-                onClick = onDismiss,
+                onClick = rememberDebouncedClick(onClick = onDismiss),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -190,7 +191,7 @@ private fun MessageActionButton(
         }
         MessageAction.RETRY -> {
             Button(
-                onClick = { onAction(action) },
+                onClick = rememberDebouncedClick { onAction(action) },
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -204,7 +205,7 @@ private fun MessageActionButton(
         }
         MessageAction.SETTINGS -> {
             OutlinedButton(
-                onClick = { onAction(action) },
+                onClick = rememberDebouncedClick { onAction(action) },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -213,7 +214,7 @@ private fun MessageActionButton(
         }
         MessageAction.DETAILS -> {
             OutlinedButton(
-                onClick = { onAction(action) },
+                onClick = rememberDebouncedClick { onAction(action) },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -222,7 +223,7 @@ private fun MessageActionButton(
         }
         MessageAction.CANCEL -> {
             OutlinedButton(
-                onClick = { onAction(action) },
+                onClick = rememberDebouncedClick { onAction(action) },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -231,7 +232,7 @@ private fun MessageActionButton(
         }
         MessageAction.CONTACT_SUPPORT -> {
             OutlinedButton(
-                onClick = { onAction(action) },
+                onClick = rememberDebouncedClick { onAction(action) },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {

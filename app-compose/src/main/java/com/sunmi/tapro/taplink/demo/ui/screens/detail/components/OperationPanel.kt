@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sunmi.tapro.taplink.demo.model.TransactionType
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 
 /**
  * Operation Panel - Order-detail style
@@ -77,7 +78,7 @@ fun OperationPanel(
                 if (showDirectButton) {
                     if (availableOperations.size == 1) {
                         OutlinedButton(
-                            onClick = { onPerformOperation(availableOperations[0]) },
+                            onClick = rememberDebouncedClick { onPerformOperation(availableOperations[0]) },
                             enabled = isEnabled,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -85,7 +86,7 @@ fun OperationPanel(
                         }
                     } else if (showQueryButton) {
                         OutlinedButton(
-                            onClick = onQueryClick,
+                            onClick = rememberDebouncedClick(onClick = onQueryClick),
                             enabled = isEnabled,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -151,7 +152,7 @@ fun OperationPanel(
                         val label = labelOverrides[operationType] ?: operationType.displayName()
                         OperationActionRow(
                             label = label,
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 showActionsDialog = false
                                 onPerformOperation(operationType)
                             }
@@ -162,7 +163,7 @@ fun OperationPanel(
                             label = if (isQuerying) "Querying…" else "Query",
                             icon = Icons.Default.Search,
                             enabled = isEnabled,
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 showActionsDialog = false
                                 onQueryClick()
                             }

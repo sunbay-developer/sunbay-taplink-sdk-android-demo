@@ -41,6 +41,7 @@ import com.sunmi.tapro.taplink.demo.model.MessageAction
 import com.sunmi.tapro.taplink.demo.ui.components.MessageCard
 import com.sunmi.tapro.taplink.demo.ui.screens.settings.table.SettingsTableScreen
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 
 // Settings page sections
@@ -91,7 +92,7 @@ fun SettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = rememberDebouncedClick(onClick = onNavigateBack)) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -214,7 +215,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Button(
-                            onClick = { onIntent(SettingsIntent.TestConnection) },
+                            onClick = rememberDebouncedClick { onIntent(SettingsIntent.TestConnection) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp),
@@ -235,7 +236,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = { onIntent(SettingsIntent.ExitApplication) },
+                            onClick = rememberDebouncedClick { onIntent(SettingsIntent.ExitApplication) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
@@ -317,7 +318,7 @@ private fun SettingsCategorySidebar(
 
         Column(modifier = Modifier.padding(12.dp)) {
             Button(
-                onClick = onConnect,
+                onClick = rememberDebouncedClick(onClick = onConnect),
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isTesting && isConfigValid
             ) {
@@ -333,7 +334,7 @@ private fun SettingsCategorySidebar(
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
-                onClick = onExit,
+                onClick = rememberDebouncedClick(onClick = onExit),
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
@@ -469,7 +470,7 @@ private fun ConfigGroupCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onToggle)
+                    .clickable(onClick = rememberDebouncedClick(onClick = onToggle))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

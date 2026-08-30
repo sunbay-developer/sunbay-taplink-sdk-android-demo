@@ -28,6 +28,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.list.components.EmptyState
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.FilterType
 import com.sunmi.tapro.taplink.demo.ui.screens.list.components.QuickFilterChips
 import com.sunmi.tapro.taplink.demo.ui.screens.list.table.TransactionListTableScreen
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.sdk.enums.PrintReceipt
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentCategory
@@ -98,7 +99,7 @@ fun TransactionListScreen(
                 TopAppBar(
                     title = { Text("Orders") },
                     navigationIcon = {
-                        IconButton(onClick = { viewModel.handleIntent(TransactionListIntent.NavigateBack) }) {
+                        IconButton(onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionListIntent.NavigateBack) }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
@@ -109,7 +110,7 @@ fun TransactionListScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(
-                                    onClick = { viewModel.handleIntent(TransactionListIntent.ShowQueryDialog) },
+                                    onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionListIntent.ShowQueryDialog) },
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
                                     Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp))
@@ -117,7 +118,7 @@ fun TransactionListScreen(
                                     Text("Query", style = MaterialTheme.typography.labelMedium)
                                 }
                                 TextButton(
-                                    onClick = { viewModel.handleIntent(TransactionListIntent.ShowBatchCloseDialog) },
+                                    onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionListIntent.ShowBatchCloseDialog) },
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                     enabled = !state.isAnyOperationInProgress()
                                 ) {
@@ -126,7 +127,7 @@ fun TransactionListScreen(
                                     Text("Batch", style = MaterialTheme.typography.labelMedium)
                                 }
                                 TextButton(
-                                    onClick = { viewModel.handleIntent(TransactionListIntent.ShowStandaloneRefundDialog) },
+                                    onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionListIntent.ShowStandaloneRefundDialog) },
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
                                     Icon(Icons.Default.Refresh, contentDescription = null, Modifier.size(18.dp))
@@ -134,7 +135,7 @@ fun TransactionListScreen(
                                     Text("Refund", style = MaterialTheme.typography.labelMedium)
                                 }
                                 TextButton(
-                                    onClick = { viewModel.handleIntent(TransactionListIntent.ShowClearAllDialog) },
+                                    onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionListIntent.ShowClearAllDialog) },
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                     enabled = state.transactions.isNotEmpty()
                                 ) {
@@ -153,7 +154,7 @@ fun TransactionListScreen(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Query") },
-                                    onClick = {
+                                    onClick = rememberDebouncedClick {
                                         topBarMenuExpanded = false
                                         viewModel.handleIntent(TransactionListIntent.ShowQueryDialog)
                                     },
@@ -161,7 +162,7 @@ fun TransactionListScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Batch close") },
-                                    onClick = {
+                                    onClick = rememberDebouncedClick {
                                         topBarMenuExpanded = false
                                         viewModel.handleIntent(TransactionListIntent.ShowBatchCloseDialog)
                                     },
@@ -170,7 +171,7 @@ fun TransactionListScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Standalone refund") },
-                                    onClick = {
+                                    onClick = rememberDebouncedClick {
                                         topBarMenuExpanded = false
                                         viewModel.handleIntent(TransactionListIntent.ShowStandaloneRefundDialog)
                                     },
@@ -178,7 +179,7 @@ fun TransactionListScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Clear all") },
-                                    onClick = {
+                                    onClick = rememberDebouncedClick {
                                         topBarMenuExpanded = false
                                         viewModel.handleIntent(TransactionListIntent.ShowClearAllDialog)
                                     },

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -58,7 +59,7 @@ fun QuickFilterChips(
             
             FilterChip(
                 selected = isSelected,
-                onClick = { onFilterSelected(filterType) },
+                onClick = rememberDebouncedClick { onFilterSelected(filterType) },
                 label = {
                     Text(
                         text = getFilterLabel(filterType),

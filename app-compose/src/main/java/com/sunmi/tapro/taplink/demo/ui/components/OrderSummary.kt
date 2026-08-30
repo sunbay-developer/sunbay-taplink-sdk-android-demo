@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sunmi.tapro.taplink.demo.model.OrderItem
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import java.math.BigDecimal
 
 /**
@@ -210,7 +211,7 @@ fun OrderSummary(
                 
                 // Additional amounts button (compact)
                 OutlinedButton(
-                    onClick = onAdditionalAmounts,
+                    onClick = rememberDebouncedClick(onClick = onAdditionalAmounts),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
@@ -292,7 +293,7 @@ private fun OrderItemRow(
         
         // Remove button
         IconButton(
-            onClick = onRemove,
+            onClick = rememberDebouncedClick(onClick = onRemove),
             modifier = Modifier.size(28.dp)
         ) {
             Icon(
@@ -478,7 +479,7 @@ private fun EditableAmountRow(
                 )
                 
                 IconButton(
-                    onClick = {
+                    onClick = rememberDebouncedClick {
                         val amount = amountText.text.toBigDecimalOrNull()
                         if (amount != null && amount > BigDecimal.ZERO) {
                             onConfirm(amount)
@@ -500,7 +501,7 @@ private fun EditableAmountRow(
                 }
                 
                 IconButton(
-                    onClick = {
+                    onClick = rememberDebouncedClick {
                         onCancel()
                         keyboardController?.hide()
                     }

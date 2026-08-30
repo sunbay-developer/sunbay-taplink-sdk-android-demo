@@ -82,6 +82,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.progress.table.TransactionProgres
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderLine
 import com.sunmi.tapro.taplink.demo.ui.secondary.SecondaryOrderState
 import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
@@ -181,7 +182,7 @@ fun TransactionProgressScreen(
                 navigationIcon = {
                     if (state.canNavigateBack) {
                         IconButton(
-                            onClick = { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
+                            onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
@@ -352,7 +353,7 @@ fun TransactionProgressScreen(
                     confirmButton = {},
                     dismissButton = {
                         TextButton(
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryMemberInput)
                                 secondaryDisplayManager.dismiss()
                             }
@@ -374,7 +375,7 @@ fun TransactionProgressScreen(
                     confirmButton = {},
                     dismissButton = {
                         TextButton(
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
                                 secondaryDisplayManager.dismiss()
                             }
@@ -795,7 +796,7 @@ private fun SettlePaymentSelectionContent(
                                         }
                                     )
                                 },
-                                onClick = {
+                                onClick = rememberDebouncedClick {
                                     paymentOptionsExpanded = false
                                     onSelectPaymentOption(option)
                                 },
@@ -821,7 +822,7 @@ private fun SettlePaymentSelectionContent(
                 state.splitLines.all { it.isPaid }
             if (useTableSplitUi && !allSplitPaid) {
                 OutlinedButton(
-                    onClick = onToggleSplit,
+                    onClick = rememberDebouncedClick(onClick = onToggleSplit),
                     modifier = Modifier.height(42.dp),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(
@@ -880,7 +881,7 @@ private fun ColumnScope.SettleSplitModeContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { onSplitCountChange(state.splitCount - 1) },
+                    onClick = rememberDebouncedClick { onSplitCountChange(state.splitCount - 1) },
                     enabled = state.splitCount > 1
                 ) {
                     Icon(
@@ -896,7 +897,7 @@ private fun ColumnScope.SettleSplitModeContent(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 IconButton(
-                    onClick = { onSplitCountChange(state.splitCount + 1) },
+                    onClick = rememberDebouncedClick { onSplitCountChange(state.splitCount + 1) },
                     enabled = state.splitCount < 10
                 ) {
                     Icon(
@@ -979,7 +980,7 @@ private fun ColumnScope.SettleNonSplitModeContent(
             )
         } else {
             Button(
-                onClick = onStartPayment,
+                onClick = rememberDebouncedClick(onClick = onStartPayment),
                 enabled = !state.isStartingPayment,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1017,7 +1018,7 @@ private fun SettleCancelPaymentRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         OutlinedButton(
-            onClick = onCancelOrder,
+            onClick = rememberDebouncedClick(onClick = onCancelOrder),
             modifier = Modifier
                 .weight(1f)
                 .height(52.dp),
@@ -1030,7 +1031,7 @@ private fun SettleCancelPaymentRow(
             )
         }
         Button(
-            onClick = onStartPayment,
+            onClick = rememberDebouncedClick(onClick = onStartPayment),
             enabled = !isStartingPayment,
             modifier = Modifier
                 .weight(2f)
@@ -1154,14 +1155,14 @@ private fun SettleBottomActionButtons(
         ) {
             if (canAbortPayment) {
                 OutlinedButton(
-                    onClick = onAbort,
+                    onClick = rememberDebouncedClick(onClick = onAbort),
                     enabled = !state.isAborting
                 ) {
                     Text(if (state.isAborting) "Aborting..." else "Abort")
                 }
             }
             if (canSwitchToManualEntry) {
-                OutlinedButton(onClick = onSwitchToManualEntry) { Text("Switch Manual") }
+                OutlinedButton(onClick = rememberDebouncedClick(onClick = onSwitchToManualEntry)) { Text("Switch Manual") }
             }
         }
     }
@@ -1175,7 +1176,7 @@ private fun SettleBottomActionButtons(
         ) {
             if (!state.isSuccess() && state.transaction?.type != TransactionType.BATCH_CLOSE && state.transaction?.type != TransactionType.TIP_ADJUST) {
                 OutlinedButton(
-                    onClick = onQuery,
+                    onClick = rememberDebouncedClick(onClick = onQuery),
                     enabled = !state.isQuerying,
                     modifier = Modifier.height(48.dp),
                     shape = RoundedCornerShape(10.dp)
@@ -1195,7 +1196,7 @@ private fun SettleBottomActionButtons(
             }
             if (state.canRetry) {
                 OutlinedButton(
-                    onClick = onRetry,
+                    onClick = rememberDebouncedClick(onClick = onRetry),
                     enabled = !state.isQuerying,
                     modifier = Modifier.height(48.dp),
                     shape = RoundedCornerShape(10.dp),
@@ -1217,7 +1218,7 @@ private fun SettleBottomActionButtons(
                 }
             }
             Button(
-                onClick = onDone,
+                onClick = rememberDebouncedClick(onClick = onDone),
                 modifier = Modifier
                     .width(160.dp)
                     .height(48.dp),
@@ -1357,7 +1358,7 @@ private fun SplitLineRow(
                                     fontWeight = if (option == line.paymentOption) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            onClick = {
+                            onClick = rememberDebouncedClick {
                                 expanded = false
                                 onPaymentOptionChange(option)
                             },
@@ -1396,7 +1397,7 @@ private fun SplitLineRow(
 
         // Charge button
         Button(
-            onClick = onCharge,
+            onClick = rememberDebouncedClick(onClick = onCharge),
             enabled = !isStartingPayment && !isPaid,
             modifier = Modifier
                 .weight(0.28f)

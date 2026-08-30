@@ -14,6 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -58,7 +59,7 @@ fun PosButton(
     size: ButtonSize = ButtonSize.Large
 ) {
     Button(
-        onClick = onClick,
+        onClick = rememberDebouncedClick(onClick = onClick),
         modifier = modifier
             .defaultMinSize(
                 minWidth = size.minWidth.dp,

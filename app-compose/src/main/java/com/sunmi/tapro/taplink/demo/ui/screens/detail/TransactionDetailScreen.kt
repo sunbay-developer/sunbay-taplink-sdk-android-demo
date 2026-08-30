@@ -28,6 +28,7 @@ import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.OperationPanel
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.components.SignatureSection
 import com.sunmi.tapro.taplink.demo.ui.screens.detail.table.TransactionDetailTableScreen
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
 import java.text.SimpleDateFormat
 import java.util.*
@@ -98,7 +99,7 @@ fun TransactionDetailScreen(
             title = { Text("Order Details") },
             navigationIcon = {
                 IconButton(
-                    onClick = {
+                    onClick = rememberDebouncedClick {
                         if (embeddedInMasterDetail) onCloseDetail()
                         else viewModel.handleIntent(TransactionDetailIntent.NavigateBack)
                     }
@@ -205,7 +206,7 @@ private fun TransactionDetailScreenContent(
                         color = MaterialTheme.colorScheme.error
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { viewModel.handleIntent(TransactionDetailIntent.NavigateBack) }) {
+                    Button(onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionDetailIntent.NavigateBack) }) {
                         Text("Go Back")
                     }
                 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sunmi.tapro.taplink.demo.model.OrderGroup
 import com.sunmi.tapro.taplink.demo.model.Transaction
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,7 +67,7 @@ fun OrderCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onCardClick),
+            .clickable(onClick = rememberDebouncedClick(onClick = onCardClick)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -168,7 +169,7 @@ fun OrderCard(
                     orderGroup.transactions.forEachIndexed { index, transaction ->
                         TransactionRow(
                             transaction = transaction,
-                            onClick = { onTransactionClick(transaction.transactionRequestId) }
+                            onClick = rememberDebouncedClick { onTransactionClick(transaction.transactionRequestId) }
                         )
                         
                         if (index < orderGroup.transactions.size - 1) {
@@ -194,7 +195,7 @@ private fun TransactionRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = rememberDebouncedClick(onClick = onClick))
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 
 /**
  * PosDialog - Unified dialog base component for POS-style dialogs.
@@ -150,7 +151,7 @@ fun PosDialog(
                 ) {
                     if (dismissText != null) {
                         OutlinedButton(
-                            onClick = onDismiss ?: onDismissRequest,
+                            onClick = rememberDebouncedClick(onClick = onDismiss ?: onDismissRequest),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
@@ -166,7 +167,7 @@ fun PosDialog(
                     }
 
                     Button(
-                        onClick = onConfirm,
+                        onClick = rememberDebouncedClick(onClick = onConfirm),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
 
 // ─── Helper functions ──────────────────────────────────────────────────────────
@@ -213,7 +214,7 @@ private fun PrintingSectionContent(
     PrintReceipt.values().forEach { option ->
         val isSelected = state.printReceipt == option
         Surface(
-            onClick = { onIntent(SettingsIntent.UpdatePrintReceipt(option)) },
+            onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdatePrintReceipt(option)) },
             color = if (isSelected) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
             } else {
@@ -335,7 +336,7 @@ private fun SignatureSectionContent(
                         SignatureMode.values().forEach { option ->
                     val isSelected = state.signatureMode == option
                     Surface(
-                        onClick = { onIntent(SettingsIntent.UpdateSignatureMode(option)) },
+                        onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateSignatureMode(option)) },
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                         } else {
@@ -562,7 +563,7 @@ private fun TipConfigSectionContent(
                     val normalContainer = MaterialTheme.colorScheme.surfaceVariant
                     val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
                     Button(
-                        onClick = { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.ON_SALE)) },
+                        onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.ON_SALE)) },
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp),
@@ -572,7 +573,7 @@ private fun TipConfigSectionContent(
                         )
                     ) { Text("ON_SALE", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
                     Button(
-                        onClick = { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.AFTER_SALE)) },
+                        onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateTipMode(TipConfigPreferences.TipMode.AFTER_SALE)) },
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp),
@@ -655,7 +656,7 @@ private fun TipConfigSectionContent(
                             val normalContainer = MaterialTheme.colorScheme.surfaceVariant
                             val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
                             Button(
-                                onClick = { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.RATE)) },
+                                onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.RATE)) },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp),
@@ -665,7 +666,7 @@ private fun TipConfigSectionContent(
                                 )
                             ) { Text("RATE (%)", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
                             Button(
-                                onClick = { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.AMOUNT)) },
+                                onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateTipFeeMode(TipConfigPreferences.FeeMode.AMOUNT)) },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp),
@@ -775,7 +776,7 @@ private fun SdkSectionContent(
         val normalContainer = MaterialTheme.colorScheme.surfaceVariant
         val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
         Button(
-            onClick = { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.UAT)) },
+            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.UAT)) },
             modifier = Modifier.weight(1f).height(52.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (state.sdkEnvironment == SdkEnvironment.UAT) selectedContainer else normalContainer,
@@ -783,7 +784,7 @@ private fun SdkSectionContent(
             )
         ) { Text("UAT", fontWeight = FontWeight.Bold) }
         Button(
-            onClick = { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.PROD)) },
+            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.PROD)) },
             modifier = Modifier.weight(1f).height(52.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (state.sdkEnvironment == SdkEnvironment.PROD) selectedContainer else normalContainer,
@@ -846,7 +847,7 @@ private fun SdkSectionContent(
     )
     Spacer(modifier = Modifier.height(16.dp))
     Button(
-        onClick = { onIntent(SettingsIntent.ApplySdkConfig) },
+        onClick = rememberDebouncedClick { onIntent(SettingsIntent.ApplySdkConfig) },
         modifier = Modifier.fillMaxWidth(),
         enabled = state.isSdkConfigValid() && !state.isApplyingSdkConfig
     ) {
@@ -881,7 +882,7 @@ fun PrintReceiptConfigDialog(
     ) {
         PrintReceipt.values().forEach { option ->
             Surface(
-                onClick = { onReceiptChange(option) },
+                onClick = rememberDebouncedClick { onReceiptChange(option) },
                 shape = MaterialTheme.shapes.medium,
                 color = if (selectedReceipt == option) {
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
@@ -1003,7 +1004,7 @@ fun PrintReceiptConfigurationCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { onExpandChange(!isExpanded) },
+                modifier = Modifier.fillMaxWidth().clickable(onClick = rememberDebouncedClick { onExpandChange(!isExpanded) }),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -1038,7 +1039,7 @@ fun PrintReceiptConfigurationCard(
                     )
                     PrintReceipt.values().forEach { option ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onReceiptChange(option) }.padding(vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = rememberDebouncedClick { onReceiptChange(option) }).padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(selected = selectedReceipt == option, onClick = { onReceiptChange(option) })

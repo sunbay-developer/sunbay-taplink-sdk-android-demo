@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
+import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +26,7 @@ fun AddProductCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        onClick = onClick,
+        onClick = rememberDebouncedClick(onClick = onClick),
         modifier = modifier
             .fillMaxWidth()
             .height(115.dp),
