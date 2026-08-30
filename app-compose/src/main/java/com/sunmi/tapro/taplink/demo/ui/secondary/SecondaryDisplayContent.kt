@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -101,6 +102,7 @@ internal fun SecondaryMemberInputContent(
     onCancelled: () -> Unit
 ) {
     var memberInput by remember { mutableStateOf("") }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(
         modifier = Modifier
@@ -130,13 +132,19 @@ internal fun SecondaryMemberInputContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = rememberDebouncedClick(onClick = onCancelled),
+                onClick = rememberDebouncedClick {
+                    keyboardController?.hide()
+                    onCancelled()
+                },
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Cancel")
             }
             Button(
-                onClick = rememberDebouncedClick { onConfirmed(memberInput.trim()) },
+                onClick = rememberDebouncedClick {
+                    keyboardController?.hide()
+                    onConfirmed(memberInput.trim())
+                },
                 enabled = memberInput.isNotBlank(),
                 modifier = Modifier.weight(1f)
             ) {

@@ -34,8 +34,6 @@ import com.sunmi.tapro.taplink.demo.ui.theme.TaplinkTheme
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 import com.sunmi.tapro.taplink.demo.ui.utils.rememberDebouncedClick
 import com.sunmi.tapro.taplink.demo.util.AmountFormatter
-import com.sunmi.tapro.taplink.demo.util.TipConfigBuilder
-import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 /**
@@ -77,12 +75,9 @@ fun MainScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToProgress: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val screenConfig = rememberScreenConfig()
     val secondaryDisplayManager = DependencyProvider.secondaryDisplayManager
-    // Secondary display operations require coroutine scope (async display readiness).
-    val secondaryScreenScope = rememberCoroutineScope()
 
     // Reload settings (including secondaryDisplayAdEnabled) when returning from Settings screen.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -156,78 +151,26 @@ fun MainScreen(
     }
 
     /**
-     * Attempt secondary-display tip selection, then invoke [onTipApplied] with the
-     * chosen next step (ProcessPayment or BeginCheckoutFlow).
-     *
-     * Shared logic for both portrait and landscape pay-click flows:
-     * 1) Check if secondary tip selection should be shown.
-     * 2) If yes, launch it on the secondary screen; on result, apply tip and proceed.
-     * 3) If no secondary display (returns false), fall back directly to [onTipApplied].
-     *
-     * @param onTipApplied Called after the tip is applied (or skipped). Should dispatch
-     *        the next navigation intent (ProcessPayment or BeginCheckoutFlow).
-     * @param dismissBeforeNext Whether to dismiss the secondary display before calling
-     *        [onTipApplied]. Landscape mode dismisses before navigating to settle screen.
+     * Landscape pay-click: navigate to the transaction initiation screen.
      */
-    fun trySecondaryTipThenProceed(
-        onTipApplied: () -> Unit,
-        dismissBeforeNext: Boolean = false
-    ) {
-        val tipConfig = TipConfigBuilder.buildFromPreferences(context)
-        val tipConfigIsNull = tipConfig == null
-        val hasTipAmount = state.additionalAmounts["Tip"] != null
-
-        if (state.secondaryDisplayAdEnabled && shouldShowSecondaryTipSelection(state, tipConfigIsNull, hasTipAmount)) {
-            viewModel.handleIntent(MainIntent.StartSecondaryTipSelection)
-            secondaryScreenScope.launch {
-                val shown = secondaryDisplayManager.showTipSelection(
-                    subtotal = state.getItemsSubtotal(),
-                    currency = "USD",
-                    onTipSelected = { tipAmount ->
-                        viewModel.handleIntent(MainIntent.ApplyTipFromSecondary(tipAmount))
-                        if (dismissBeforeNext) secondaryDisplayManager.onPaymentStarted()
-                        onTipApplied()
-                    },
-                    onCancelled = {
-                        viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                    }
-                )
-                if (!shown) {
-                    viewModel.handleIntent(MainIntent.CancelSecondaryTipSelection)
-                    if (dismissBeforeNext) secondaryDisplayManager.onPaymentStarted()
-                    onTipApplied()
-                }
-            }
-        } else {
+    val onPayClickLandscape = remember(state, secondaryDisplayManager) {
+        {
             if (state.secondaryDisplayAdEnabled) {
-                // Dismiss secondary display content before transaction to avoid showing ads during payment.
                 secondaryDisplayManager.onPaymentStarted()
             }
-            onTipApplied()
+            viewModel.handleIntent(MainIntent.BeginCheckoutFlow)
         }
     }
 
     /**
-     * Landscape pay-click: tip selection on secondary screen → navigate to settle screen.
+     * Portrait pay-click: start payment directly.
      */
-    val onPayClickLandscape = remember(state, secondaryDisplayManager, secondaryScreenScope, context) {
+    val onPayClick = remember(state, secondaryDisplayManager) {
         {
-            trySecondaryTipThenProceed(
-                onTipApplied = { viewModel.handleIntent(MainIntent.BeginCheckoutFlow) },
-                dismissBeforeNext = true
-            )
-        }
-    }
-
-    /**
-     * Portrait pay-click: tip selection on secondary screen → start payment directly.
-     */
-    val onPayClick = remember(state, secondaryDisplayManager, secondaryScreenScope, context) {
-        {
-            trySecondaryTipThenProceed(
-                onTipApplied = { viewModel.handleIntent(MainIntent.ProcessPayment) },
-                dismissBeforeNext = false
-            )
+            if (state.secondaryDisplayAdEnabled) {
+                secondaryDisplayManager.onPaymentStarted()
+            }
+            viewModel.handleIntent(MainIntent.ProcessPayment)
         }
     }
 
@@ -438,28 +381,6 @@ fun MainScreen(
             viewModel.handleIntent(MainIntent.ClearNavigationEvent)
         }
     }
-}
-
-/**
- * Decide whether this payment should trigger tip selection on secondary display.
- *
- * Business rule:
- * - Only when order has items.
- * - Only transaction types that support dedicated tip field (SALE / FORCED_AUTH).
- * - Only when tipConfig is not configured (null).
- * - Only when current order has no pre-set tip amount.
- *
- * Whether the secondary display is actually available is not decided here —
- * display readiness is asynchronous. [SecondaryDisplayManager.showTipSelection]
- * returning false triggers fallback to the primary screen flow.
- */
-private fun shouldShowSecondaryTipSelection(
-    state: MainState,
-    tipConfigNull: Boolean,
-    hasTipAmount: Boolean
-): Boolean {
-    val supportsTip = state.selectedPaymentOption.transactionType != PaymentOption.TransactionType.AUTH
-    return state.hasItems() && supportsTip && tipConfigNull && !hasTipAmount
 }
 
 /**
