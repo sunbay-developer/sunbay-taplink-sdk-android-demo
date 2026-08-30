@@ -88,6 +88,11 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCableProtocol -> updateCableProtocol(intent.protocol)
             is SettingsIntent.UpdateIpAddress -> updateIpAddress(intent.ipAddress)
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
+            is SettingsIntent.UpdatePinpadStrategy -> updatePinpadStrategy(intent.strategy)
+            is SettingsIntent.UpdatePinpadIpAddress -> updatePinpadIpAddress(intent.ipAddress)
+            is SettingsIntent.UpdatePinpadPort -> updatePinpadPort(intent.port)
+            is SettingsIntent.UpdatePinpadCableProtocol -> updatePinpadCableProtocol(intent.protocol)
+            is SettingsIntent.UpdatePinpadAutoPreferLan -> updatePinpadAutoPreferLan(intent.preferLan)
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
             is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
             is SettingsIntent.UpdateSignatureUseHostConfig ->
@@ -151,6 +156,8 @@ class SettingsViewModel(
                 // Load connection mode
                 val savedMode = ConnectionPreferences.getConnectionMode(context)
                 val mode = when (savedMode) {
+                    ConnectionPreferences.ConnectionMode.ON_DEVICE -> ConnectionMode.ON_DEVICE
+                    ConnectionPreferences.ConnectionMode.PINPAD -> ConnectionMode.PINPAD
                     ConnectionPreferences.ConnectionMode.APP_TO_APP -> ConnectionMode.APP_TO_APP
                     ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
                     ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
@@ -164,6 +171,12 @@ class SettingsViewModel(
                 
                 // Load LAN configuration
                 val (savedIp, savedPort) = ConnectionPreferences.getLanConfig(context)
+
+                // Load PinPad configuration
+                val savedPinpadStrategy = ConnectionPreferences.getPinpadStrategy(context)
+                val (savedPinpadIp, savedPinpadPort) = ConnectionPreferences.getPinpadLanConfig(context)
+                val savedPinpadCableProtocol = ConnectionPreferences.getPinpadCableProtocol(context)
+                val savedPinpadAutoPreferLan = ConnectionPreferences.isPinpadAutoPreferLan(context)
                 
                 // Load print receipt configuration
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
@@ -222,6 +235,11 @@ class SettingsViewModel(
                         cableProtocol = savedCableProtocol,
                         ipAddress = savedIp ?: DEFAULT_IP_ADDRESS,
                         port = savedPort.toString(),
+                        pinpadStrategy = savedPinpadStrategy,
+                        pinpadIpAddress = savedPinpadIp ?: DEFAULT_IP_ADDRESS,
+                        pinpadPort = savedPinpadPort.toString(),
+                        pinpadCableProtocol = savedPinpadCableProtocol,
+                        pinpadAutoPreferLan = savedPinpadAutoPreferLan,
                         printReceipt = savedPrintReceipt,
                         signatureEnabled = savedSignatureEnabled,
                         signatureUseHostConfig = savedSignatureUseHostConfig,
@@ -332,6 +350,31 @@ class SettingsViewModel(
      */
     private fun updatePort(port: String) {
         _state.update { it.copy(port = port) }
+    }
+
+    /** Update PinPad connection strategy (AUTO / LAN / CABLE). */
+    private fun updatePinpadStrategy(strategy: ConnectionPreferences.PinpadStrategy) {
+        _state.update { it.copy(pinpadStrategy = strategy) }
+    }
+
+    /** Update LAN host used by PINPAD's LAN and AUTO strategies. */
+    private fun updatePinpadIpAddress(ipAddress: String) {
+        _state.update { it.copy(pinpadIpAddress = ipAddress) }
+    }
+
+    /** Update LAN port used by PINPAD's LAN and AUTO strategies. */
+    private fun updatePinpadPort(port: String) {
+        _state.update { it.copy(pinpadPort = port) }
+    }
+
+    /** Update cable protocol used by PINPAD's CABLE strategy. */
+    private fun updatePinpadCableProtocol(protocol: ConnectionPreferences.CableProtocol) {
+        _state.update { it.copy(pinpadCableProtocol = protocol) }
+    }
+
+    /** Update AUTO strategy transport priority (prefer LAN vs prefer CABLE). */
+    private fun updatePinpadAutoPreferLan(preferLan: Boolean) {
+        _state.update { it.copy(pinpadAutoPreferLan = preferLan) }
     }
     
     /**
@@ -1269,6 +1312,56 @@ class SettingsViewModel(
      */
     private fun validateConfiguration(state: SettingsState): Boolean {
         when (state.selectedMode) {
+            ConnectionMode.ON_DEVICE -> {
+                // No additional configuration needed for On-Device mode
+                return true
+            }
+            ConnectionMode.PINPAD -> {
+                // CABLE strategy needs no host/port; LAN and AUTO require a valid host + port.
+                if (state.pinpadStrategy == ConnectionPreferences.PinpadStrategy.CABLE) {
+                    return true
+                }
+                if (!state.isValidPinpadIpAddress()) {
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.ERROR,
+                                title = "Invalid IP Address",
+                                content = "Please enter a valid IP address (e.g., 192.168.1.100)",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return false
+                }
+                if (state.pinpadPort.isBlank()) {
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.ERROR,
+                                title = "Invalid Port",
+                                content = "Port number is required for PinPad LAN/AUTO strategy",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return false
+                }
+                val portNum = state.pinpadPort.toIntOrNull()
+                if (portNum == null || portNum !in 1..65535) {
+                    _state.update {
+                        it.copy(
+                            message = Message(
+                                type = MessageType.ERROR,
+                                title = "Invalid Port",
+                                content = "Port must be a number between 1 and 65535",
+                                actions = listOf(MessageAction.DISMISS)
+                            )
+                        )
+                    }
+                    return false
+                }
+            }
             ConnectionMode.APP_TO_APP -> {
                 // No additional configuration needed for App-to-App mode
                 return true
@@ -1379,6 +1472,8 @@ class SettingsViewModel(
             
             // Save connection mode
             val prefMode = when (currentState.selectedMode) {
+                ConnectionMode.ON_DEVICE -> ConnectionPreferences.ConnectionMode.ON_DEVICE
+                ConnectionMode.PINPAD -> ConnectionPreferences.ConnectionMode.PINPAD
                 ConnectionMode.APP_TO_APP -> ConnectionPreferences.ConnectionMode.APP_TO_APP
                 ConnectionMode.CABLE -> ConnectionPreferences.ConnectionMode.CABLE
                 ConnectionMode.LAN -> ConnectionPreferences.ConnectionMode.LAN
@@ -1390,6 +1485,18 @@ class SettingsViewModel(
             
             // Save mode-specific configuration
             when (currentState.selectedMode) {
+                ConnectionMode.ON_DEVICE -> {
+                    ConnectionPreferences.saveAppToAppMode(context, currentState.appToAppMode)
+                }
+                ConnectionMode.PINPAD -> {
+                    ConnectionPreferences.savePinpadStrategy(context, currentState.pinpadStrategy)
+                    ConnectionPreferences.savePinpadCableProtocol(context, currentState.pinpadCableProtocol)
+                    ConnectionPreferences.savePinpadAutoPreferLan(context, currentState.pinpadAutoPreferLan)
+                    if (currentState.pinpadStrategy != ConnectionPreferences.PinpadStrategy.CABLE) {
+                        val port = currentState.pinpadPort.toIntOrNull() ?: return
+                        ConnectionPreferences.savePinpadLanConfig(context, currentState.pinpadIpAddress, port)
+                    }
+                }
                 ConnectionMode.APP_TO_APP -> {
                     ConnectionPreferences.saveAppToAppMode(context, currentState.appToAppMode)
                 }

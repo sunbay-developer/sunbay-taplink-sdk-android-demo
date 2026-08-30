@@ -145,6 +145,8 @@ private fun getStatusConfig(connectionState: ConnectionState): ConnectionStatusC
         is ConnectionState.Connected -> ConnectionStatusConfig(
             icon = Icons.Default.CheckCircle,
             label = when (connectionState.mode) {
+                ConnectionMode.ON_DEVICE -> "On-Device"
+                ConnectionMode.PINPAD -> "PinPad"
                 ConnectionMode.APP_TO_APP -> "App-to-App"
                 ConnectionMode.CABLE -> "Cable"
                 ConnectionMode.LAN -> "LAN"

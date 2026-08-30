@@ -17,6 +17,14 @@ sealed class SettingsIntent {
     data class UpdateCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
     data class UpdateIpAddress(val ipAddress: String) : SettingsIntent()
     data class UpdatePort(val port: String) : SettingsIntent()
+
+    // PinPad Configuration (ConnectionMode.PINPAD)
+    data class UpdatePinpadStrategy(val strategy: ConnectionPreferences.PinpadStrategy) : SettingsIntent()
+    data class UpdatePinpadIpAddress(val ipAddress: String) : SettingsIntent()
+    data class UpdatePinpadPort(val port: String) : SettingsIntent()
+    data class UpdatePinpadCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
+    data class UpdatePinpadAutoPreferLan(val preferLan: Boolean) : SettingsIntent()
+
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
     data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()
     data class UpdateSignatureUseHostConfig(val useHostConfig: Boolean) : SettingsIntent()

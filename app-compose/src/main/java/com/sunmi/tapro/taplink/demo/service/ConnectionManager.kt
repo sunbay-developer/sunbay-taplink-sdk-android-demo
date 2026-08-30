@@ -15,6 +15,7 @@ import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.AppToAppMode
 import com.sunmi.tapro.taplink.sdk.enums.ConnectionStatus
+import com.sunmi.tapro.taplink.sdk.enums.PinpadStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -122,6 +123,21 @@ class ConnectionManager(
                         _connectionState.value = ConnectionState.Disconnected
                         currentMode = null
                         return@launch
+                    }
+                }
+
+                // PINPAD mode: LAN and AUTO strategies need a configured host, same rationale
+                // as classic LAN above (AUTO also tries the LAN transport per autoPriority).
+                if (mode == ConnectionMode.PINPAD) {
+                    val strategy = ConnectionPreferences.getPinpadStrategy(context)
+                    if (strategy != ConnectionPreferences.PinpadStrategy.CABLE) {
+                        val (pinpadIp, _) = ConnectionPreferences.getPinpadLanConfig(context)
+                        if (pinpadIp.isNullOrBlank()) {
+                            Log.d(TAG, "PINPAD mode ($strategy) selected but no LAN host configured; skipping auto-connect")
+                            _connectionState.value = ConnectionState.Disconnected
+                            currentMode = null
+                            return@launch
+                        }
                     }
                 }
 
@@ -562,6 +578,8 @@ class ConnectionManager(
     private fun getConnectionModeFromPreferences(): ConnectionMode {
         val prefMode = ConnectionPreferences.getConnectionMode(context)
         return when (prefMode) {
+            ConnectionPreferences.ConnectionMode.ON_DEVICE -> ConnectionMode.ON_DEVICE
+            ConnectionPreferences.ConnectionMode.PINPAD -> ConnectionMode.PINPAD
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> ConnectionMode.APP_TO_APP
             ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
             ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
@@ -575,6 +593,46 @@ class ConnectionManager(
      */
     private fun createConnectionConfig(mode: ConnectionMode): ConnectionConfig {
         return when (mode) {
+            ConnectionMode.ON_DEVICE -> {
+                val appToAppMode = when (ConnectionPreferences.getAppToAppMode(context)) {
+                    ConnectionPreferences.AppToAppMode.CUSTOM -> AppToAppMode.CUSTOM
+                    ConnectionPreferences.AppToAppMode.HEADLESS -> AppToAppMode.HEADLESS
+                }
+                Log.d(TAG, "Creating On-Device connection config, mode=$appToAppMode")
+                ConnectionConfig.createOnDeviceMode(appToAppMode)
+            }
+            ConnectionMode.PINPAD -> {
+                val strategy = ConnectionPreferences.getPinpadStrategy(context)
+                val sdkStrategy = when (strategy) {
+                    ConnectionPreferences.PinpadStrategy.AUTO -> PinpadStrategy.AUTO
+                    ConnectionPreferences.PinpadStrategy.LAN -> PinpadStrategy.LAN
+                    ConnectionPreferences.PinpadStrategy.CABLE -> PinpadStrategy.CABLE
+                }
+                val (host, port) = ConnectionPreferences.getPinpadLanConfig(context)
+                val cableProtocol = when (ConnectionPreferences.getPinpadCableProtocol(context)) {
+                    ConnectionPreferences.CableProtocol.AUTO ->
+                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.AUTO
+                    ConnectionPreferences.CableProtocol.USB_AOA ->
+                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_AOA
+                    ConnectionPreferences.CableProtocol.USB_VSP ->
+                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_VSP
+                    ConnectionPreferences.CableProtocol.RS232 ->
+                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232
+                }
+                val autoPriority = if (ConnectionPreferences.isPinpadAutoPreferLan(context)) {
+                    listOf(PinpadStrategy.LAN, PinpadStrategy.CABLE)
+                } else {
+                    listOf(PinpadStrategy.CABLE, PinpadStrategy.LAN)
+                }
+                Log.d(TAG, "Creating PinPad connection config, strategy=$sdkStrategy, host=$host, port=$port")
+                ConnectionConfig.createPinpadMode(
+                    strategy = sdkStrategy,
+                    host = host,
+                    port = port,
+                    cableProtocol = cableProtocol,
+                    autoPriority = autoPriority
+                )
+            }
             ConnectionMode.APP_TO_APP -> {
                 val appToAppMode = when (ConnectionPreferences.getAppToAppMode(context)) {
                     ConnectionPreferences.AppToAppMode.CUSTOM -> AppToAppMode.CUSTOM

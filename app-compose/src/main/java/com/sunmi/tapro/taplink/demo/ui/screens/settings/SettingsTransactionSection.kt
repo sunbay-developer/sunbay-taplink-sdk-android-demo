@@ -89,10 +89,6 @@ internal fun ParameterConfigurationSectionContent(
     Spacer(modifier = Modifier.height(16.dp))
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Spacer(modifier = Modifier.height(16.dp))
-    SecondaryDisplaySectionContent(state = state, onIntent = onIntent)
-    Spacer(modifier = Modifier.height(16.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    Spacer(modifier = Modifier.height(16.dp))
     SdkSectionContent(state = state, onIntent = onIntent)
 }
 

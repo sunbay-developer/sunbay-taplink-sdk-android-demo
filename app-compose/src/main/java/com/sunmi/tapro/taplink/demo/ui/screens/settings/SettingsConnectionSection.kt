@@ -37,27 +37,45 @@ import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 // ─── Helper functions ──────────────────────────────────────────────────────────
 
 internal fun getModeName(mode: ConnectionMode): String = when (mode) {
-    ConnectionMode.APP_TO_APP -> "App to App"
-    ConnectionMode.CABLE -> "Cable"
-    ConnectionMode.LAN -> "LAN"
+    ConnectionMode.ON_DEVICE -> "On-Device"
+    ConnectionMode.PINPAD -> "PinPad"
+    ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display"
     ConnectionMode.CLOUD -> "Cloud"
-    ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display (VSP)"
+    ConnectionMode.APP_TO_APP -> "App to App (legacy)"
+    ConnectionMode.CABLE -> "Cable (legacy)"
+    ConnectionMode.LAN -> "LAN (legacy)"
 }
 
 internal fun getModeDescription(mode: ConnectionMode): String = when (mode) {
-    ConnectionMode.APP_TO_APP -> "Direct connection via Tapro app"
-    ConnectionMode.CABLE -> "Direct USB/serial connection"
-    ConnectionMode.LAN -> "Network connection"
-    ConnectionMode.CLOUD -> "Cloud API connection"
+    ConnectionMode.ON_DEVICE -> "Merchant app + Tapro run on the same terminal (recommended)"
+    ConnectionMode.PINPAD -> "Tapro acts as a standalone PIN pad over LAN/Cable/AUTO"
     ConnectionMode.SECONDARY_DISPLAY -> "VSP connection with secondary display"
+    ConnectionMode.CLOUD -> "Cloud API connection"
+    ConnectionMode.APP_TO_APP -> "Direct connection via Tapro app (use On-Device instead)"
+    ConnectionMode.CABLE -> "Direct USB/serial connection (use PinPad instead)"
+    ConnectionMode.LAN -> "Network connection (use PinPad instead)"
 }
 
 internal fun getModeIcon(mode: ConnectionMode): ImageVector = when (mode) {
+    ConnectionMode.ON_DEVICE -> Icons.Default.PhoneAndroid
+    ConnectionMode.PINPAD -> Icons.Default.Cable
+    ConnectionMode.CLOUD -> Icons.Default.Cloud
+    ConnectionMode.SECONDARY_DISPLAY -> Icons.Default.Print
     ConnectionMode.APP_TO_APP -> Icons.Default.PhoneAndroid
     ConnectionMode.CABLE -> Icons.Default.Cable
     ConnectionMode.LAN -> Icons.Default.Wifi
-    ConnectionMode.CLOUD -> Icons.Default.Cloud
-    ConnectionMode.SECONDARY_DISPLAY -> Icons.Default.Print
+}
+
+private fun getPinpadStrategyLabel(strategy: ConnectionPreferences.PinpadStrategy): String = when (strategy) {
+    ConnectionPreferences.PinpadStrategy.AUTO -> "AUTO"
+    ConnectionPreferences.PinpadStrategy.LAN -> "LAN"
+    ConnectionPreferences.PinpadStrategy.CABLE -> "CABLE"
+}
+
+private fun getPinpadStrategyDescription(strategy: ConnectionPreferences.PinpadStrategy): String = when (strategy) {
+    ConnectionPreferences.PinpadStrategy.AUTO -> "Auto-select transport (LAN/CABLE) with runtime fallback"
+    ConnectionPreferences.PinpadStrategy.LAN -> "Connect over local area network"
+    ConnectionPreferences.PinpadStrategy.CABLE -> "Connect over USB/serial cable"
 }
 
 private fun getCableProtocolLabel(protocol: ConnectionPreferences.CableProtocol): String = when (protocol) {
@@ -181,9 +199,18 @@ internal fun ConnectionSectionContent(
 
     // Mode-specific configuration
     when (state.selectedMode) {
-        ConnectionMode.APP_TO_APP -> AppToAppConfiguration(
+        ConnectionMode.ON_DEVICE -> AppToAppConfiguration(
             appToAppMode = state.appToAppMode,
             onAppToAppModeChange = { onIntent(SettingsIntent.UpdateAppToAppMode(it)) }
+        )
+        ConnectionMode.PINPAD -> PinpadConfiguration(
+            state = state,
+            onIntent = onIntent
+        )
+        ConnectionMode.APP_TO_APP -> AppToAppConfiguration(
+            appToAppMode = state.appToAppMode,
+            onAppToAppModeChange = { onIntent(SettingsIntent.UpdateAppToAppMode(it)) },
+            legacy = true
         )
         ConnectionMode.CABLE -> CableConfiguration(
             cableProtocol = state.cableProtocol,
@@ -216,7 +243,10 @@ internal fun ConnectionSectionContent(
             onAddOption = { field, value -> onIntent(SettingsIntent.AddCloudOption(field, value)) },
             onPushToTerminalChange = { onIntent(SettingsIntent.UpdateCloudPushToTerminal(it)) }
         )
-        ConnectionMode.SECONDARY_DISPLAY -> SecondaryDisplayModeConfiguration()
+        ConnectionMode.SECONDARY_DISPLAY -> SecondaryDisplayModeConfiguration(
+            state = state,
+            onIntent = onIntent
+        )
     }
 }
 
@@ -261,6 +291,221 @@ internal fun SecondaryDisplaySectionContent(
 }
 
 @Composable
+fun PinpadConfiguration(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Column {
+        Text(
+            "PinPad Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Connection Strategy",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        ConnectionPreferences.PinpadStrategy.values().forEach { strategy ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdatePinpadStrategy(strategy)) })
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = state.pinpadStrategy == strategy,
+                    onClick = { onIntent(SettingsIntent.UpdatePinpadStrategy(strategy)) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(getPinpadStrategyLabel(strategy), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        getPinpadStrategyDescription(strategy),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        if (state.pinpadStrategy != ConnectionPreferences.PinpadStrategy.CABLE) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.pinpadIpAddress,
+                onValueChange = { onIntent(SettingsIntent.UpdatePinpadIpAddress(it)) },
+                label = { Text("IP Address") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("Terminal IP address for LAN/AUTO strategy") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.pinpadPort,
+                onValueChange = { onIntent(SettingsIntent.UpdatePinpadPort(it)) },
+                label = { Text("Port") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("Port number for LAN/AUTO strategy") }
+            )
+
+            if (state.pinpadStrategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Prefer LAN first", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Try LAN before falling back to cable when both are available",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.pinpadAutoPreferLan,
+                        onCheckedChange = { onIntent(SettingsIntent.UpdatePinpadAutoPreferLan(it)) }
+                    )
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Cable Protocol",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            ConnectionPreferences.CableProtocol.values().forEach { protocol ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdatePinpadCableProtocol(protocol)) })
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = state.pinpadCableProtocol == protocol,
+                        onClick = { onIntent(SettingsIntent.UpdatePinpadCableProtocol(protocol)) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(getCableProtocolLabel(protocol), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            getCableProtocolDescription(protocol),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    "ℹ️ PinPad Mode",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Select how the payment terminal is reached. This mode is the modern replacement for legacy LAN/CABLE settings.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SecondaryDisplayModeConfiguration(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    Column {
+        Text(
+            "Secondary Display Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "✓ VSP + Secondary Display",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "This mode connects via USB Virtual Serial Port (VSP) and automatically " +
+                        "opens the secondary display on the payment terminal. No additional " +
+                        "configuration is required.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Enable Secondary Display Ad",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            "Show ad carousel and order info on the secondary screen",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                    Switch(
+                        checked = state.secondaryDisplayAdEnabled,
+                        onCheckedChange = { onIntent(SettingsIntent.UpdateSecondaryDisplayAdEnabled(it)) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Requirements:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "• Payment terminal must support secondary display\n" +
+                        "• USB cable must be connected between devices\n" +
+                        "• Terminal must have VSP driver enabled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun SdkCredentialsCard(
     appId: String,
     merchantId: String,
@@ -296,16 +541,32 @@ fun SdkCredentialsCard(
 @Composable
 fun AppToAppConfiguration(
     appToAppMode: ConnectionPreferences.AppToAppMode,
-    onAppToAppModeChange: (ConnectionPreferences.AppToAppMode) -> Unit
+    onAppToAppModeChange: (ConnectionPreferences.AppToAppMode) -> Unit,
+    legacy: Boolean = false
 ) {
     Column {
-        Text("App-to-App Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (legacy) "App-to-App Configuration (legacy)" else "On-Device Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("✓ Direct Connection", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("App-to-App mode provides direct communication with the Tapro payment app via Android IPC. No additional configuration is required.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    if (legacy) {
+                        "App-to-App mode provides direct communication with the Tapro payment app via Android IPC. " +
+                            "This is the classic name for the current On-Device integration mode; prefer the " +
+                            "\"On-Device\" mode entry for new integrations. No additional configuration is required."
+                    } else {
+                        "On-Device mode connects directly to the Tapro payment app running on the SAME terminal " +
+                            "via Android IPC (internally implemented as App-to-App). No additional configuration is required."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Transaction Mode:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -448,47 +709,121 @@ fun LanConfiguration(
 }
 
 @Composable
-fun SecondaryDisplayModeConfiguration() {
+fun PinpadConfiguration(
+    strategy: ConnectionPreferences.PinpadStrategy,
+    ipAddress: String,
+    port: String,
+    cableProtocol: ConnectionPreferences.CableProtocol,
+    autoPreferLan: Boolean,
+    onStrategyChange: (ConnectionPreferences.PinpadStrategy) -> Unit,
+    onIpAddressChange: (String) -> Unit,
+    onPortChange: (String) -> Unit,
+    onCableProtocolChange: (ConnectionPreferences.CableProtocol) -> Unit,
+    onAutoPreferLanChange: (Boolean) -> Unit
+) {
     Column {
-        Text(
-            "Secondary Display Configuration",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text("PinPad Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "✓ VSP + Secondary Display",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "This mode connects via USB Virtual Serial Port (VSP) and automatically " +
-                        "opens the secondary display on the payment terminal. No additional " +
-                        "configuration is required.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Requirements:",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontWeight = FontWeight.Bold
-                )
+        Text("Connection Strategy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(4.dp))
+        ConnectionPreferences.PinpadStrategy.values().forEach { candidate ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = rememberDebouncedClick { onStrategyChange(candidate) })
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = strategy == candidate, onClick = { onStrategyChange(candidate) })
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(getPinpadStrategyLabel(candidate), style = MaterialTheme.typography.bodyLarge)
+                    Text(getPinpadStrategyDescription(candidate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // LAN host/port required for LAN and AUTO strategies (AUTO also tries LAN per priority)
+        if (strategy == ConnectionPreferences.PinpadStrategy.LAN || strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+            Text("LAN Transport", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = ipAddress,
+                onValueChange = onIpAddressChange,
+                label = { Text("IP Address") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("IP address of the payment terminal") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = port,
+                onValueChange = onPortChange,
+                label = { Text("Port") },
+                placeholder = { Text("8443") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("Port number (8443-8463)") }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Cable protocol, relevant for CABLE strategy and as a fallback hint for AUTO
+        if (strategy == ConnectionPreferences.PinpadStrategy.CABLE || strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+            Text("Cable Protocol", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(4.dp))
+            ConnectionPreferences.CableProtocol.values().forEach { protocol ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = rememberDebouncedClick { onCableProtocolChange(protocol) })
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = cableProtocol == protocol, onClick = { onCableProtocolChange(protocol) })
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(getCableProtocolLabel(protocol), style = MaterialTheme.typography.bodyLarge)
+                        Text(getCableProtocolDescription(protocol), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // AUTO priority: which transport is tried first
+        if (strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Prefer LAN first", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "When on, AUTO tries LAN before CABLE and falls back if the active transport stalls.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = autoPreferLan, onCheckedChange = onAutoPreferLanChange)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("ℹ️ PinPad Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "• Payment terminal must support secondary display\n" +
-                        "• USB cable must be connected between devices\n" +
-                        "• Terminal must have VSP driver enabled",
+                    "Tapro acts as a standalone PIN pad driven by this app over the selected " +
+                        "transport. AUTO tries transports in priority order and rotates to the " +
+                        "next candidate if the active one stalls (e.g. a payment request times " +
+                        "out while the socket still looks connected).",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

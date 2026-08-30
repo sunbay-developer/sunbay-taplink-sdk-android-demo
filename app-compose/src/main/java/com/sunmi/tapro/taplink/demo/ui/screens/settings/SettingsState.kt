@@ -38,9 +38,9 @@ enum class SdkEnvironment {
  */
 data class SettingsState(
     // Connection Mode
-    val selectedMode: ConnectionMode = ConnectionMode.APP_TO_APP,
+    val selectedMode: ConnectionMode = ConnectionMode.ON_DEVICE,
     
-    // App-to-App Configuration
+    // App-to-App / On-Device Configuration
     val packageName: String = "",
     val appToAppMode: ConnectionPreferences.AppToAppMode = ConnectionPreferences.AppToAppMode.CUSTOM,
     
@@ -50,6 +50,14 @@ data class SettingsState(
     // LAN Configuration
     val ipAddress: String = "",
     val port: String = "",
+
+    // PinPad Configuration (ConnectionMode.PINPAD)
+    val pinpadStrategy: ConnectionPreferences.PinpadStrategy = ConnectionPreferences.PinpadStrategy.AUTO,
+    val pinpadIpAddress: String = "",
+    val pinpadPort: String = "",
+    val pinpadCableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,
+    /** AUTO strategy transport priority: true tries LAN before CABLE (SDK default). */
+    val pinpadAutoPreferLan: Boolean = true,
     
     // Print Receipt Configuration
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
@@ -137,6 +145,13 @@ data class SettingsState(
      */
     fun isConfigurationValid(): Boolean {
         return when (selectedMode) {
+            ConnectionMode.ON_DEVICE -> true // No additional configuration needed
+            ConnectionMode.PINPAD -> when (pinpadStrategy) {
+                ConnectionPreferences.PinpadStrategy.CABLE -> true
+                ConnectionPreferences.PinpadStrategy.LAN,
+                ConnectionPreferences.PinpadStrategy.AUTO ->
+                    pinpadIpAddress.isNotBlank() && pinpadPort.isNotBlank() && isValidPinpadPort()
+            }
             ConnectionMode.APP_TO_APP -> true // No additional configuration needed
             ConnectionMode.CABLE -> true // Cable mode only requires protocol selection
             ConnectionMode.LAN -> ipAddress.isNotBlank() && port.isNotBlank() && isValidPort()
@@ -156,13 +171,26 @@ data class SettingsState(
             false
         }
     }
+
+    private fun isValidPinpadPort(): Boolean {
+        return try {
+            val portNum = pinpadPort.toInt()
+            portNum in 1..65535
+        } catch (e: NumberFormatException) {
+            false
+        }
+    }
     
     /**
      * Check if IP address format is valid (basic validation)
      */
-    fun isValidIpAddress(): Boolean {
-        if (ipAddress.isBlank()) return false
-        val parts = ipAddress.split(".")
+    fun isValidIpAddress(): Boolean = isValidIpAddress(ipAddress)
+
+    fun isValidPinpadIpAddress(): Boolean = isValidIpAddress(pinpadIpAddress)
+
+    private fun isValidIpAddress(value: String): Boolean {
+        if (value.isBlank()) return false
+        val parts = value.split(".")
         if (parts.size != 4) return false
         return parts.all { part ->
             try {
@@ -179,6 +207,13 @@ data class SettingsState(
      */
     fun getCurrentConfiguration(): String {
         return when (selectedMode) {
+            ConnectionMode.ON_DEVICE -> "Direct connection ($appToAppMode)"
+            ConnectionMode.PINPAD -> when (pinpadStrategy) {
+                ConnectionPreferences.PinpadStrategy.CABLE -> "PinPad · Cable ($pinpadCableProtocol)"
+                ConnectionPreferences.PinpadStrategy.LAN -> "PinPad · LAN $pinpadIpAddress:$pinpadPort"
+                ConnectionPreferences.PinpadStrategy.AUTO ->
+                    "PinPad · AUTO ($pinpadIpAddress:$pinpadPort, prefer ${if (pinpadAutoPreferLan) "LAN" else "CABLE"})"
+            }
             ConnectionMode.APP_TO_APP -> "Direct connection"
             ConnectionMode.CABLE -> cableProtocol.name
             ConnectionMode.LAN -> "$ipAddress:$port"
