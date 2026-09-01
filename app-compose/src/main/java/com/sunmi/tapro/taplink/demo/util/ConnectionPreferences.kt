@@ -21,11 +21,11 @@ object ConnectionPreferences {
     private const val KEY_SIGNATURE_THRESHOLD_ENABLED = "signature_threshold_enabled"
     private const val KEY_SIGNATURE_THRESHOLD = "signature_threshold"
     private const val KEY_SECONDARY_DISPLAY_AD_ENABLED = "secondary_display_ad_enabled"
-    private const val KEY_PINPAD_STRATEGY = "pinpad_strategy"
-    private const val KEY_PINPAD_LAN_IP = "pinpad_lan_ip"
-    private const val KEY_PINPAD_LAN_PORT = "pinpad_lan_port"
-    private const val KEY_PINPAD_CABLE_PROTOCOL = "pinpad_cable_protocol"
-    private const val KEY_PINPAD_AUTO_PREFER_LAN = "pinpad_auto_prefer_lan"
+    private const val KEY_CROSS_DEVICE_STRATEGY = "cross_device_strategy"
+    private const val KEY_CROSS_DEVICE_LAN_IP = "cross_device_lan_ip"
+    private const val KEY_CROSS_DEVICE_LAN_PORT = "cross_device_lan_port"
+    private const val KEY_CROSS_DEVICE_CABLE_PROTOCOL = "cross_device_cable_protocol"
+    private const val KEY_CROSS_DEVICE_AUTO_PREFER_LAN = "cross_device_auto_prefer_lan"
 
     private const val DEFAULT_MODE = "ON_DEVICE"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
@@ -34,16 +34,16 @@ object ConnectionPreferences {
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
     private const val DEFAULT_SIGNATURE_MODE = "ON_SCREEN"
     private const val DEFAULT_SIGNATURE_THRESHOLD = "5000"
-    private const val DEFAULT_PINPAD_STRATEGY = "AUTO"
+    private const val DEFAULT_CROSS_DEVICE_STRATEGY = "AUTO"
 
     enum class ConnectionMode {
         ON_DEVICE,
-        PINPAD,
+        CROSS_DEVICE,
         APP_TO_APP,
         CABLE,
         LAN,
         CLOUD,
-        SECONDARY_DISPLAY
+        SUB_SCREEN
     }
 
     enum class CableProtocol {
@@ -59,10 +59,10 @@ object ConnectionPreferences {
     }
 
     /**
-     * PinPad connection strategy. Mirrors `com.sunmi.tapro.taplink.sdk.enums.PinpadStrategy`
+     * Cross-Device connection strategy. Mirrors `com.sunmi.tapro.taplink.sdk.enums.CrossDeviceStrategy`
      * so the settings UI/preferences layer does not need to depend on the SDK enum directly.
      */
-    enum class PinpadStrategy {
+    enum class CrossDeviceStrategy {
         AUTO,
         LAN,
         CABLE
@@ -126,44 +126,44 @@ object ConnectionPreferences {
         }
     }
 
-    // ── PINPAD mode configuration ───────────────────────────────────────────
+    // ── CROSS_DEVICE mode configuration ─────────────────────────────────────
 
-    fun savePinpadStrategy(context: Context, strategy: PinpadStrategy) {
-        getPreferences(context).edit { putString(KEY_PINPAD_STRATEGY, strategy.name) }
+    fun saveCrossDeviceStrategy(context: Context, strategy: CrossDeviceStrategy) {
+        getPreferences(context).edit { putString(KEY_CROSS_DEVICE_STRATEGY, strategy.name) }
     }
 
-    fun getPinpadStrategy(context: Context): PinpadStrategy {
-        val strategyName = getPreferences(context).getString(KEY_PINPAD_STRATEGY, DEFAULT_PINPAD_STRATEGY)
+    fun getCrossDeviceStrategy(context: Context): CrossDeviceStrategy {
+        val strategyName = getPreferences(context).getString(KEY_CROSS_DEVICE_STRATEGY, DEFAULT_CROSS_DEVICE_STRATEGY)
         return try {
-            PinpadStrategy.valueOf(strategyName ?: DEFAULT_PINPAD_STRATEGY)
+            CrossDeviceStrategy.valueOf(strategyName ?: DEFAULT_CROSS_DEVICE_STRATEGY)
         } catch (_: IllegalArgumentException) {
-            PinpadStrategy.AUTO
+            CrossDeviceStrategy.AUTO
         }
     }
 
-    /** LAN host/port used by PINPAD's LAN and AUTO strategies (kept separate from classic LAN config). */
-    fun savePinpadLanConfig(context: Context, ip: String, port: Int) {
+    /** LAN host/port used by CROSS_DEVICE's LAN and AUTO strategies (kept separate from classic LAN config). */
+    fun saveCrossDeviceLanConfig(context: Context, ip: String, port: Int) {
         getPreferences(context).edit {
-            putString(KEY_PINPAD_LAN_IP, ip)
-            putInt(KEY_PINPAD_LAN_PORT, port)
+            putString(KEY_CROSS_DEVICE_LAN_IP, ip)
+            putInt(KEY_CROSS_DEVICE_LAN_PORT, port)
         }
     }
 
-    fun getPinpadLanConfig(context: Context): Pair<String?, Int> {
+    fun getCrossDeviceLanConfig(context: Context): Pair<String?, Int> {
         val prefs = getPreferences(context)
         return Pair(
-            prefs.getString(KEY_PINPAD_LAN_IP, null),
-            prefs.getInt(KEY_PINPAD_LAN_PORT, DEFAULT_LAN_PORT)
+            prefs.getString(KEY_CROSS_DEVICE_LAN_IP, null),
+            prefs.getInt(KEY_CROSS_DEVICE_LAN_PORT, DEFAULT_LAN_PORT)
         )
     }
 
-    /** Cable protocol used by PINPAD's CABLE strategy (defaults to AUTO try-order when unset). */
-    fun savePinpadCableProtocol(context: Context, protocol: CableProtocol) {
-        getPreferences(context).edit { putString(KEY_PINPAD_CABLE_PROTOCOL, protocol.name) }
+    /** Cable protocol used by CROSS_DEVICE's CABLE strategy (defaults to AUTO try-order when unset). */
+    fun saveCrossDeviceCableProtocol(context: Context, protocol: CableProtocol) {
+        getPreferences(context).edit { putString(KEY_CROSS_DEVICE_CABLE_PROTOCOL, protocol.name) }
     }
 
-    fun getPinpadCableProtocol(context: Context): CableProtocol {
-        val protocolName = getPreferences(context).getString(KEY_PINPAD_CABLE_PROTOCOL, DEFAULT_CABLE_PROTOCOL)
+    fun getCrossDeviceCableProtocol(context: Context): CableProtocol {
+        val protocolName = getPreferences(context).getString(KEY_CROSS_DEVICE_CABLE_PROTOCOL, DEFAULT_CABLE_PROTOCOL)
         return try {
             CableProtocol.valueOf(protocolName ?: DEFAULT_CABLE_PROTOCOL)
         } catch (_: IllegalArgumentException) {
@@ -175,12 +175,12 @@ object ConnectionPreferences {
      * AUTO strategy transport priority. `true` tries LAN before CABLE (the SDK default),
      * `false` tries CABLE first.
      */
-    fun savePinpadAutoPreferLan(context: Context, preferLan: Boolean) {
-        getPreferences(context).edit { putBoolean(KEY_PINPAD_AUTO_PREFER_LAN, preferLan) }
+    fun saveCrossDeviceAutoPreferLan(context: Context, preferLan: Boolean) {
+        getPreferences(context).edit { putBoolean(KEY_CROSS_DEVICE_AUTO_PREFER_LAN, preferLan) }
     }
 
-    fun isPinpadAutoPreferLan(context: Context): Boolean {
-        return getPreferences(context).getBoolean(KEY_PINPAD_AUTO_PREFER_LAN, true)
+    fun isCrossDeviceAutoPreferLan(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_CROSS_DEVICE_AUTO_PREFER_LAN, true)
     }
 
     fun savePrintReceipt(

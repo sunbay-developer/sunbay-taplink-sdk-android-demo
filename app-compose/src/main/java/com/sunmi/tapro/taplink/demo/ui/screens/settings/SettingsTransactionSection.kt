@@ -13,8 +13,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sunmi.tapro.taplink.demo.ui.components.PosDialog
@@ -86,10 +83,6 @@ internal fun ParameterConfigurationSectionContent(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Spacer(modifier = Modifier.height(16.dp))
     StaffInfoSectionContent(state = state, onIntent = onIntent)
-    Spacer(modifier = Modifier.height(16.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    Spacer(modifier = Modifier.height(16.dp))
-    SdkSectionContent(state = state, onIntent = onIntent)
 }
 
 @Composable
@@ -730,132 +723,6 @@ private fun TipConfigSectionContent(
                 }
             }
         }
-    }
-}
-
-/**
- * SDK section: App ID / Merchant ID / Secret Key fields + apply button, all inline.
- */
-@Composable
-private fun SdkSectionContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit
-) {
-    var secretKeyVisible by remember { mutableStateOf(false) }
-
-    Text(
-        text = "SDK Initialization Parameters",
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-    Text(
-        text = "Used to initialize TaplinkSDK. Changes take effect after tapping \"Save & Apply\".",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Text(
-        text = "Environment",
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        val selectedContainer = MaterialTheme.colorScheme.primary
-        val selectedContent = MaterialTheme.colorScheme.onPrimary
-        val normalContainer = MaterialTheme.colorScheme.surfaceVariant
-        val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
-        Button(
-            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.UAT)) },
-            modifier = Modifier.weight(1f).height(52.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (state.sdkEnvironment == SdkEnvironment.UAT) selectedContainer else normalContainer,
-                contentColor = if (state.sdkEnvironment == SdkEnvironment.UAT) selectedContent else normalContent
-            )
-        ) { Text("UAT", fontWeight = FontWeight.Bold) }
-        Button(
-            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.PROD)) },
-            modifier = Modifier.weight(1f).height(52.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (state.sdkEnvironment == SdkEnvironment.PROD) selectedContainer else normalContainer,
-                contentColor = if (state.sdkEnvironment == SdkEnvironment.PROD) selectedContent else normalContent
-            )
-        ) { Text("PROD", fontWeight = FontWeight.Bold) }
-    }
-    Spacer(modifier = Modifier.height(12.dp))
-
-    OutlinedTextField(
-        value = state.sdkAppId,
-        onValueChange = { onIntent(SettingsIntent.UpdateSdkAppId(it)) },
-        label = { Text("App ID") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        supportingText = { Text("Required") },
-        shape = MaterialTheme.shapes.medium
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = state.sdkMerchantId,
-        onValueChange = { onIntent(SettingsIntent.UpdateSdkMerchantId(it)) },
-        label = { Text("Merchant ID") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        supportingText = { Text("Optional — validated only when provided") },
-        shape = MaterialTheme.shapes.medium
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = state.sdkSecretKey,
-        onValueChange = { onIntent(SettingsIntent.UpdateSdkSecretKey(it)) },
-        label = { Text("Secret Key") },
-        placeholder = {
-            if (state.hasExistingSecretKey && state.sdkSecretKey.isEmpty()) {
-                Text("••••••••")
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        visualTransformation = if (secretKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { secretKeyVisible = !secretKeyVisible }) {
-                Icon(
-                    imageVector = if (secretKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = if (secretKeyVisible) "Hide" else "Show"
-                )
-            }
-        },
-        supportingText = {
-            Text(
-                if (state.hasExistingSecretKey && state.sdkSecretKey.isEmpty()) {
-                    "Existing key hidden. Enter new key to update."
-                } else {
-                    "Can be empty for some environments"
-                }
-            )
-        },
-        shape = MaterialTheme.shapes.medium
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    Button(
-        onClick = rememberDebouncedClick { onIntent(SettingsIntent.ApplySdkConfig) },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = state.isSdkConfigValid() && !state.isApplyingSdkConfig
-    ) {
-        if (state.isApplyingSdkConfig) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
-                strokeWidth = 2.dp
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-        Text("Save & Apply")
     }
 }
 

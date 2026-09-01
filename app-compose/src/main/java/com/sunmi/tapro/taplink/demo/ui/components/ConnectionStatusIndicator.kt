@@ -146,12 +146,12 @@ private fun getStatusConfig(connectionState: ConnectionState): ConnectionStatusC
             icon = Icons.Default.CheckCircle,
             label = when (connectionState.mode) {
                 ConnectionMode.ON_DEVICE -> "On-Device"
-                ConnectionMode.PINPAD -> "PinPad"
+                ConnectionMode.CROSS_DEVICE -> "Cross-Device"
                 ConnectionMode.APP_TO_APP -> "App-to-App"
                 ConnectionMode.CABLE -> "Cable"
                 ConnectionMode.LAN -> "LAN"
                 ConnectionMode.CLOUD -> "Cloud"
-                ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display"
+                ConnectionMode.SUB_SCREEN -> "Sub-Screen"
             },
             contentColor = MaterialTheme.colorScheme.tertiary,
             backgroundColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)

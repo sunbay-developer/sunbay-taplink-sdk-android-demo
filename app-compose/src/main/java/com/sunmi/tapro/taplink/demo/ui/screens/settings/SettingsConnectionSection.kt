@@ -38,8 +38,8 @@ import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 
 internal fun getModeName(mode: ConnectionMode): String = when (mode) {
     ConnectionMode.ON_DEVICE -> "On-Device"
-    ConnectionMode.PINPAD -> "PinPad"
-    ConnectionMode.SECONDARY_DISPLAY -> "Secondary Display"
+    ConnectionMode.CROSS_DEVICE -> "Cross-Device"
+    ConnectionMode.SUB_SCREEN -> "Sub-Screen"
     ConnectionMode.CLOUD -> "Cloud"
     ConnectionMode.APP_TO_APP -> "App to App (legacy)"
     ConnectionMode.CABLE -> "Cable (legacy)"
@@ -48,35 +48,36 @@ internal fun getModeName(mode: ConnectionMode): String = when (mode) {
 
 internal fun getModeDescription(mode: ConnectionMode): String = when (mode) {
     ConnectionMode.ON_DEVICE -> "Merchant app + Tapro run on the same terminal (recommended)"
-    ConnectionMode.PINPAD -> "Tapro acts as a standalone PIN pad over LAN/Cable/AUTO"
-    ConnectionMode.SECONDARY_DISPLAY -> "VSP connection with secondary display"
+    ConnectionMode.CROSS_DEVICE -> "Tapro acts as a standalone payment terminal over LAN/Cable/AUTO"
+    ConnectionMode.SUB_SCREEN -> "VSP connection with sub-screen"
     ConnectionMode.CLOUD -> "Cloud API connection"
     ConnectionMode.APP_TO_APP -> "Direct connection via Tapro app (use On-Device instead)"
-    ConnectionMode.CABLE -> "Direct USB/serial connection (use PinPad instead)"
-    ConnectionMode.LAN -> "Network connection (use PinPad instead)"
+    ConnectionMode.CABLE -> "Direct USB/serial connection (use Cross-Device instead)"
+    ConnectionMode.LAN -> "Network connection (use Cross-Device instead)"
 }
 
 internal fun getModeIcon(mode: ConnectionMode): ImageVector = when (mode) {
     ConnectionMode.ON_DEVICE -> Icons.Default.PhoneAndroid
-    ConnectionMode.PINPAD -> Icons.Default.Cable
+    ConnectionMode.CROSS_DEVICE -> Icons.Default.Cable
     ConnectionMode.CLOUD -> Icons.Default.Cloud
-    ConnectionMode.SECONDARY_DISPLAY -> Icons.Default.Print
+    ConnectionMode.SUB_SCREEN -> Icons.Default.Print
     ConnectionMode.APP_TO_APP -> Icons.Default.PhoneAndroid
     ConnectionMode.CABLE -> Icons.Default.Cable
     ConnectionMode.LAN -> Icons.Default.Wifi
 }
 
-private fun getPinpadStrategyLabel(strategy: ConnectionPreferences.PinpadStrategy): String = when (strategy) {
-    ConnectionPreferences.PinpadStrategy.AUTO -> "AUTO"
-    ConnectionPreferences.PinpadStrategy.LAN -> "LAN"
-    ConnectionPreferences.PinpadStrategy.CABLE -> "CABLE"
+private fun getCrossDeviceStrategyLabel(strategy: ConnectionPreferences.CrossDeviceStrategy): String = when (strategy) {
+    ConnectionPreferences.CrossDeviceStrategy.AUTO -> "AUTO"
+    ConnectionPreferences.CrossDeviceStrategy.LAN -> "LAN"
+    ConnectionPreferences.CrossDeviceStrategy.CABLE -> "CABLE"
 }
 
-private fun getPinpadStrategyDescription(strategy: ConnectionPreferences.PinpadStrategy): String = when (strategy) {
-    ConnectionPreferences.PinpadStrategy.AUTO -> "Auto-select transport (LAN/CABLE) with runtime fallback"
-    ConnectionPreferences.PinpadStrategy.LAN -> "Connect over local area network"
-    ConnectionPreferences.PinpadStrategy.CABLE -> "Connect over USB/serial cable"
+private fun getCrossDeviceStrategyDescription(strategy: ConnectionPreferences.CrossDeviceStrategy): String = when (strategy) {
+    ConnectionPreferences.CrossDeviceStrategy.AUTO -> "Auto-select transport (LAN/CABLE) with runtime fallback"
+    ConnectionPreferences.CrossDeviceStrategy.LAN -> "Connect over local area network"
+    ConnectionPreferences.CrossDeviceStrategy.CABLE -> "Connect over USB/serial cable"
 }
+
 
 private fun getCableProtocolLabel(protocol: ConnectionPreferences.CableProtocol): String = when (protocol) {
     ConnectionPreferences.CableProtocol.AUTO -> "AUTO"
@@ -203,7 +204,7 @@ internal fun ConnectionSectionContent(
             appToAppMode = state.appToAppMode,
             onAppToAppModeChange = { onIntent(SettingsIntent.UpdateAppToAppMode(it)) }
         )
-        ConnectionMode.PINPAD -> PinpadConfiguration(
+        ConnectionMode.CROSS_DEVICE -> CrossDeviceConfiguration(
             state = state,
             onIntent = onIntent
         )
@@ -243,11 +244,16 @@ internal fun ConnectionSectionContent(
             onAddOption = { field, value -> onIntent(SettingsIntent.AddCloudOption(field, value)) },
             onPushToTerminalChange = { onIntent(SettingsIntent.UpdateCloudPushToTerminal(it)) }
         )
-        ConnectionMode.SECONDARY_DISPLAY -> SecondaryDisplayModeConfiguration(
+        ConnectionMode.SUB_SCREEN -> SubScreenModeConfiguration(
             state = state,
             onIntent = onIntent
         )
     }
+
+    Spacer(modifier = Modifier.height(20.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(modifier = Modifier.height(16.dp))
+    SdkSectionContent(state = state, onIntent = onIntent)
 }
 
 @Composable
@@ -291,13 +297,13 @@ internal fun SecondaryDisplaySectionContent(
 }
 
 @Composable
-fun PinpadConfiguration(
+fun CrossDeviceConfiguration(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit
 ) {
     Column {
         Text(
-            "PinPad Configuration",
+            "Cross-Device Configuration",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -309,23 +315,23 @@ fun PinpadConfiguration(
         )
         Spacer(modifier = Modifier.height(4.dp))
 
-        ConnectionPreferences.PinpadStrategy.values().forEach { strategy ->
+        ConnectionPreferences.CrossDeviceStrategy.values().forEach { strategy ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdatePinpadStrategy(strategy)) })
+                    .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateCrossDeviceStrategy(strategy)) })
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(
-                    selected = state.pinpadStrategy == strategy,
-                    onClick = { onIntent(SettingsIntent.UpdatePinpadStrategy(strategy)) }
+                    selected = state.crossDeviceStrategy == strategy,
+                    onClick = { onIntent(SettingsIntent.UpdateCrossDeviceStrategy(strategy)) }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(getPinpadStrategyLabel(strategy), style = MaterialTheme.typography.bodyLarge)
+                    Text(getCrossDeviceStrategyLabel(strategy), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        getPinpadStrategyDescription(strategy),
+                        getCrossDeviceStrategyDescription(strategy),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -333,11 +339,11 @@ fun PinpadConfiguration(
             }
         }
 
-        if (state.pinpadStrategy != ConnectionPreferences.PinpadStrategy.CABLE) {
+        if (state.crossDeviceStrategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = state.pinpadIpAddress,
-                onValueChange = { onIntent(SettingsIntent.UpdatePinpadIpAddress(it)) },
+                value = state.crossDeviceIpAddress,
+                onValueChange = { onIntent(SettingsIntent.UpdateCrossDeviceIpAddress(it)) },
                 label = { Text("IP Address") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -346,8 +352,8 @@ fun PinpadConfiguration(
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = state.pinpadPort,
-                onValueChange = { onIntent(SettingsIntent.UpdatePinpadPort(it)) },
+                value = state.crossDevicePort,
+                onValueChange = { onIntent(SettingsIntent.UpdateCrossDevicePort(it)) },
                 label = { Text("Port") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -355,7 +361,7 @@ fun PinpadConfiguration(
                 supportingText = { Text("Port number for LAN/AUTO strategy") }
             )
 
-            if (state.pinpadStrategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+            if (state.crossDeviceStrategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -370,8 +376,8 @@ fun PinpadConfiguration(
                         )
                     }
                     Switch(
-                        checked = state.pinpadAutoPreferLan,
-                        onCheckedChange = { onIntent(SettingsIntent.UpdatePinpadAutoPreferLan(it)) }
+                        checked = state.crossDeviceAutoPreferLan,
+                        onCheckedChange = { onIntent(SettingsIntent.UpdateCrossDeviceAutoPreferLan(it)) }
                     )
                 }
             }
@@ -387,13 +393,13 @@ fun PinpadConfiguration(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdatePinpadCableProtocol(protocol)) })
+                        .clickable(onClick = rememberDebouncedClick { onIntent(SettingsIntent.UpdateCrossDeviceCableProtocol(protocol)) })
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
-                        selected = state.pinpadCableProtocol == protocol,
-                        onClick = { onIntent(SettingsIntent.UpdatePinpadCableProtocol(protocol)) }
+                        selected = state.crossDeviceCableProtocol == protocol,
+                        onClick = { onIntent(SettingsIntent.UpdateCrossDeviceCableProtocol(protocol)) }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
@@ -415,7 +421,7 @@ fun PinpadConfiguration(
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
-                    "ℹ️ PinPad Mode",
+                    "ℹ️ Cross-Device Mode",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -431,13 +437,13 @@ fun PinpadConfiguration(
 }
 
 @Composable
-fun SecondaryDisplayModeConfiguration(
+fun SubScreenModeConfiguration(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit
 ) {
     Column {
         Text(
-            "Secondary Display Configuration",
+            "Sub-Screen Configuration",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -448,7 +454,7 @@ fun SecondaryDisplayModeConfiguration(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "✓ VSP + Secondary Display",
+                    "✓ VSP + Sub-Screen",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.Bold
@@ -456,7 +462,7 @@ fun SecondaryDisplayModeConfiguration(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "This mode connects via USB Virtual Serial Port (VSP) and automatically " +
-                        "opens the secondary display on the payment terminal. No additional " +
+                        "opens the sub-screen on the payment terminal. No additional " +
                         "configuration is required.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -535,6 +541,7 @@ fun SdkCredentialsCard(
                 Text("Save & Apply SDK Params")
             }
         }
+
     }
 }
 
@@ -709,24 +716,24 @@ fun LanConfiguration(
 }
 
 @Composable
-fun PinpadConfiguration(
-    strategy: ConnectionPreferences.PinpadStrategy,
+fun CrossDeviceConfiguration(
+    strategy: ConnectionPreferences.CrossDeviceStrategy,
     ipAddress: String,
     port: String,
     cableProtocol: ConnectionPreferences.CableProtocol,
     autoPreferLan: Boolean,
-    onStrategyChange: (ConnectionPreferences.PinpadStrategy) -> Unit,
+    onStrategyChange: (ConnectionPreferences.CrossDeviceStrategy) -> Unit,
     onIpAddressChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     onCableProtocolChange: (ConnectionPreferences.CableProtocol) -> Unit,
     onAutoPreferLanChange: (Boolean) -> Unit
 ) {
     Column {
-        Text("PinPad Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Cross-Device Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(8.dp))
         Text("Connection Strategy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(4.dp))
-        ConnectionPreferences.PinpadStrategy.values().forEach { candidate ->
+        ConnectionPreferences.CrossDeviceStrategy.values().forEach { candidate ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -737,15 +744,15 @@ fun PinpadConfiguration(
                 RadioButton(selected = strategy == candidate, onClick = { onStrategyChange(candidate) })
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
-                    Text(getPinpadStrategyLabel(candidate), style = MaterialTheme.typography.bodyLarge)
-                    Text(getPinpadStrategyDescription(candidate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(getCrossDeviceStrategyLabel(candidate), style = MaterialTheme.typography.bodyLarge)
+                    Text(getCrossDeviceStrategyDescription(candidate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
 
         // LAN host/port required for LAN and AUTO strategies (AUTO also tries LAN per priority)
-        if (strategy == ConnectionPreferences.PinpadStrategy.LAN || strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+        if (strategy == ConnectionPreferences.CrossDeviceStrategy.LAN || strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
             Text("LAN Transport", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             OutlinedTextField(
@@ -772,7 +779,7 @@ fun PinpadConfiguration(
         }
 
         // Cable protocol, relevant for CABLE strategy and as a fallback hint for AUTO
-        if (strategy == ConnectionPreferences.PinpadStrategy.CABLE || strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+        if (strategy == ConnectionPreferences.CrossDeviceStrategy.CABLE || strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
             Text("Cable Protocol", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             ConnectionPreferences.CableProtocol.values().forEach { protocol ->
@@ -795,7 +802,7 @@ fun PinpadConfiguration(
         }
 
         // AUTO priority: which transport is tried first
-        if (strategy == ConnectionPreferences.PinpadStrategy.AUTO) {
+        if (strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -815,10 +822,10 @@ fun PinpadConfiguration(
 
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text("ℹ️ PinPad Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("ℹ️ Cross-Device Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Tapro acts as a standalone PIN pad driven by this app over the selected " +
+                    "Tapro acts as a standalone payment terminal driven by this app over the selected " +
                         "transport. AUTO tries transports in priority order and rotates to the " +
                         "next candidate if the active one stalls (e.g. a payment request times " +
                         "out while the socket still looks connected).",
@@ -993,4 +1000,106 @@ fun AddCloudOptionDialog(
             }
         }
     )
+}
+
+@Composable
+private fun SdkSectionContent(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
+) {
+    var secretKeyVisible by remember { mutableStateOf(false) }
+
+    Text("SDK Initialization Parameters", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        "Used to initialize TaplinkSDK. Changes take effect after tapping \"Save & Apply\".",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Text("Environment", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val selectedContainer = MaterialTheme.colorScheme.primary
+        val selectedContent = MaterialTheme.colorScheme.onPrimary
+        val normalContainer = MaterialTheme.colorScheme.surfaceVariant
+        val normalContent = MaterialTheme.colorScheme.onSurfaceVariant
+        Button(
+            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.UAT)) },
+            modifier = Modifier.weight(1f).height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (state.sdkEnvironment == SdkEnvironment.UAT) selectedContainer else normalContainer,
+                contentColor = if (state.sdkEnvironment == SdkEnvironment.UAT) selectedContent else normalContent
+            )
+        ) { Text("UAT", fontWeight = FontWeight.Bold) }
+        Button(
+            onClick = rememberDebouncedClick { onIntent(SettingsIntent.SwitchSdkEnvironment(SdkEnvironment.PROD)) },
+            modifier = Modifier.weight(1f).height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (state.sdkEnvironment == SdkEnvironment.PROD) selectedContainer else normalContainer,
+                contentColor = if (state.sdkEnvironment == SdkEnvironment.PROD) selectedContent else normalContent
+            )
+        ) { Text("PROD", fontWeight = FontWeight.Bold) }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    OutlinedTextField(
+        value = state.sdkAppId,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkAppId(it)) },
+        label = { Text("App ID") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        supportingText = { Text("Required") }
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = state.sdkMerchantId,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkMerchantId(it)) },
+        label = { Text("Merchant ID") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        supportingText = { Text("Optional — validated only when provided") }
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = state.sdkSecretKey,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkSecretKey(it)) },
+        label = { Text("Secret Key") },
+        placeholder = { if (state.hasExistingSecretKey && state.sdkSecretKey.isEmpty()) Text("••••••••") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        visualTransformation = if (secretKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { secretKeyVisible = !secretKeyVisible }) {
+                Icon(
+                    imageVector = if (secretKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = if (secretKeyVisible) "Hide" else "Show"
+                )
+            }
+        },
+        supportingText = {
+            Text(
+                if (state.hasExistingSecretKey && state.sdkSecretKey.isEmpty()) {
+                    "Existing key hidden. Enter new key to update."
+                } else {
+                    "Can be empty for some environments"
+                }
+            )
+        }
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    Button(
+        onClick = rememberDebouncedClick { onIntent(SettingsIntent.ApplySdkConfig) },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = state.isSdkConfigValid() && !state.isApplyingSdkConfig
+    ) {
+        if (state.isApplyingSdkConfig) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text("Save & Apply")
+    }
 }

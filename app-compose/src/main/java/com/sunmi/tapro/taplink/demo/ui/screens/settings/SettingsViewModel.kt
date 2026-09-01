@@ -11,6 +11,8 @@ import com.sunmi.tapro.taplink.demo.model.MessageType
 import com.sunmi.tapro.taplink.demo.service.ConnectionManager
 import com.sunmi.tapro.taplink.demo.service.ConnectionState
 import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
+import com.sunmi.tapro.taplink.demo.service.TerminalInfo
+import com.sunmi.tapro.taplink.demo.service.TerminalInfoCallback
 import com.sunmi.tapro.taplink.demo.util.CloudPreferences
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.EnvironmentDefaults
@@ -59,6 +61,9 @@ class SettingsViewModel(
     
     companion object {
         private const val TAG = "SettingsViewModel"
+
+        @Volatile
+        private var cachedTerminalInfo: TerminalInfo? = null
         
         // Default values
         private const val DEFAULT_IP_ADDRESS = ""
@@ -66,7 +71,9 @@ class SettingsViewModel(
     }
     
     // MVI State
-    private val _state = MutableStateFlow(SettingsState())
+    private val _state = MutableStateFlow(
+        SettingsState(terminalInfo = cachedTerminalInfo)
+    )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
     
     init {
@@ -88,11 +95,11 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCableProtocol -> updateCableProtocol(intent.protocol)
             is SettingsIntent.UpdateIpAddress -> updateIpAddress(intent.ipAddress)
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
-            is SettingsIntent.UpdatePinpadStrategy -> updatePinpadStrategy(intent.strategy)
-            is SettingsIntent.UpdatePinpadIpAddress -> updatePinpadIpAddress(intent.ipAddress)
-            is SettingsIntent.UpdatePinpadPort -> updatePinpadPort(intent.port)
-            is SettingsIntent.UpdatePinpadCableProtocol -> updatePinpadCableProtocol(intent.protocol)
-            is SettingsIntent.UpdatePinpadAutoPreferLan -> updatePinpadAutoPreferLan(intent.preferLan)
+            is SettingsIntent.UpdateCrossDeviceStrategy -> updateCrossDeviceStrategy(intent.strategy)
+            is SettingsIntent.UpdateCrossDeviceIpAddress -> updateCrossDeviceIpAddress(intent.ipAddress)
+            is SettingsIntent.UpdateCrossDevicePort -> updateCrossDevicePort(intent.port)
+            is SettingsIntent.UpdateCrossDeviceCableProtocol -> updateCrossDeviceCableProtocol(intent.protocol)
+            is SettingsIntent.UpdateCrossDeviceAutoPreferLan -> updateCrossDeviceAutoPreferLan(intent.preferLan)
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
             is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
             is SettingsIntent.UpdateSignatureUseHostConfig ->
@@ -109,6 +116,7 @@ class SettingsViewModel(
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
             is SettingsIntent.SwitchSdkEnvironment -> switchSdkEnvironment(intent.environment)
             is SettingsIntent.ApplySdkConfig -> applySdkConfig()
+            is SettingsIntent.RefreshProfile -> refreshProfile()
             is SettingsIntent.UpdateCloudApiKey -> updateCloudApiKey(intent.apiKey)
             is SettingsIntent.UpdateCloudBaseUrl -> updateCloudBaseUrl(intent.baseUrl)
             is SettingsIntent.UpdateCloudTerminalSn -> updateCloudTerminalSn(intent.terminalSn)
@@ -157,12 +165,12 @@ class SettingsViewModel(
                 val savedMode = ConnectionPreferences.getConnectionMode(context)
                 val mode = when (savedMode) {
                     ConnectionPreferences.ConnectionMode.ON_DEVICE -> ConnectionMode.ON_DEVICE
-                    ConnectionPreferences.ConnectionMode.PINPAD -> ConnectionMode.PINPAD
+                    ConnectionPreferences.ConnectionMode.CROSS_DEVICE -> ConnectionMode.CROSS_DEVICE
                     ConnectionPreferences.ConnectionMode.APP_TO_APP -> ConnectionMode.APP_TO_APP
                     ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
                     ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
                     ConnectionPreferences.ConnectionMode.CLOUD -> ConnectionMode.CLOUD
-                    ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY -> ConnectionMode.SECONDARY_DISPLAY
+                    ConnectionPreferences.ConnectionMode.SUB_SCREEN -> ConnectionMode.SUB_SCREEN
                 }
                 
                 // Load Cable protocol
@@ -172,11 +180,11 @@ class SettingsViewModel(
                 // Load LAN configuration
                 val (savedIp, savedPort) = ConnectionPreferences.getLanConfig(context)
 
-                // Load PinPad configuration
-                val savedPinpadStrategy = ConnectionPreferences.getPinpadStrategy(context)
-                val (savedPinpadIp, savedPinpadPort) = ConnectionPreferences.getPinpadLanConfig(context)
-                val savedPinpadCableProtocol = ConnectionPreferences.getPinpadCableProtocol(context)
-                val savedPinpadAutoPreferLan = ConnectionPreferences.isPinpadAutoPreferLan(context)
+                // Load Cross-Device configuration
+                val savedCrossDeviceStrategy = ConnectionPreferences.getCrossDeviceStrategy(context)
+                val (savedCrossDeviceIp, savedCrossDevicePort) = ConnectionPreferences.getCrossDeviceLanConfig(context)
+                val savedCrossDeviceCableProtocol = ConnectionPreferences.getCrossDeviceCableProtocol(context)
+                val savedCrossDeviceAutoPreferLan = ConnectionPreferences.isCrossDeviceAutoPreferLan(context)
                 
                 // Load print receipt configuration
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
@@ -235,11 +243,11 @@ class SettingsViewModel(
                         cableProtocol = savedCableProtocol,
                         ipAddress = savedIp ?: DEFAULT_IP_ADDRESS,
                         port = savedPort.toString(),
-                        pinpadStrategy = savedPinpadStrategy,
-                        pinpadIpAddress = savedPinpadIp ?: DEFAULT_IP_ADDRESS,
-                        pinpadPort = savedPinpadPort.toString(),
-                        pinpadCableProtocol = savedPinpadCableProtocol,
-                        pinpadAutoPreferLan = savedPinpadAutoPreferLan,
+                        crossDeviceStrategy = savedCrossDeviceStrategy,
+                        crossDeviceIpAddress = savedCrossDeviceIp ?: DEFAULT_IP_ADDRESS,
+                        crossDevicePort = savedCrossDevicePort.toString(),
+                        crossDeviceCableProtocol = savedCrossDeviceCableProtocol,
+                        crossDeviceAutoPreferLan = savedCrossDeviceAutoPreferLan,
                         printReceipt = savedPrintReceipt,
                         signatureEnabled = savedSignatureEnabled,
                         signatureUseHostConfig = savedSignatureUseHostConfig,
@@ -352,29 +360,29 @@ class SettingsViewModel(
         _state.update { it.copy(port = port) }
     }
 
-    /** Update PinPad connection strategy (AUTO / LAN / CABLE). */
-    private fun updatePinpadStrategy(strategy: ConnectionPreferences.PinpadStrategy) {
-        _state.update { it.copy(pinpadStrategy = strategy) }
+    /** Update Cross-Device connection strategy (AUTO / LAN / CABLE). */
+    private fun updateCrossDeviceStrategy(strategy: ConnectionPreferences.CrossDeviceStrategy) {
+        _state.update { it.copy(crossDeviceStrategy = strategy) }
     }
 
-    /** Update LAN host used by PINPAD's LAN and AUTO strategies. */
-    private fun updatePinpadIpAddress(ipAddress: String) {
-        _state.update { it.copy(pinpadIpAddress = ipAddress) }
+    /** Update LAN host used by CROSS_DEVICE's LAN and AUTO strategies. */
+    private fun updateCrossDeviceIpAddress(ipAddress: String) {
+        _state.update { it.copy(crossDeviceIpAddress = ipAddress) }
     }
 
-    /** Update LAN port used by PINPAD's LAN and AUTO strategies. */
-    private fun updatePinpadPort(port: String) {
-        _state.update { it.copy(pinpadPort = port) }
+    /** Update LAN port used by CROSS_DEVICE's LAN and AUTO strategies. */
+    private fun updateCrossDevicePort(port: String) {
+        _state.update { it.copy(crossDevicePort = port) }
     }
 
-    /** Update cable protocol used by PINPAD's CABLE strategy. */
-    private fun updatePinpadCableProtocol(protocol: ConnectionPreferences.CableProtocol) {
-        _state.update { it.copy(pinpadCableProtocol = protocol) }
+    /** Update cable protocol used by CROSS_DEVICE's CABLE strategy. */
+    private fun updateCrossDeviceCableProtocol(protocol: ConnectionPreferences.CableProtocol) {
+        _state.update { it.copy(crossDeviceCableProtocol = protocol) }
     }
 
     /** Update AUTO strategy transport priority (prefer LAN vs prefer CABLE). */
-    private fun updatePinpadAutoPreferLan(preferLan: Boolean) {
-        _state.update { it.copy(pinpadAutoPreferLan = preferLan) }
+    private fun updateCrossDeviceAutoPreferLan(preferLan: Boolean) {
+        _state.update { it.copy(crossDeviceAutoPreferLan = preferLan) }
     }
     
     /**
@@ -1298,6 +1306,98 @@ class SettingsViewModel(
             }
         }
     }
+
+    private fun refreshProfile() {
+        viewModelScope.launch {
+            _state.update { it.copy(isProfileLoading = true, message = null) }
+
+            val currentState = _state.value
+            if (!validateConfiguration(currentState)) {
+                _state.update { it.copy(isProfileLoading = false) }
+                return@launch
+            }
+
+            if (currentState.selectedMode == ConnectionMode.CLOUD) {
+                showProfileQueryError(
+                    code = "UNSUPPORTED",
+                    detail = "Profile queries require a direct connection to a TaPro terminal."
+                )
+                return@launch
+            }
+
+            if (!connectionManager.isConnected()) {
+                saveSettingsInternal()
+                connectionManager.connect()
+
+                var seenConnecting = false
+                val connectionResult = withTimeoutOrNull(20_000L) {
+                    connectionManager.connectionState.first { connectionState ->
+                        when (connectionState) {
+                            is ConnectionState.Connecting -> {
+                                seenConnecting = true
+                                false
+                            }
+                            is ConnectionState.Connected,
+                            is ConnectionState.Error -> seenConnecting
+                            ConnectionState.Disconnected -> false
+                        }
+                    }
+                }
+
+                when (connectionResult) {
+                    is ConnectionState.Connected -> Unit
+                    is ConnectionState.Error -> {
+                        showProfileQueryError(
+                            code = connectionResult.code,
+                            detail = connectionResult.message
+                        )
+                        return@launch
+                    }
+                    else -> {
+                        showProfileQueryError(
+                            code = "CONNECTION_TIMEOUT",
+                            detail = "Connection attempt timed out. Check the connection configuration and try again."
+                        )
+                        return@launch
+                    }
+                }
+            }
+
+            queryTerminalInfo()
+        }
+    }
+
+    private fun queryTerminalInfo() {
+        DependencyProvider.paymentService.getTerminalInfo(object : TerminalInfoCallback {
+            override fun onSuccess(info: TerminalInfo) {
+                cachedTerminalInfo = info
+                _state.update {
+                    it.copy(
+                        terminalInfo = info,
+                        isProfileLoading = false
+                    )
+                }
+            }
+
+            override fun onFailure(code: String, message: String) {
+                showProfileQueryError(code, message)
+            }
+        })
+    }
+
+    private fun showProfileQueryError(code: String, detail: String) {
+        _state.update {
+            it.copy(
+                isProfileLoading = false,
+                message = Message(
+                    type = MessageType.ERROR,
+                    title = "Profile Query Failed",
+                    content = "[$code] $detail",
+                    actions = listOf(MessageAction.DISMISS)
+                )
+            )
+        }
+    }
     
     // Helper Methods
     
@@ -1316,12 +1416,12 @@ class SettingsViewModel(
                 // No additional configuration needed for On-Device mode
                 return true
             }
-            ConnectionMode.PINPAD -> {
+            ConnectionMode.CROSS_DEVICE -> {
                 // CABLE strategy needs no host/port; LAN and AUTO require a valid host + port.
-                if (state.pinpadStrategy == ConnectionPreferences.PinpadStrategy.CABLE) {
+                if (state.crossDeviceStrategy == ConnectionPreferences.CrossDeviceStrategy.CABLE) {
                     return true
                 }
-                if (!state.isValidPinpadIpAddress()) {
+                if (!state.isValidCrossDeviceIpAddress()) {
                     _state.update {
                         it.copy(
                             message = Message(
@@ -1334,20 +1434,20 @@ class SettingsViewModel(
                     }
                     return false
                 }
-                if (state.pinpadPort.isBlank()) {
+                if (state.crossDevicePort.isBlank()) {
                     _state.update {
                         it.copy(
                             message = Message(
                                 type = MessageType.ERROR,
                                 title = "Invalid Port",
-                                content = "Port number is required for PinPad LAN/AUTO strategy",
+                                content = "Port number is required for Cross-Device LAN/AUTO strategy",
                                 actions = listOf(MessageAction.DISMISS)
                             )
                         )
                     }
                     return false
                 }
-                val portNum = state.pinpadPort.toIntOrNull()
+                val portNum = state.crossDevicePort.toIntOrNull()
                 if (portNum == null || portNum !in 1..65535) {
                     _state.update {
                         it.copy(
@@ -1444,8 +1544,8 @@ class SettingsViewModel(
                     return false
                 }
             }
-            ConnectionMode.SECONDARY_DISPLAY -> {
-                // No additional configuration needed for Secondary Display mode
+            ConnectionMode.SUB_SCREEN -> {
+                // No additional configuration needed for Sub-Screen mode
                 return true
             }
         }
@@ -1473,12 +1573,12 @@ class SettingsViewModel(
             // Save connection mode
             val prefMode = when (currentState.selectedMode) {
                 ConnectionMode.ON_DEVICE -> ConnectionPreferences.ConnectionMode.ON_DEVICE
-                ConnectionMode.PINPAD -> ConnectionPreferences.ConnectionMode.PINPAD
+                ConnectionMode.CROSS_DEVICE -> ConnectionPreferences.ConnectionMode.CROSS_DEVICE
                 ConnectionMode.APP_TO_APP -> ConnectionPreferences.ConnectionMode.APP_TO_APP
                 ConnectionMode.CABLE -> ConnectionPreferences.ConnectionMode.CABLE
                 ConnectionMode.LAN -> ConnectionPreferences.ConnectionMode.LAN
                 ConnectionMode.CLOUD -> ConnectionPreferences.ConnectionMode.CLOUD
-                ConnectionMode.SECONDARY_DISPLAY -> ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY
+                ConnectionMode.SUB_SCREEN -> ConnectionPreferences.ConnectionMode.SUB_SCREEN
             }
             
             ConnectionPreferences.saveConnectionMode(context, prefMode)
@@ -1488,13 +1588,13 @@ class SettingsViewModel(
                 ConnectionMode.ON_DEVICE -> {
                     ConnectionPreferences.saveAppToAppMode(context, currentState.appToAppMode)
                 }
-                ConnectionMode.PINPAD -> {
-                    ConnectionPreferences.savePinpadStrategy(context, currentState.pinpadStrategy)
-                    ConnectionPreferences.savePinpadCableProtocol(context, currentState.pinpadCableProtocol)
-                    ConnectionPreferences.savePinpadAutoPreferLan(context, currentState.pinpadAutoPreferLan)
-                    if (currentState.pinpadStrategy != ConnectionPreferences.PinpadStrategy.CABLE) {
-                        val port = currentState.pinpadPort.toIntOrNull() ?: return
-                        ConnectionPreferences.savePinpadLanConfig(context, currentState.pinpadIpAddress, port)
+                ConnectionMode.CROSS_DEVICE -> {
+                    ConnectionPreferences.saveCrossDeviceStrategy(context, currentState.crossDeviceStrategy)
+                    ConnectionPreferences.saveCrossDeviceCableProtocol(context, currentState.crossDeviceCableProtocol)
+                    ConnectionPreferences.saveCrossDeviceAutoPreferLan(context, currentState.crossDeviceAutoPreferLan)
+                    if (currentState.crossDeviceStrategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
+                        val port = currentState.crossDevicePort.toIntOrNull() ?: return
+                        ConnectionPreferences.saveCrossDeviceLanConfig(context, currentState.crossDeviceIpAddress, port)
                     }
                 }
                 ConnectionMode.APP_TO_APP -> {

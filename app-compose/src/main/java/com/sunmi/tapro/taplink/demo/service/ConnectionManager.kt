@@ -15,7 +15,7 @@ import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.ConnectionConfig
 import com.sunmi.tapro.taplink.sdk.enums.AppToAppMode
 import com.sunmi.tapro.taplink.sdk.enums.ConnectionStatus
-import com.sunmi.tapro.taplink.sdk.enums.PinpadStrategy
+import com.sunmi.tapro.taplink.sdk.enums.CrossDeviceStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -126,14 +126,14 @@ class ConnectionManager(
                     }
                 }
 
-                // PINPAD mode: LAN and AUTO strategies need a configured host, same rationale
+                // CROSS_DEVICE mode: LAN and AUTO strategies need a configured host, same rationale
                 // as classic LAN above (AUTO also tries the LAN transport per autoPriority).
-                if (mode == ConnectionMode.PINPAD) {
-                    val strategy = ConnectionPreferences.getPinpadStrategy(context)
-                    if (strategy != ConnectionPreferences.PinpadStrategy.CABLE) {
-                        val (pinpadIp, _) = ConnectionPreferences.getPinpadLanConfig(context)
-                        if (pinpadIp.isNullOrBlank()) {
-                            Log.d(TAG, "PINPAD mode ($strategy) selected but no LAN host configured; skipping auto-connect")
+                if (mode == ConnectionMode.CROSS_DEVICE) {
+                    val strategy = ConnectionPreferences.getCrossDeviceStrategy(context)
+                    if (strategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
+                        val (crossDeviceIp, _) = ConnectionPreferences.getCrossDeviceLanConfig(context)
+                        if (crossDeviceIp.isNullOrBlank()) {
+                            Log.d(TAG, "CROSS_DEVICE mode ($strategy) selected but no LAN host configured; skipping auto-connect")
                             _connectionState.value = ConnectionState.Disconnected
                             currentMode = null
                             return@launch
@@ -579,12 +579,12 @@ class ConnectionManager(
         val prefMode = ConnectionPreferences.getConnectionMode(context)
         return when (prefMode) {
             ConnectionPreferences.ConnectionMode.ON_DEVICE -> ConnectionMode.ON_DEVICE
-            ConnectionPreferences.ConnectionMode.PINPAD -> ConnectionMode.PINPAD
+            ConnectionPreferences.ConnectionMode.CROSS_DEVICE -> ConnectionMode.CROSS_DEVICE
             ConnectionPreferences.ConnectionMode.APP_TO_APP -> ConnectionMode.APP_TO_APP
             ConnectionPreferences.ConnectionMode.CABLE -> ConnectionMode.CABLE
             ConnectionPreferences.ConnectionMode.LAN -> ConnectionMode.LAN
             ConnectionPreferences.ConnectionMode.CLOUD -> ConnectionMode.CLOUD
-            ConnectionPreferences.ConnectionMode.SECONDARY_DISPLAY -> ConnectionMode.SECONDARY_DISPLAY
+            ConnectionPreferences.ConnectionMode.SUB_SCREEN -> ConnectionMode.SUB_SCREEN
         }
     }
     
@@ -601,15 +601,15 @@ class ConnectionManager(
                 Log.d(TAG, "Creating On-Device connection config, mode=$appToAppMode")
                 ConnectionConfig.createOnDeviceMode(appToAppMode)
             }
-            ConnectionMode.PINPAD -> {
-                val strategy = ConnectionPreferences.getPinpadStrategy(context)
+            ConnectionMode.CROSS_DEVICE -> {
+                val strategy = ConnectionPreferences.getCrossDeviceStrategy(context)
                 val sdkStrategy = when (strategy) {
-                    ConnectionPreferences.PinpadStrategy.AUTO -> PinpadStrategy.AUTO
-                    ConnectionPreferences.PinpadStrategy.LAN -> PinpadStrategy.LAN
-                    ConnectionPreferences.PinpadStrategy.CABLE -> PinpadStrategy.CABLE
+                    ConnectionPreferences.CrossDeviceStrategy.AUTO -> CrossDeviceStrategy.AUTO
+                    ConnectionPreferences.CrossDeviceStrategy.LAN -> CrossDeviceStrategy.LAN
+                    ConnectionPreferences.CrossDeviceStrategy.CABLE -> CrossDeviceStrategy.CABLE
                 }
-                val (host, port) = ConnectionPreferences.getPinpadLanConfig(context)
-                val cableProtocol = when (ConnectionPreferences.getPinpadCableProtocol(context)) {
+                val (host, port) = ConnectionPreferences.getCrossDeviceLanConfig(context)
+                val cableProtocol = when (ConnectionPreferences.getCrossDeviceCableProtocol(context)) {
                     ConnectionPreferences.CableProtocol.AUTO ->
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.AUTO
                     ConnectionPreferences.CableProtocol.USB_AOA ->
@@ -619,13 +619,13 @@ class ConnectionManager(
                     ConnectionPreferences.CableProtocol.RS232 ->
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232
                 }
-                val autoPriority = if (ConnectionPreferences.isPinpadAutoPreferLan(context)) {
-                    listOf(PinpadStrategy.LAN, PinpadStrategy.CABLE)
+                val autoPriority = if (ConnectionPreferences.isCrossDeviceAutoPreferLan(context)) {
+                    listOf(CrossDeviceStrategy.LAN, CrossDeviceStrategy.CABLE)
                 } else {
-                    listOf(PinpadStrategy.CABLE, PinpadStrategy.LAN)
+                    listOf(CrossDeviceStrategy.CABLE, CrossDeviceStrategy.LAN)
                 }
-                Log.d(TAG, "Creating PinPad connection config, strategy=$sdkStrategy, host=$host, port=$port")
-                ConnectionConfig.createPinpadMode(
+                Log.d(TAG, "Creating Cross-Device connection config, strategy=$sdkStrategy, host=$host, port=$port")
+                ConnectionConfig.createCrossDeviceMode(
                     strategy = sdkStrategy,
                     host = host,
                     port = port,
@@ -670,9 +670,9 @@ class ConnectionManager(
                 Log.d(TAG, "Creating Cloud connection config (placeholder)")
                 ConnectionConfig.createAppMode()
             }
-            ConnectionMode.SECONDARY_DISPLAY -> {
-                Log.d(TAG, "Creating Secondary Display connection config")
-                ConnectionConfig.createSecondaryDisplayMode()
+            ConnectionMode.SUB_SCREEN -> {
+                Log.d(TAG, "Creating Sub-Screen connection config")
+                ConnectionConfig.createSubScreenMode()
             }
         }
     }

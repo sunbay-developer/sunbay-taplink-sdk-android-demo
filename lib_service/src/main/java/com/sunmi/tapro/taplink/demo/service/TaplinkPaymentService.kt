@@ -40,6 +40,7 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sunmi.tapro.taplink.sdk.callback.ConnectionListener as SdkConnectionListener
 import com.sunmi.tapro.taplink.sdk.callback.DiscoveryListener as SdkDiscoveryListener
 import com.sunmi.tapro.taplink.sdk.callback.PaymentCallback as SdkPaymentCallback
+import com.sunmi.tapro.taplink.sdk.callback.TerminalInfoCallback as SdkTerminalInfoCallback
 import com.sunmi.tapro.taplink.sdk.error.ConnectionError as SdkConnectionError
 import com.sunmi.tapro.taplink.sdk.error.PaymentError as SdkPaymentError
 import com.sunmi.tapro.taplink.sdk.model.common.PaymentEvent as SdkPaymentEvent
@@ -114,6 +115,56 @@ class TaplinkPaymentService : PaymentService {
 
     override fun setSecondaryDisplayEnabled(enabled: Boolean) {
         secondaryDisplayEnabled = enabled
+    }
+
+    override fun getTerminalInfo(callback: TerminalInfoCallback) {
+        logSdkRequest(
+            "GET_TERMINAL_INFO",
+            mapOf("action" to "GET_TERMINAL_INFO")
+        )
+        getClient().getTerminalInfo(object : SdkTerminalInfoCallback {
+            override fun onSuccess(info: com.sunmi.tapro.taplink.sdk.model.response.TerminalInfo) {
+                logSdkResult(info)
+                callback.onSuccess(
+                    TerminalInfo(
+                        merchantId = info.merchantId,
+                        dbaName = info.dbaName,
+                        mcc = info.mcc,
+                        logo = info.logo,
+                        country = info.country,
+                        stateName = info.stateName,
+                        cityName = info.cityName,
+                        street = info.street,
+                        detailAddress = info.detailAddress,
+                        zipCode = info.zipCode,
+                        midList = info.midList.map { mid ->
+                            MerchantMid(
+                                channelCode = mid.channelCode,
+                                channelName = mid.channelName,
+                                mid = mid.mid
+                            )
+                        },
+                        terminal = Terminal(
+                            sn = info.terminal.sn,
+                            vendor = info.terminal.vendor,
+                            model = info.terminal.model,
+                            tidList = info.terminal.tidList.map { tid ->
+                                TerminalTid(
+                                    channelCode = tid.channelCode,
+                                    channelName = tid.channelName,
+                                    tid = tid.tid
+                                )
+                            }
+                        )
+                    )
+                )
+            }
+
+            override fun onFailure(error: SdkPaymentError) {
+                logSdkFailure("GET_TERMINAL_INFO", error)
+                callback.onFailure(error.code, error.message)
+            }
+        })
     }
 
     private fun getClient(): com.sunmi.tapro.taplink.sdk.TaplinkClient {

@@ -97,6 +97,18 @@ interface PaymentService {
     fun getTaproVersion(): String?
 
     /**
+     * Query the merchant and device information of the currently connected TaPro terminal.
+     *
+     * This is a read-only control action and does not create a payment transaction.
+     */
+    fun getTerminalInfo(callback: TerminalInfoCallback) {
+        callback.onFailure(
+            code = "UNSUPPORTED",
+            message = "Profile queries are not supported in this connection mode"
+        )
+    }
+
+    /**
      * Ask TaPro to open its USB screen player application.
      *
      * 仅在 tapro 与本 App 同机运行时有意义。集成商 App 自己的副屏投放（Presentation）
@@ -362,6 +374,45 @@ interface ConnectionListener {
     fun onDisconnected(reason: String)
     fun onError(code: String, message: String)
 }
+
+interface TerminalInfoCallback {
+    fun onSuccess(info: TerminalInfo)
+    fun onFailure(code: String, message: String)
+}
+
+data class TerminalInfo(
+    val merchantId: String,
+    val dbaName: String,
+    val mcc: String?,
+    val logo: String?,
+    val country: String?,
+    val stateName: String?,
+    val cityName: String?,
+    val street: String?,
+    val detailAddress: String?,
+    val zipCode: String?,
+    val midList: List<MerchantMid>,
+    val terminal: Terminal
+)
+
+data class MerchantMid(
+    val channelCode: String,
+    val channelName: String,
+    val mid: String
+)
+
+data class Terminal(
+    val sn: String,
+    val vendor: String?,
+    val model: String?,
+    val tidList: List<TerminalTid>
+)
+
+data class TerminalTid(
+    val channelCode: String,
+    val channelName: String,
+    val tid: String
+)
 
 /**
  * Payment callback

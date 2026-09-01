@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
@@ -47,6 +48,7 @@ import com.sunmi.tapro.taplink.demo.ui.utils.rememberScreenConfig
 // Settings page sections
 private enum class SettingsSection {
     CONNECTION,
+    PROFILE,
     TRANSACTION_AMOUNT,
     PARAMETERS,
     DIAGNOSTICS
@@ -130,6 +132,10 @@ fun SettingsScreen(
                                 state = state,
                                 onIntent = onIntent
                             )
+                            SettingsSection.PROFILE -> ProfileSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
                             SettingsSection.TRANSACTION_AMOUNT -> TransactionAmountSectionContent(
                                 state = state,
                                 onIntent = onIntent
@@ -165,6 +171,16 @@ fun SettingsScreen(
                             icon = Icons.Default.Wifi
                         ) {
                             ConnectionSectionContent(
+                                state = state,
+                                onIntent = onIntent
+                            )
+                        }
+
+                        PortraitSectionCard(
+                            title = "Profile",
+                            icon = Icons.Default.Person
+                        ) {
+                            ProfileSectionContent(
                                 state = state,
                                 onIntent = onIntent
                             )
@@ -273,6 +289,7 @@ fun SettingsScreen(
 
 private fun getSectionName(section: SettingsSection): String = when (section) {
     SettingsSection.CONNECTION -> "Connection Mode"
+    SettingsSection.PROFILE -> "Profile"
     SettingsSection.TRANSACTION_AMOUNT -> "Transaction Amount"
     SettingsSection.PARAMETERS -> "Parameter Configuration"
     SettingsSection.DIAGNOSTICS -> "Diagnostics"
@@ -280,6 +297,7 @@ private fun getSectionName(section: SettingsSection): String = when (section) {
 
 private fun getSectionIcon(section: SettingsSection): ImageVector = when (section) {
     SettingsSection.CONNECTION -> Icons.Default.Wifi
+    SettingsSection.PROFILE -> Icons.Default.Person
     SettingsSection.TRANSACTION_AMOUNT -> Icons.Default.Add
     SettingsSection.PARAMETERS -> Icons.Default.Tune
     SettingsSection.DIAGNOSTICS -> Icons.Default.Info

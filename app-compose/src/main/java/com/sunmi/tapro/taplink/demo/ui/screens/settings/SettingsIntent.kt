@@ -18,12 +18,12 @@ sealed class SettingsIntent {
     data class UpdateIpAddress(val ipAddress: String) : SettingsIntent()
     data class UpdatePort(val port: String) : SettingsIntent()
 
-    // PinPad Configuration (ConnectionMode.PINPAD)
-    data class UpdatePinpadStrategy(val strategy: ConnectionPreferences.PinpadStrategy) : SettingsIntent()
-    data class UpdatePinpadIpAddress(val ipAddress: String) : SettingsIntent()
-    data class UpdatePinpadPort(val port: String) : SettingsIntent()
-    data class UpdatePinpadCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
-    data class UpdatePinpadAutoPreferLan(val preferLan: Boolean) : SettingsIntent()
+    // Cross-Device Configuration (ConnectionMode.CROSS_DEVICE)
+    data class UpdateCrossDeviceStrategy(val strategy: ConnectionPreferences.CrossDeviceStrategy) : SettingsIntent()
+    data class UpdateCrossDeviceIpAddress(val ipAddress: String) : SettingsIntent()
+    data class UpdateCrossDevicePort(val port: String) : SettingsIntent()
+    data class UpdateCrossDeviceCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
+    data class UpdateCrossDeviceAutoPreferLan(val preferLan: Boolean) : SettingsIntent()
 
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
     data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()
@@ -39,6 +39,9 @@ sealed class SettingsIntent {
     data class UpdateSdkSecretKey(val secretKey: String) : SettingsIntent()
     data class SwitchSdkEnvironment(val environment: SdkEnvironment) : SettingsIntent()
     object ApplySdkConfig : SettingsIntent()
+
+    // Connected TaPro profile
+    object RefreshProfile : SettingsIntent()
 
     // Cloud Configuration
     data class UpdateCloudApiKey(val apiKey: String) : SettingsIntent()

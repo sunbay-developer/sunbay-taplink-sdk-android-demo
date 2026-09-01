@@ -15,13 +15,13 @@ enum class ConnectionMode {
     ON_DEVICE,
 
     /**
-     * PinPad integration mode (recommended over [LAN] / [CABLE]).
+     * Cross-Device integration mode (recommended over [LAN] / [CABLE]).
      *
-     * Tapro acts as a standalone payment PIN Pad reached over a connection channel.
+     * Tapro acts as a standalone payment terminal reached over a connection channel.
      * The concrete transport (AUTO / LAN / CABLE) is a configuration detail selected
-     * via `PinpadStrategy`, mirroring how [CABLE] configures its protocol.
+     * via `CrossDeviceStrategy`, mirroring how [CABLE] configures its protocol.
      */
-    PINPAD,
+    CROSS_DEVICE,
 
     /**
      * App-to-App connection mode
@@ -34,14 +34,14 @@ enum class ConnectionMode {
      * Cable connection mode
      * Direct USB/serial cable connection to payment terminal
      */
-    @Deprecated("Use PINPAD with PinpadStrategy.CABLE instead.")
+    @Deprecated("Use CROSS_DEVICE with CrossDeviceStrategy.CABLE instead.")
     CABLE,
 
     /**
      * LAN connection mode
      * Network connection to payment terminal via local area network
      */
-    @Deprecated("Use PINPAD with PinpadStrategy.LAN instead.")
+    @Deprecated("Use CROSS_DEVICE with CrossDeviceStrategy.LAN instead.")
     LAN,
 
     /**
@@ -51,9 +51,9 @@ enum class ConnectionMode {
     CLOUD,
 
     /**
-     * Secondary Display connection mode
+     * Sub-Screen connection mode
      * Connects via USB VSP (Virtual Serial Port) and automatically opens the
-     * secondary display on the payment terminal for customer-facing content.
+     * sub-screen on the payment terminal for customer-facing content.
      */
-    SECONDARY_DISPLAY
+    SUB_SCREEN
 }

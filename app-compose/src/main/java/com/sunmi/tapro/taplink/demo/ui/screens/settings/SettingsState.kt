@@ -6,6 +6,7 @@ import com.sunmi.tapro.taplink.demo.util.CloudPreferences
 import com.sunmi.tapro.taplink.demo.util.ConnectionPreferences
 import com.sunmi.tapro.taplink.demo.util.EnvironmentDefaults
 import com.sunmi.tapro.taplink.demo.util.TipConfigPreferences
+import com.sunmi.tapro.taplink.demo.service.TerminalInfo
 
 /**
  * Print receipt option enumeration
@@ -51,13 +52,13 @@ data class SettingsState(
     val ipAddress: String = "",
     val port: String = "",
 
-    // PinPad Configuration (ConnectionMode.PINPAD)
-    val pinpadStrategy: ConnectionPreferences.PinpadStrategy = ConnectionPreferences.PinpadStrategy.AUTO,
-    val pinpadIpAddress: String = "",
-    val pinpadPort: String = "",
-    val pinpadCableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,
+    // Cross-Device Configuration (ConnectionMode.CROSS_DEVICE)
+    val crossDeviceStrategy: ConnectionPreferences.CrossDeviceStrategy = ConnectionPreferences.CrossDeviceStrategy.AUTO,
+    val crossDeviceIpAddress: String = "",
+    val crossDevicePort: String = "",
+    val crossDeviceCableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,
     /** AUTO strategy transport priority: true tries LAN before CABLE (SDK default). */
-    val pinpadAutoPreferLan: Boolean = true,
+    val crossDeviceAutoPreferLan: Boolean = true,
     
     // Print Receipt Configuration
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
@@ -122,6 +123,10 @@ data class SettingsState(
     val sdkSecretKeyChanged: Boolean = false, // Track if user has entered a new secret key
     val hasExistingSecretKey: Boolean = false, // Track if there's a saved secret key
     val isApplyingSdkConfig: Boolean = false,
+
+    // Profile data loaded from the currently connected TaPro terminal.
+    val terminalInfo: TerminalInfo? = null,
+    val isProfileLoading: Boolean = false,
     
     // UI State
     val isLoading: Boolean = false,
@@ -146,17 +151,17 @@ data class SettingsState(
     fun isConfigurationValid(): Boolean {
         return when (selectedMode) {
             ConnectionMode.ON_DEVICE -> true // No additional configuration needed
-            ConnectionMode.PINPAD -> when (pinpadStrategy) {
-                ConnectionPreferences.PinpadStrategy.CABLE -> true
-                ConnectionPreferences.PinpadStrategy.LAN,
-                ConnectionPreferences.PinpadStrategy.AUTO ->
-                    pinpadIpAddress.isNotBlank() && pinpadPort.isNotBlank() && isValidPinpadPort()
+            ConnectionMode.CROSS_DEVICE -> when (crossDeviceStrategy) {
+                ConnectionPreferences.CrossDeviceStrategy.CABLE -> true
+                ConnectionPreferences.CrossDeviceStrategy.LAN,
+                ConnectionPreferences.CrossDeviceStrategy.AUTO ->
+                    crossDeviceIpAddress.isNotBlank() && crossDevicePort.isNotBlank() && isValidCrossDevicePort()
             }
             ConnectionMode.APP_TO_APP -> true // No additional configuration needed
             ConnectionMode.CABLE -> true // Cable mode only requires protocol selection
             ConnectionMode.LAN -> ipAddress.isNotBlank() && port.isNotBlank() && isValidPort()
             ConnectionMode.CLOUD -> cloudApiKey.isNotBlank() && cloudBaseUrl.isNotBlank() && cloudAppId.isNotBlank()
-            ConnectionMode.SECONDARY_DISPLAY -> true // No additional configuration needed
+            ConnectionMode.SUB_SCREEN -> true // No additional configuration needed
         }
     }
     
@@ -172,9 +177,9 @@ data class SettingsState(
         }
     }
 
-    private fun isValidPinpadPort(): Boolean {
+    private fun isValidCrossDevicePort(): Boolean {
         return try {
-            val portNum = pinpadPort.toInt()
+            val portNum = crossDevicePort.toInt()
             portNum in 1..65535
         } catch (e: NumberFormatException) {
             false
@@ -186,7 +191,7 @@ data class SettingsState(
      */
     fun isValidIpAddress(): Boolean = isValidIpAddress(ipAddress)
 
-    fun isValidPinpadIpAddress(): Boolean = isValidIpAddress(pinpadIpAddress)
+    fun isValidCrossDeviceIpAddress(): Boolean = isValidIpAddress(crossDeviceIpAddress)
 
     private fun isValidIpAddress(value: String): Boolean {
         if (value.isBlank()) return false
@@ -208,17 +213,17 @@ data class SettingsState(
     fun getCurrentConfiguration(): String {
         return when (selectedMode) {
             ConnectionMode.ON_DEVICE -> "Direct connection ($appToAppMode)"
-            ConnectionMode.PINPAD -> when (pinpadStrategy) {
-                ConnectionPreferences.PinpadStrategy.CABLE -> "PinPad · Cable ($pinpadCableProtocol)"
-                ConnectionPreferences.PinpadStrategy.LAN -> "PinPad · LAN $pinpadIpAddress:$pinpadPort"
-                ConnectionPreferences.PinpadStrategy.AUTO ->
-                    "PinPad · AUTO ($pinpadIpAddress:$pinpadPort, prefer ${if (pinpadAutoPreferLan) "LAN" else "CABLE"})"
+            ConnectionMode.CROSS_DEVICE -> when (crossDeviceStrategy) {
+                ConnectionPreferences.CrossDeviceStrategy.CABLE -> "Cross-Device · Cable ($crossDeviceCableProtocol)"
+                ConnectionPreferences.CrossDeviceStrategy.LAN -> "Cross-Device · LAN $crossDeviceIpAddress:$crossDevicePort"
+                ConnectionPreferences.CrossDeviceStrategy.AUTO ->
+                    "Cross-Device · AUTO ($crossDeviceIpAddress:$crossDevicePort, prefer ${if (crossDeviceAutoPreferLan) "LAN" else "CABLE"})"
             }
             ConnectionMode.APP_TO_APP -> "Direct connection"
             ConnectionMode.CABLE -> cableProtocol.name
             ConnectionMode.LAN -> "$ipAddress:$port"
             ConnectionMode.CLOUD -> cloudBaseUrl
-            ConnectionMode.SECONDARY_DISPLAY -> "VSP + Secondary Display"
+            ConnectionMode.SUB_SCREEN -> "VSP + Sub-Screen"
         }
     }
 

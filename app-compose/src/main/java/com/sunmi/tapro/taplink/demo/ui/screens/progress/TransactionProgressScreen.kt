@@ -136,8 +136,8 @@ fun TransactionProgressScreen(
     val context = LocalContext.current
     val secondaryDisplayManager = DependencyProvider.secondaryDisplayManager
     val isSecondaryEnabled = ConnectionPreferences.isSecondaryDisplayAdEnabled(context)
-    val isSecondaryDisplayConnected =
-        (connectionState as? ConnectionState.Connected)?.mode == ConnectionMode.SECONDARY_DISPLAY
+    val isSubScreenConnected =
+        (connectionState as? ConnectionState.Connected)?.mode == ConnectionMode.SUB_SCREEN
 
     // Cleanup is handled by SecondaryDisplayManager's lifecycle; no dismiss needed here.
     DisposableEffect(secondaryDisplayManager) {
@@ -232,9 +232,9 @@ fun TransactionProgressScreen(
             if (screenConfig.isLandscape) {
                 TransactionProgressTableScreen(
                     state = state,
-                    showMemberInputButton = isSecondaryDisplayConnected,
+                    showMemberInputButton = isSubScreenConnected,
                     showTipSelectionButton =
-                        isSecondaryDisplayConnected &&
+                        isSubScreenConnected &&
                             com.sunmi.tapro.taplink.demo.util.TipConfigBuilder
                                 .buildFromPreferences(context) == null &&
                             state.transaction?.tipAmount == null,
