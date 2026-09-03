@@ -654,9 +654,9 @@ class TaplinkPaymentService : PaymentService {
     override fun getTaproVersion(): String? = taproVersion
 
     /**
-     * 通过 OPEN_USB_SCREEN_PLAYER 控制指令通知 tapro 拉起其副屏播放器。
+     * Notify tapro to pull up its secondary screen player through the OPEN_USB_SCREEN_PLAYER control command.
      *
-     * 此方法为可选功能：若 SDK 不支持或运行时失败，仅记录警告日志，不中断核心业务流程。
+     * This method is an optional feature: if the SDK does not support it or fails during runtime, only warning logs will be recorded without interrupting the core business process.
      */
     override fun ensureUsbScreenPlayerReady() {
         if (!secondaryDisplayEnabled) {

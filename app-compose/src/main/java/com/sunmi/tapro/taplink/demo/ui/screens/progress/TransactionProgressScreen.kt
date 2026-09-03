@@ -583,6 +583,7 @@ private fun resolveGoodsAmount(state: TransactionProgressState): BigDecimal {
         .add(transaction.taxAmount ?: BigDecimal.ZERO)
         .add(transaction.serviceFee ?: BigDecimal.ZERO)
         .add(transaction.surchargeAmount ?: BigDecimal.ZERO)
+        .add(transaction.cashbackAmount ?: BigDecimal.ZERO)
     val derivedGoodsAmount = transaction.totalAmount
         ?.subtract(extrasTotal)
         ?.takeIf { it > BigDecimal.ZERO }

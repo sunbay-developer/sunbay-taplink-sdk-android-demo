@@ -546,6 +546,7 @@ class TransactionProgressViewModel(
             .add(transaction.taxAmount ?: BigDecimal.ZERO)
             .add(transaction.serviceFee ?: BigDecimal.ZERO)
             .add(transaction.surchargeAmount ?: BigDecimal.ZERO)
+            .add(transaction.cashbackAmount ?: BigDecimal.ZERO)
         val saleBaseAmount = transaction.totalAmount
             ?.subtract(extrasTotal)
             ?.takeIf { it > BigDecimal.ZERO }
