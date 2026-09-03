@@ -43,7 +43,7 @@ object TaplinkSdkInitializer {
                 secretKey = config.secretKey
             )
                 .setLogEnabled(true)
-                .setLogLevel(LogLevel.INFO)
+                .setLogLevel(LogLevel.DEBUG)
                 // 副屏挂在 tapro 侧设备上时，由 SDK 在 connect 内部先拉起 tapro 的副屏播放器。
 //                .setAutoOpenUsbScreenPlayer(secondaryDisplayEnabled)
 

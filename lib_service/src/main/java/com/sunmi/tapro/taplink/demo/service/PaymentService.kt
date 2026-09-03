@@ -384,7 +384,6 @@ data class TerminalInfo(
     val merchantId: String,
     val dbaName: String,
     val mcc: String?,
-    val logo: String?,
     val country: String?,
     val stateName: String?,
     val cityName: String?,

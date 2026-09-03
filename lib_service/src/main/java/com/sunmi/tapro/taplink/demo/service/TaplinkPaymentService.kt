@@ -130,7 +130,6 @@ class TaplinkPaymentService : PaymentService {
                         merchantId = info.merchantId,
                         dbaName = info.dbaName,
                         mcc = info.mcc,
-                        logo = info.logo,
                         country = info.country,
                         stateName = info.stateName,
                         cityName = info.cityName,
