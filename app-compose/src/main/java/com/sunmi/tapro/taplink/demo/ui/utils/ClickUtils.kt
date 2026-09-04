@@ -2,6 +2,7 @@ package com.sunmi.tapro.taplink.demo.ui.utils
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalView
 
 private const val DEBOUNCE_INTERVAL_MS = 500L
@@ -16,15 +17,18 @@ fun rememberDebouncedClick(
     debounceMs: Long = DEBOUNCE_INTERVAL_MS,
     onClick: () -> Unit,
 ): () -> Unit {
-    // Anchor to the view so the lambda is stable across recompositions.
+    // Keep the debounce timestamp independent from the call-site lambda. Inline
+    // click lambdas change on recomposition, which would otherwise reset the
+    // timestamp exactly when a page transition starts.
     val view = LocalView.current
-    return remember(view, onClick) {
+    val currentOnClick = rememberUpdatedState(onClick)
+    return remember(view, debounceMs) {
         var lastClick = 0L
         {
             val now = System.currentTimeMillis()
             if (now - lastClick >= debounceMs) {
                 lastClick = now
-                onClick()
+                currentOnClick.value()
             }
         }
     }

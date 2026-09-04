@@ -1,22 +1,16 @@
 package com.sunmi.tapro.taplink.demo.ui.screens.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wifi
@@ -35,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunmi.tapro.taplink.demo.model.ConnectionMode
 import com.sunmi.tapro.taplink.demo.model.MessageAction
@@ -77,24 +70,48 @@ fun SettingsScreen(
 
     // Landscape: track which section is open in the right panel
     var selectedSection by remember { mutableStateOf(SettingsSection.CONNECTION) }
+    // Portrait starts with a category list and opens one configuration section at a time.
+    var portraitSelectedSection by remember { mutableStateOf<SettingsSection?>(null) }
+    val isPortraitDetail = !screenConfig.isLandscape && portraitSelectedSection != null
 
     val onIntent: (SettingsIntent) -> Unit = { viewModel.handleIntent(it) }
+    val onNavigateUp = {
+        if (isPortraitDetail) {
+            portraitSelectedSection = null
+        } else {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler(enabled = isPortraitDetail) {
+        portraitSelectedSection = null
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Settings")
                         Text(
-                            text = getModeName(state.selectedMode) + " Mode",
+                            if (isPortraitDetail) {
+                                getSectionName(requireNotNull(portraitSelectedSection))
+                            } else {
+                                "Settings"
+                            }
+                        )
+                        Text(
+                            text = if (isPortraitDetail && portraitSelectedSection != SettingsSection.CONNECTION) {
+                                "Settings"
+                            } else {
+                                getModeName(state.selectedMode) + " Mode"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = rememberDebouncedClick(onClick = onNavigateBack)) {
+                    IconButton(onClick = rememberDebouncedClick(onClick = onNavigateUp)) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -156,111 +173,18 @@ fun SettingsScreen(
                     }
                 )
             } else {
-                // Portrait: independent section cards stacked + fixed bottom action bar
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Connection settings remain independent from transaction settings.
-                        PortraitSectionCard(
-                            title = "Connection Mode",
-                            icon = Icons.Default.Wifi
-                        ) {
-                            ConnectionSectionContent(
-                                state = state,
-                                onIntent = onIntent
-                            )
-                        }
-
-                        PortraitSectionCard(
-                            title = "Profile",
-                            icon = Icons.Default.Person
-                        ) {
-                            ProfileSectionContent(
-                                state = state,
-                                onIntent = onIntent
-                            )
-                        }
-
-                        PortraitSectionCard(
-                            title = "Transaction Amount",
-                            icon = Icons.Default.Add
-                        ) {
-                            TransactionAmountSectionContent(
-                                state = state,
-                                onIntent = onIntent
-                            )
-                        }
-
-                        PortraitSectionCard(
-                            title = "Parameter Configuration",
-                            icon = Icons.Default.Tune
-                        ) {
-                            ParameterConfigurationSectionContent(
-                                state = state,
-                                onIntent = onIntent
-                            )
-                        }
-
-                        // Diagnostics (collapsible, default collapsed; version info loaded when expanded)
-                        var diagnosticsExpanded by remember { mutableStateOf(false) }
-                        ConfigGroupCard(
-                            title = "Diagnostics",
-                            subtitle = "Version info for Tapro, SDK, and Hardware",
-                            expanded = diagnosticsExpanded,
-                            onToggle = { diagnosticsExpanded = !diagnosticsExpanded }
-                        ) {
-                            CheckSectionContent()
-                        }
-
-                        if (state.testResult != null) {
-                            TestResultCard(
-                                result = state.testResult!!,
-                                isSuccess = state.testSuccess
-                            )
-                        }
-                    }
-
-                    // Fixed bottom action bar
-                    HorizontalDivider()
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Button(
-                            onClick = rememberDebouncedClick { onIntent(SettingsIntent.TestConnection) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            enabled = !state.isTesting && state.isConfigurationValid()
-                        ) {
-                            if (state.isTesting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = "Connect",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = rememberDebouncedClick { onIntent(SettingsIntent.ExitApplication) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Text("Exit Application")
-                        }
-                    }
+                val section = portraitSelectedSection
+                if (section == null) {
+                    PortraitSettingsList(
+                        onSectionSelect = { portraitSelectedSection = it },
+                        onExit = { onIntent(SettingsIntent.ExitApplication) }
+                    )
+                } else {
+                    PortraitSettingsDetail(
+                        section = section,
+                        state = state,
+                        onIntent = onIntent
+                    )
                 }
             }
 
@@ -381,7 +305,7 @@ private fun SettingsCategoryItem(
     }
 
     Surface(
-        onClick = onClick,
+        onClick = rememberDebouncedClick(onClick = onClick),
         color = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -418,111 +342,145 @@ private fun SettingsCategoryItem(
     }
 }
 
-// ─── Layout: Portrait section card ────────────────────────────────────────────
+// ─── Layout: Portrait list and detail ────────────────────────────────────────
 
-/**
- * Card wrapper for a settings section in portrait mode.
- * Shows a colored header with icon + title, then content below.
- */
+private fun getSectionDescription(section: SettingsSection): String = when (section) {
+    SettingsSection.CONNECTION -> "Choose a connection mode and configure its transport"
+    SettingsSection.PROFILE -> "View the current terminal profile"
+    SettingsSection.TRANSACTION_AMOUNT -> "Configure transaction amount and receipt options"
+    SettingsSection.PARAMETERS -> "Configure SDK, tax, tip, and staff parameters"
+    SettingsSection.DIAGNOSTICS -> "View Tapro, SDK, and hardware version information"
+}
+
 @Composable
-private fun PortraitSectionCard(
-    title: String,
-    icon: ImageVector,
-    content: @Composable ColumnScope.() -> Unit
+private fun PortraitSettingsList(
+    onSectionSelect: (SettingsSection) -> Unit,
+    onExit: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SettingsSection.values().forEach { section ->
+                PortraitSettingsListItem(
+                    section = section,
+                    onClick = { onSectionSelect(section) }
+                )
+            }
+        }
+
+        HorizontalDivider()
+        OutlinedButton(
+            onClick = rememberDebouncedClick(onClick = onExit),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Text("Exit Application")
+        }
+    }
+}
+
+@Composable
+private fun PortraitSettingsListItem(
+    section: SettingsSection,
+    onClick: () -> Unit
 ) {
     Card(
+        onClick = rememberDebouncedClick(onClick = onClick),
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column {
-            // Section header row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = getSectionIcon(section),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title.uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    letterSpacing = 0.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    text = getSectionName(section),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = getSectionDescription(section),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                content = content
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open ${getSectionName(section)}",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun ConfigGroupCard(
-    title: String,
-    subtitle: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit
+private fun PortraitSettingsDetail(
+    section: SettingsSection,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = rememberDebouncedClick(onClick = onToggle))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            when (section) {
+                SettingsSection.CONNECTION -> ConnectionSectionContent(state, onIntent)
+                SettingsSection.PROFILE -> ProfileSectionContent(state, onIntent)
+                SettingsSection.TRANSACTION_AMOUNT -> TransactionAmountSectionContent(state, onIntent)
+                SettingsSection.PARAMETERS -> ParameterConfigurationSectionContent(state, onIntent)
+                SettingsSection.DIAGNOSTICS -> CheckSectionContent()
             }
 
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    content = content
-                )
+            if (section == SettingsSection.CONNECTION && state.testResult != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TestResultCard(result = state.testResult!!, isSuccess = state.testSuccess)
             }
+        }
+
+        if (section == SettingsSection.CONNECTION) {
+            HorizontalDivider()
+            Button(
+                onClick = rememberDebouncedClick { onIntent(SettingsIntent.TestConnection) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .padding(horizontal = 16.dp, vertical = 0.dp),
+                enabled = !state.isTesting && state.isConfigurationValid()
+            ) {
+                if (state.isTesting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("Connect", style = MaterialTheme.typography.labelLarge)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

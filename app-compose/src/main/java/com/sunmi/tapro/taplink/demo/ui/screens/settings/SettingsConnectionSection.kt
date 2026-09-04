@@ -594,23 +594,6 @@ fun AppToAppConfiguration(
                         Text("Tapro shows full foreground payment UI.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = rememberDebouncedClick { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) })
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = appToAppMode == ConnectionPreferences.AppToAppMode.HEADLESS,
-                        onClick = { onAppToAppModeChange(ConnectionPreferences.AppToAppMode.HEADLESS) }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("HEADLESS", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Medium)
-                        Text("Tapro runs with minimal UI and reports progress by callbacks.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Requirements:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))

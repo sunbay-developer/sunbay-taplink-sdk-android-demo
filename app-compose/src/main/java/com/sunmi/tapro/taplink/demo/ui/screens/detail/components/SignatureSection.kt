@@ -36,8 +36,17 @@ import org.json.JSONObject
 private fun extractSignatureBitmap(receiptJson: String?): android.graphics.Bitmap? {
     receiptJson ?: return null
     return try {
-        val json = JSONObject(receiptJson)
-        val base64 = json.optString("signature").takeIf { it.isNotEmpty() } ?: return null
+        val rawReceipt = JSONObject(receiptJson)
+        // Some SDK transports serialize JSONObject through Gson, which wraps receipt
+        // fields in nameValuePairs. Accept both the documented receipt shape and that
+        // compatibility wrapper before reading the signature field.
+        val receipt = rawReceipt.optJSONObject("nameValuePairs") ?: rawReceipt
+        val encodedSignature = receipt.optString("signature")
+        val base64 = encodedSignature
+            .substringAfter("base64,", missingDelimiterValue = encodedSignature)
+            .trim()
+            .takeIf { it.isNotEmpty() }
+            ?: return null
         val bytes = Base64.decode(base64, Base64.DEFAULT)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     } catch (_: Exception) {

@@ -1057,7 +1057,8 @@ class MainViewModel(
                     cashbackAmount = result.amount?.cashbackAmount,
                     serviceFee = result.amount?.serviceFee,
                     completeTime = result.completeTime,
-                    cardInfo = cardInfo
+                    cardInfo = cardInfo,
+                    receiptJson = result.receiptJson
                 )
             }
             
