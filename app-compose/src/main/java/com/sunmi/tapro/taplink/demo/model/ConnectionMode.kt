@@ -18,7 +18,7 @@ enum class ConnectionMode {
      * Cross-Device integration mode (recommended over [LAN] / [CABLE]).
      *
      * Tapro acts as a standalone payment terminal reached over a connection channel.
-     * The concrete transport (AUTO / LAN / CABLE) is a configuration detail selected
+     * The concrete transport (LAN / CABLE) is a configuration detail selected
      * via `CrossDeviceStrategy`, mirroring how [CABLE] configures its protocol.
      */
     CROSS_DEVICE,

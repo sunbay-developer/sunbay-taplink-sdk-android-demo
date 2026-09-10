@@ -381,8 +381,8 @@ interface TerminalInfoCallback {
 }
 
 data class TerminalInfo(
-    val merchantId: String,
-    val dbaName: String,
+    val merchantId: String?,
+    val dbaName: String?,
     val mcc: String?,
     val country: String?,
     val stateName: String?,

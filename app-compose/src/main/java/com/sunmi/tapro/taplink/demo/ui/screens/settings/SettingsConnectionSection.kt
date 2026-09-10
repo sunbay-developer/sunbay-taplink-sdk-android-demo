@@ -48,7 +48,7 @@ internal fun getModeName(mode: ConnectionMode): String = when (mode) {
 
 internal fun getModeDescription(mode: ConnectionMode): String = when (mode) {
     ConnectionMode.ON_DEVICE -> "Merchant app + Tapro run on the same terminal (recommended)"
-    ConnectionMode.CROSS_DEVICE -> "Tapro acts as a standalone payment terminal over LAN/Cable/AUTO"
+    ConnectionMode.CROSS_DEVICE -> "Tapro acts as a standalone payment terminal over LAN or Cable"
     ConnectionMode.SUB_SCREEN -> "VSP connection with sub-screen"
     ConnectionMode.CLOUD -> "Cloud API connection"
     ConnectionMode.APP_TO_APP -> "Direct connection via Tapro app (use On-Device instead)"
@@ -67,27 +67,23 @@ internal fun getModeIcon(mode: ConnectionMode): ImageVector = when (mode) {
 }
 
 private fun getCrossDeviceStrategyLabel(strategy: ConnectionPreferences.CrossDeviceStrategy): String = when (strategy) {
-    ConnectionPreferences.CrossDeviceStrategy.AUTO -> "AUTO"
     ConnectionPreferences.CrossDeviceStrategy.LAN -> "LAN"
     ConnectionPreferences.CrossDeviceStrategy.CABLE -> "CABLE"
 }
 
 private fun getCrossDeviceStrategyDescription(strategy: ConnectionPreferences.CrossDeviceStrategy): String = when (strategy) {
-    ConnectionPreferences.CrossDeviceStrategy.AUTO -> "Auto-select transport (LAN/CABLE) with runtime fallback"
     ConnectionPreferences.CrossDeviceStrategy.LAN -> "Connect over local area network"
     ConnectionPreferences.CrossDeviceStrategy.CABLE -> "Connect over USB/serial cable"
 }
 
 
 private fun getCableProtocolLabel(protocol: ConnectionPreferences.CableProtocol): String = when (protocol) {
-    ConnectionPreferences.CableProtocol.AUTO -> "AUTO"
     ConnectionPreferences.CableProtocol.USB_AOA -> "USB_AOA (USB Android Open Accessory)"
     ConnectionPreferences.CableProtocol.USB_VSP -> "USB_VSP (USB Virtual Serial Port)"
     ConnectionPreferences.CableProtocol.RS232 -> "RS232 (Serial)"
 }
 
 private fun getCableProtocolDescription(protocol: ConnectionPreferences.CableProtocol): String = when (protocol) {
-    ConnectionPreferences.CableProtocol.AUTO -> "Auto-detect protocol"
     ConnectionPreferences.CableProtocol.USB_AOA -> "USB Android Open Accessory 2.0"
     ConnectionPreferences.CableProtocol.USB_VSP -> "USB Virtual Serial Port"
     ConnectionPreferences.CableProtocol.RS232 -> "Standard RS232 serial"
@@ -339,7 +335,7 @@ fun CrossDeviceConfiguration(
             }
         }
 
-        if (state.crossDeviceStrategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
+        if (state.crossDeviceStrategy == ConnectionPreferences.CrossDeviceStrategy.LAN) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.crossDeviceIpAddress,
@@ -348,7 +344,7 @@ fun CrossDeviceConfiguration(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                supportingText = { Text("Terminal IP address for LAN/AUTO strategy") }
+                supportingText = { Text("Terminal IP address for LAN strategy") }
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
@@ -358,29 +354,8 @@ fun CrossDeviceConfiguration(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                supportingText = { Text("Port number for LAN/AUTO strategy") }
+                supportingText = { Text("Port number for LAN strategy") }
             )
-
-            if (state.crossDeviceStrategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Prefer LAN first", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Try LAN before falling back to cable when both are available",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = state.crossDeviceAutoPreferLan,
-                        onCheckedChange = { onIntent(SettingsIntent.UpdateCrossDeviceAutoPreferLan(it)) }
-                    )
-                }
-            }
         } else {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -708,8 +683,7 @@ fun CrossDeviceConfiguration(
     onStrategyChange: (ConnectionPreferences.CrossDeviceStrategy) -> Unit,
     onIpAddressChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
-    onCableProtocolChange: (ConnectionPreferences.CableProtocol) -> Unit,
-    onAutoPreferLanChange: (Boolean) -> Unit
+    onCableProtocolChange: (ConnectionPreferences.CableProtocol) -> Unit
 ) {
     Column {
         Text("Cross-Device Configuration", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -734,8 +708,8 @@ fun CrossDeviceConfiguration(
         }
         Spacer(modifier = Modifier.height(12.dp))
 
-        // LAN host/port required for LAN and AUTO strategies (AUTO also tries LAN per priority)
-        if (strategy == ConnectionPreferences.CrossDeviceStrategy.LAN || strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
+        // LAN host/port required for LAN strategy.
+        if (strategy == ConnectionPreferences.CrossDeviceStrategy.LAN) {
             Text("LAN Transport", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             OutlinedTextField(
@@ -761,8 +735,8 @@ fun CrossDeviceConfiguration(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Cable protocol, relevant for CABLE strategy and as a fallback hint for AUTO
-        if (strategy == ConnectionPreferences.CrossDeviceStrategy.CABLE || strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
+        // Cable protocol is required for CABLE strategy.
+        if (strategy == ConnectionPreferences.CrossDeviceStrategy.CABLE) {
             Text("Cable Protocol", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             ConnectionPreferences.CableProtocol.values().forEach { protocol ->
@@ -784,34 +758,14 @@ fun CrossDeviceConfiguration(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // AUTO priority: which transport is tried first
-        if (strategy == ConnectionPreferences.CrossDeviceStrategy.AUTO) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Prefer LAN first", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "When on, AUTO tries LAN before CABLE and falls back if the active transport stalls.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = autoPreferLan, onCheckedChange = onAutoPreferLanChange)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text("ℹ️ Cross-Device Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Tapro acts as a standalone payment terminal driven by this app over the selected " +
-                        "transport. AUTO tries transports in priority order and rotates to the " +
-                        "next candidate if the active one stalls (e.g. a payment request times " +
-                        "out while the socket still looks connected).",
+                        "LAN or cable transport. Choose the cable protocol explicitly when using " +
+                        "a cable connection.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -45,20 +45,18 @@ data class SettingsState(
     val packageName: String = "",
     val appToAppMode: ConnectionPreferences.AppToAppMode = ConnectionPreferences.AppToAppMode.CUSTOM,
     
-    // Cable Configuration (SDK connection mode: AUTO, USB_AOA, USB_VSP, RS232)
-    val cableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,
+    // Cable Configuration (SDK connection mode: USB_AOA, USB_VSP, RS232)
+    val cableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.USB_VSP,
     
     // LAN Configuration
     val ipAddress: String = "",
     val port: String = "",
 
     // Cross-Device Configuration (ConnectionMode.CROSS_DEVICE)
-    val crossDeviceStrategy: ConnectionPreferences.CrossDeviceStrategy = ConnectionPreferences.CrossDeviceStrategy.AUTO,
+    val crossDeviceStrategy: ConnectionPreferences.CrossDeviceStrategy = ConnectionPreferences.CrossDeviceStrategy.LAN,
     val crossDeviceIpAddress: String = "",
     val crossDevicePort: String = "",
-    val crossDeviceCableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.AUTO,
-    /** AUTO strategy transport priority: true tries LAN before CABLE (SDK default). */
-    val crossDeviceAutoPreferLan: Boolean = true,
+    val crossDeviceCableProtocol: ConnectionPreferences.CableProtocol = ConnectionPreferences.CableProtocol.USB_VSP,
     
     // Print Receipt Configuration
     val printReceipt: PrintReceipt = PrintReceipt.NONE,
@@ -153,8 +151,7 @@ data class SettingsState(
             ConnectionMode.ON_DEVICE -> true // No additional configuration needed
             ConnectionMode.CROSS_DEVICE -> when (crossDeviceStrategy) {
                 ConnectionPreferences.CrossDeviceStrategy.CABLE -> true
-                ConnectionPreferences.CrossDeviceStrategy.LAN,
-                ConnectionPreferences.CrossDeviceStrategy.AUTO ->
+                ConnectionPreferences.CrossDeviceStrategy.LAN ->
                     crossDeviceIpAddress.isNotBlank() && crossDevicePort.isNotBlank() && isValidCrossDevicePort()
             }
             ConnectionMode.APP_TO_APP -> true // No additional configuration needed
@@ -216,8 +213,6 @@ data class SettingsState(
             ConnectionMode.CROSS_DEVICE -> when (crossDeviceStrategy) {
                 ConnectionPreferences.CrossDeviceStrategy.CABLE -> "Cross-Device · Cable ($crossDeviceCableProtocol)"
                 ConnectionPreferences.CrossDeviceStrategy.LAN -> "Cross-Device · LAN $crossDeviceIpAddress:$crossDevicePort"
-                ConnectionPreferences.CrossDeviceStrategy.AUTO ->
-                    "Cross-Device · AUTO ($crossDeviceIpAddress:$crossDevicePort, prefer ${if (crossDeviceAutoPreferLan) "LAN" else "CABLE"})"
             }
             ConnectionMode.APP_TO_APP -> "Direct connection"
             ConnectionMode.CABLE -> cableProtocol.name

@@ -23,7 +23,6 @@ sealed class SettingsIntent {
     data class UpdateCrossDeviceIpAddress(val ipAddress: String) : SettingsIntent()
     data class UpdateCrossDevicePort(val port: String) : SettingsIntent()
     data class UpdateCrossDeviceCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
-    data class UpdateCrossDeviceAutoPreferLan(val preferLan: Boolean) : SettingsIntent()
 
     data class UpdatePrintReceipt(val printReceipt: PrintReceipt) : SettingsIntent()
     data class UpdateSignatureEnabled(val enabled: Boolean) : SettingsIntent()

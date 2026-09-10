@@ -126,11 +126,10 @@ class ConnectionManager(
                     }
                 }
 
-                // CROSS_DEVICE mode: LAN and AUTO strategies need a configured host, same rationale
-                // as classic LAN above (AUTO also tries the LAN transport per autoPriority).
+                // CROSS_DEVICE LAN strategy needs a configured host, same rationale as classic LAN.
                 if (mode == ConnectionMode.CROSS_DEVICE) {
                     val strategy = ConnectionPreferences.getCrossDeviceStrategy(context)
-                    if (strategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
+                    if (strategy == ConnectionPreferences.CrossDeviceStrategy.LAN) {
                         val (crossDeviceIp, _) = ConnectionPreferences.getCrossDeviceLanConfig(context)
                         if (crossDeviceIp.isNullOrBlank()) {
                             Log.d(TAG, "CROSS_DEVICE mode ($strategy) selected but no LAN host configured; skipping auto-connect")
@@ -604,14 +603,11 @@ class ConnectionManager(
             ConnectionMode.CROSS_DEVICE -> {
                 val strategy = ConnectionPreferences.getCrossDeviceStrategy(context)
                 val sdkStrategy = when (strategy) {
-                    ConnectionPreferences.CrossDeviceStrategy.AUTO -> CrossDeviceStrategy.AUTO
                     ConnectionPreferences.CrossDeviceStrategy.LAN -> CrossDeviceStrategy.LAN
                     ConnectionPreferences.CrossDeviceStrategy.CABLE -> CrossDeviceStrategy.CABLE
                 }
                 val (host, port) = ConnectionPreferences.getCrossDeviceLanConfig(context)
                 val cableProtocol = when (ConnectionPreferences.getCrossDeviceCableProtocol(context)) {
-                    ConnectionPreferences.CableProtocol.AUTO ->
-                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.AUTO
                     ConnectionPreferences.CableProtocol.USB_AOA ->
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_AOA
                     ConnectionPreferences.CableProtocol.USB_VSP ->
@@ -619,18 +615,12 @@ class ConnectionManager(
                     ConnectionPreferences.CableProtocol.RS232 ->
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232
                 }
-                val autoPriority = if (ConnectionPreferences.isCrossDeviceAutoPreferLan(context)) {
-                    listOf(CrossDeviceStrategy.LAN, CrossDeviceStrategy.CABLE)
-                } else {
-                    listOf(CrossDeviceStrategy.CABLE, CrossDeviceStrategy.LAN)
-                }
                 Log.d(TAG, "Creating Cross-Device connection config, strategy=$sdkStrategy, host=$host, port=$port")
                 ConnectionConfig.createCrossDeviceMode(
                     strategy = sdkStrategy,
                     host = host,
                     port = port,
-                    cableProtocol = cableProtocol,
-                    autoPriority = autoPriority
+                    cableProtocol = cableProtocol
                 )
             }
             ConnectionMode.APP_TO_APP -> {
@@ -645,8 +635,6 @@ class ConnectionManager(
                 Log.d(TAG, "Creating Cable connection config")
                 val protocol = ConnectionPreferences.getCableProtocol(context)
                 val sdkProtocol = when (protocol) {
-                    ConnectionPreferences.CableProtocol.AUTO -> 
-                        com.sunmi.tapro.taplink.sdk.enums.CableProtocol.AUTO
                     ConnectionPreferences.CableProtocol.USB_AOA -> 
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.USB_AOA
                     ConnectionPreferences.CableProtocol.USB_VSP -> 

@@ -99,7 +99,6 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCrossDeviceIpAddress -> updateCrossDeviceIpAddress(intent.ipAddress)
             is SettingsIntent.UpdateCrossDevicePort -> updateCrossDevicePort(intent.port)
             is SettingsIntent.UpdateCrossDeviceCableProtocol -> updateCrossDeviceCableProtocol(intent.protocol)
-            is SettingsIntent.UpdateCrossDeviceAutoPreferLan -> updateCrossDeviceAutoPreferLan(intent.preferLan)
             is SettingsIntent.UpdatePrintReceipt -> updatePrintReceipt(intent.printReceipt)
             is SettingsIntent.UpdateSignatureEnabled -> updateSignatureEnabled(intent.enabled)
             is SettingsIntent.UpdateSignatureUseHostConfig ->
@@ -183,8 +182,8 @@ class SettingsViewModel(
                 // Load Cross-Device configuration
                 val savedCrossDeviceStrategy = ConnectionPreferences.getCrossDeviceStrategy(context)
                 val (savedCrossDeviceIp, savedCrossDevicePort) = ConnectionPreferences.getCrossDeviceLanConfig(context)
-                val savedCrossDeviceCableProtocol = ConnectionPreferences.getCrossDeviceCableProtocol(context)
-                val savedCrossDeviceAutoPreferLan = ConnectionPreferences.isCrossDeviceAutoPreferLan(context)
+                val savedCrossDeviceCableProtocol =
+                    ConnectionPreferences.getCrossDeviceCableProtocol(context)
                 
                 // Load print receipt configuration
                 val savedPrintReceipt = ConnectionPreferences.getPrintReceipt(context)
@@ -247,7 +246,6 @@ class SettingsViewModel(
                         crossDeviceIpAddress = savedCrossDeviceIp ?: DEFAULT_IP_ADDRESS,
                         crossDevicePort = savedCrossDevicePort.toString(),
                         crossDeviceCableProtocol = savedCrossDeviceCableProtocol,
-                        crossDeviceAutoPreferLan = savedCrossDeviceAutoPreferLan,
                         printReceipt = savedPrintReceipt,
                         signatureEnabled = savedSignatureEnabled,
                         signatureUseHostConfig = savedSignatureUseHostConfig,
@@ -329,7 +327,7 @@ class SettingsViewModel(
     /**
      * Update Cable connection mode (protocol) for Cable mode
      * 
-     * @param protocol SDK Cable protocol: AUTO, USB_AOA, USB_VSP, RS232
+     * @param protocol SDK Cable protocol: USB_AOA, USB_VSP, RS232
      */
     private fun updateCableProtocol(protocol: ConnectionPreferences.CableProtocol) {
         _state.update { it.copy(cableProtocol = protocol) }
@@ -360,17 +358,17 @@ class SettingsViewModel(
         _state.update { it.copy(port = port) }
     }
 
-    /** Update Cross-Device connection strategy (AUTO / LAN / CABLE). */
+    /** Update Cross-Device connection strategy (LAN / CABLE). */
     private fun updateCrossDeviceStrategy(strategy: ConnectionPreferences.CrossDeviceStrategy) {
         _state.update { it.copy(crossDeviceStrategy = strategy) }
     }
 
-    /** Update LAN host used by CROSS_DEVICE's LAN and AUTO strategies. */
+    /** Update LAN host used by CROSS_DEVICE's LAN strategy. */
     private fun updateCrossDeviceIpAddress(ipAddress: String) {
         _state.update { it.copy(crossDeviceIpAddress = ipAddress) }
     }
 
-    /** Update LAN port used by CROSS_DEVICE's LAN and AUTO strategies. */
+    /** Update LAN port used by CROSS_DEVICE's LAN strategy. */
     private fun updateCrossDevicePort(port: String) {
         _state.update { it.copy(crossDevicePort = port) }
     }
@@ -380,11 +378,6 @@ class SettingsViewModel(
         _state.update { it.copy(crossDeviceCableProtocol = protocol) }
     }
 
-    /** Update AUTO strategy transport priority (prefer LAN vs prefer CABLE). */
-    private fun updateCrossDeviceAutoPreferLan(preferLan: Boolean) {
-        _state.update { it.copy(crossDeviceAutoPreferLan = preferLan) }
-    }
-    
     /**
      * Update print receipt option
      * 
@@ -1417,7 +1410,7 @@ class SettingsViewModel(
                 return true
             }
             ConnectionMode.CROSS_DEVICE -> {
-                // CABLE strategy needs no host/port; LAN and AUTO require a valid host + port.
+                // CABLE strategy needs an explicit cable protocol; LAN requires a valid host + port.
                 if (state.crossDeviceStrategy == ConnectionPreferences.CrossDeviceStrategy.CABLE) {
                     return true
                 }
@@ -1440,7 +1433,7 @@ class SettingsViewModel(
                             message = Message(
                                 type = MessageType.ERROR,
                                 title = "Invalid Port",
-                                content = "Port number is required for Cross-Device LAN/AUTO strategy",
+                                content = "Port number is required for Cross-Device LAN strategy",
                                 actions = listOf(MessageAction.DISMISS)
                             )
                         )
@@ -1591,7 +1584,6 @@ class SettingsViewModel(
                 ConnectionMode.CROSS_DEVICE -> {
                     ConnectionPreferences.saveCrossDeviceStrategy(context, currentState.crossDeviceStrategy)
                     ConnectionPreferences.saveCrossDeviceCableProtocol(context, currentState.crossDeviceCableProtocol)
-                    ConnectionPreferences.saveCrossDeviceAutoPreferLan(context, currentState.crossDeviceAutoPreferLan)
                     if (currentState.crossDeviceStrategy != ConnectionPreferences.CrossDeviceStrategy.CABLE) {
                         val port = currentState.crossDevicePort.toIntOrNull() ?: return
                         ConnectionPreferences.saveCrossDeviceLanConfig(context, currentState.crossDeviceIpAddress, port)

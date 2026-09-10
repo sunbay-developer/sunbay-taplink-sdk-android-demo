@@ -25,16 +25,15 @@ object ConnectionPreferences {
     private const val KEY_CROSS_DEVICE_LAN_IP = "cross_device_lan_ip"
     private const val KEY_CROSS_DEVICE_LAN_PORT = "cross_device_lan_port"
     private const val KEY_CROSS_DEVICE_CABLE_PROTOCOL = "cross_device_cable_protocol"
-    private const val KEY_CROSS_DEVICE_AUTO_PREFER_LAN = "cross_device_auto_prefer_lan"
 
     private const val DEFAULT_MODE = "ON_DEVICE"
     private const val DEFAULT_LAN_PORT = Constants.DEFAULT_LAN_PORT
-    private const val DEFAULT_CABLE_PROTOCOL = "AUTO"
+    private const val DEFAULT_CABLE_PROTOCOL = "USB_VSP"
     private const val DEFAULT_APP_TO_APP_MODE = "CUSTOM"
     private const val DEFAULT_PRINT_RECEIPT = "NONE"
     private const val DEFAULT_SIGNATURE_MODE = "ON_SCREEN"
     private const val DEFAULT_SIGNATURE_THRESHOLD = "5000"
-    private const val DEFAULT_CROSS_DEVICE_STRATEGY = "AUTO"
+    private const val DEFAULT_CROSS_DEVICE_STRATEGY = "LAN"
 
     enum class ConnectionMode {
         ON_DEVICE,
@@ -47,7 +46,6 @@ object ConnectionPreferences {
     }
 
     enum class CableProtocol {
-        AUTO,
         USB_AOA,
         USB_VSP,
         RS232
@@ -63,7 +61,6 @@ object ConnectionPreferences {
      * so the settings UI/preferences layer does not need to depend on the SDK enum directly.
      */
     enum class CrossDeviceStrategy {
-        AUTO,
         LAN,
         CABLE
     }
@@ -109,7 +106,7 @@ object ConnectionPreferences {
         return try {
             CableProtocol.valueOf(protocolName ?: DEFAULT_CABLE_PROTOCOL)
         } catch (_: IllegalArgumentException) {
-            CableProtocol.AUTO
+            CableProtocol.USB_VSP
         }
     }
 
@@ -137,11 +134,11 @@ object ConnectionPreferences {
         return try {
             CrossDeviceStrategy.valueOf(strategyName ?: DEFAULT_CROSS_DEVICE_STRATEGY)
         } catch (_: IllegalArgumentException) {
-            CrossDeviceStrategy.AUTO
+            CrossDeviceStrategy.LAN
         }
     }
 
-    /** LAN host/port used by CROSS_DEVICE's LAN and AUTO strategies (kept separate from classic LAN config). */
+    /** LAN host/port used by CROSS_DEVICE's LAN strategy (kept separate from classic LAN config). */
     fun saveCrossDeviceLanConfig(context: Context, ip: String, port: Int) {
         getPreferences(context).edit {
             putString(KEY_CROSS_DEVICE_LAN_IP, ip)
@@ -157,7 +154,7 @@ object ConnectionPreferences {
         )
     }
 
-    /** Cable protocol used by CROSS_DEVICE's CABLE strategy (defaults to AUTO try-order when unset). */
+    /** Cable protocol used by CROSS_DEVICE's CABLE strategy. */
     fun saveCrossDeviceCableProtocol(context: Context, protocol: CableProtocol) {
         getPreferences(context).edit { putString(KEY_CROSS_DEVICE_CABLE_PROTOCOL, protocol.name) }
     }
@@ -167,20 +164,8 @@ object ConnectionPreferences {
         return try {
             CableProtocol.valueOf(protocolName ?: DEFAULT_CABLE_PROTOCOL)
         } catch (_: IllegalArgumentException) {
-            CableProtocol.AUTO
+            CableProtocol.USB_VSP
         }
-    }
-
-    /**
-     * AUTO strategy transport priority. `true` tries LAN before CABLE (the SDK default),
-     * `false` tries CABLE first.
-     */
-    fun saveCrossDeviceAutoPreferLan(context: Context, preferLan: Boolean) {
-        getPreferences(context).edit { putBoolean(KEY_CROSS_DEVICE_AUTO_PREFER_LAN, preferLan) }
-    }
-
-    fun isCrossDeviceAutoPreferLan(context: Context): Boolean {
-        return getPreferences(context).getBoolean(KEY_CROSS_DEVICE_AUTO_PREFER_LAN, true)
     }
 
     fun savePrintReceipt(
