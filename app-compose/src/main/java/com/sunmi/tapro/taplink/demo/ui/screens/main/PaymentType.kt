@@ -35,7 +35,7 @@ enum class PaymentOption(
 
     // EBT payment options (always SALE)
     EBT_SNAP("EBT - SNAP", PaymentCategory.EBT, TransactionType.SALE, "EBT", "SNAP", group = "EBT"),
-    EBT_VOUCHER("EBT - VOUCHER", PaymentCategory.EBT, TransactionType.SALE, "EBT", "VOUCHER", group = "EBT"),
+    // EBT_VOUCHER("EBT - VOUCHER", PaymentCategory.EBT, TransactionType.SALE, "EBT", "VOUCHER", group = "EBT"),
     EBT_BENEFIT("EBT - BENEFIT", PaymentCategory.EBT, TransactionType.SALE, "EBT", "BENEFIT", group = "EBT"),
 
     // QR payment options (always SALE)
