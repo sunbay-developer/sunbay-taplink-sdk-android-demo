@@ -9,7 +9,8 @@ import com.sunmi.tapro.taplink.demo.di.DependencyProvider
  * Persisted Cloud mode configuration.
  *
  * Stores active config values and per-field dropdown option lists in SharedPreferences.
- * Each field (apiKey, baseUrl, terminalSn, merchantId, appId, notifyUrl) has a
+ * Each field (apiKey, baseUrl, terminalSn, merchantId, appId, notifyUrl,
+ * terminalEventNotifyUrl) has a
  * saved list of options the user can pick from or add to.
  *
  * Preset options are merged with user-added options on read.
@@ -25,6 +26,7 @@ object CloudPreferences {
     private const val KEY_MERCHANT_ID = "merchant_id"
     private const val KEY_APP_ID = "app_id"
     private const val KEY_NOTIFY_URL = "notify_url"
+    private const val KEY_TERMINAL_EVENT_NOTIFY_URL = "terminal_event_notify_url"
     private const val KEY_PUSH_TO_TERMINAL = "push_to_terminal"
 
     // --- Dropdown option list keys ---
@@ -34,18 +36,16 @@ object CloudPreferences {
     private const val KEY_OPTIONS_MERCHANT_ID = "options_merchant_id"
     private const val KEY_OPTIONS_APP_ID = "options_app_id"
     private const val KEY_OPTIONS_NOTIFY_URL = "options_notify_url"
+    private const val KEY_OPTIONS_TERMINAL_EVENT_NOTIFY_URL = "options_terminal_event_notify_url"
 
     // --- Preset values ---
     private val PRESET_BASE_URLS = listOf(
         "https://open.sunbay-uat.us" to "UAT",
         "https://open.sunbay.us" to "Prod"
     )
-    private val PRESET_NOTIFY_URLS = listOf(
-        "http://52.76.178.47:8880/api/notify" to "Default"
-    )
-
     private val DEFAULT_BASE_URL = EnvironmentDefaults.Prod.CLOUD_BASE_URL
-    private const val DEFAULT_NOTIFY_URL = "http://52.76.178.47:8880/api/notify"
+    private val DEFAULT_NOTIFY_URL = EnvironmentDefaults.Prod.CLOUD_NOTIFY_URL
+    private val DEFAULT_TERMINAL_EVENT_NOTIFY_URL = EnvironmentDefaults.Prod.CLOUD_TERMINAL_EVENT_NOTIFY_URL
 
     /**
      * A labeled option for dropdown display.
@@ -60,6 +60,7 @@ object CloudPreferences {
         val merchantId: String = "",
         val appId: String = "",
         val notifyUrl: String = DEFAULT_NOTIFY_URL,
+        val terminalEventNotifyUrl: String = DEFAULT_TERMINAL_EVENT_NOTIFY_URL,
         val pushToTerminal: Boolean = true
     )
 
@@ -84,6 +85,12 @@ object CloudPreferences {
             merchantId = if (p.contains(KEY_MERCHANT_ID)) p.getString(KEY_MERCHANT_ID, "") ?: "" else presetMerchantId,
             appId = if (p.contains(KEY_APP_ID)) p.getString(KEY_APP_ID, "") ?: "" else presetAppId,
             notifyUrl = if (p.contains(KEY_NOTIFY_URL)) p.getString(KEY_NOTIFY_URL, DEFAULT_NOTIFY_URL) ?: DEFAULT_NOTIFY_URL else DEFAULT_NOTIFY_URL,
+            terminalEventNotifyUrl = if (p.contains(KEY_TERMINAL_EVENT_NOTIFY_URL)) {
+                p.getString(KEY_TERMINAL_EVENT_NOTIFY_URL, DEFAULT_TERMINAL_EVENT_NOTIFY_URL)
+                    ?: DEFAULT_TERMINAL_EVENT_NOTIFY_URL
+            } else {
+                DEFAULT_TERMINAL_EVENT_NOTIFY_URL
+            },
             pushToTerminal = p.getBoolean(KEY_PUSH_TO_TERMINAL, true)
         )
     }
@@ -96,6 +103,7 @@ object CloudPreferences {
             putString(KEY_MERCHANT_ID, config.merchantId)
             putString(KEY_APP_ID, config.appId)
             putString(KEY_NOTIFY_URL, config.notifyUrl)
+            putString(KEY_TERMINAL_EVENT_NOTIFY_URL, config.terminalEventNotifyUrl)
             putBoolean(KEY_PUSH_TO_TERMINAL, config.pushToTerminal)
         }
         // Auto-add current values to their option lists so they appear in dropdowns
@@ -105,6 +113,7 @@ object CloudPreferences {
         addOptionIfNew(context, KEY_OPTIONS_MERCHANT_ID, config.merchantId)
         addOptionIfNew(context, KEY_OPTIONS_APP_ID, config.appId)
         addOptionIfNew(context, KEY_OPTIONS_NOTIFY_URL, config.notifyUrl)
+        addOptionIfNew(context, KEY_OPTIONS_TERMINAL_EVENT_NOTIFY_URL, config.terminalEventNotifyUrl)
     }
 
     // ========== Dropdown option lists ==========
@@ -120,9 +129,26 @@ object CloudPreferences {
 
     /** Get merged options for Notify URL */
     fun getNotifyUrlOptions(context: Context): List<LabeledOption> {
-        val presets = PRESET_NOTIFY_URLS.map { LabeledOption(it.first, "${it.second}: ${it.first}") }
+        val presetValues = listOf(
+            EnvironmentDefaults.Uat.CLOUD_NOTIFY_URL to "UAT",
+            EnvironmentDefaults.Prod.CLOUD_NOTIFY_URL to "Prod"
+        ).filter { it.first.isNotBlank() }.distinctBy { it.first }
+        val presets = presetValues.map { LabeledOption(it.first, "${it.second}: ${it.first}") }
         val custom = getCustomOptions(context, KEY_OPTIONS_NOTIFY_URL)
-            .filter { opt -> PRESET_NOTIFY_URLS.none { it.first == opt } }
+            .filter { opt -> presetValues.none { it.first == opt } }
+            .map { LabeledOption(it) }
+        return presets + custom
+    }
+
+    /** Get merged options for terminal event notification URL. */
+    fun getTerminalEventNotifyUrlOptions(context: Context): List<LabeledOption> {
+        val presetValues = listOf(
+            EnvironmentDefaults.Uat.CLOUD_TERMINAL_EVENT_NOTIFY_URL to "UAT",
+            EnvironmentDefaults.Prod.CLOUD_TERMINAL_EVENT_NOTIFY_URL to "Prod"
+        ).filter { it.first.isNotBlank() }.distinctBy { it.first }
+        val presets = presetValues.map { LabeledOption(it.first, "${it.second}: ${it.first}") }
+        val custom = getCustomOptions(context, KEY_OPTIONS_TERMINAL_EVENT_NOTIFY_URL)
+            .filter { opt -> presetValues.none { it.first == opt } }
             .map { LabeledOption(it) }
         return presets + custom
     }
@@ -149,6 +175,12 @@ object CloudPreferences {
     fun addNotifyUrlOption(context: Context, value: String) {
         if (value.isBlank()) return
         addOptionIfNew(context, KEY_OPTIONS_NOTIFY_URL, value)
+    }
+
+    /** Add a new custom option for terminal event notification URL. */
+    fun addTerminalEventNotifyUrlOption(context: Context, value: String) {
+        if (value.isBlank()) return
+        addOptionIfNew(context, KEY_OPTIONS_TERMINAL_EVENT_NOTIFY_URL, value)
     }
 
     // ========== Internal helpers ==========

@@ -233,6 +233,7 @@ internal fun ConnectionSectionContent(
                     "merchantId" -> SettingsIntent.UpdateCloudMerchantId(value)
                     "appId" -> SettingsIntent.UpdateCloudAppId(value)
                     "notifyUrl" -> SettingsIntent.UpdateCloudNotifyUrl(value)
+                    "terminalEventNotifyUrl" -> SettingsIntent.UpdateCloudTerminalEventNotifyUrl(value)
                     else -> null
                 }
                 intent?.let { onIntent(it) }
@@ -796,6 +797,8 @@ fun CloudConfiguration(
         CloudDropdownField(label = "Merchant ID", value = state.cloudMerchantId, options = state.cloudMerchantIdOptions, fieldName = "merchantId", onValueChange = onValueChange, onAddOption = onAddOption, supportingText = "Optional — overrides SDK Merchant ID")
         Spacer(modifier = Modifier.height(8.dp))
         CloudDropdownField(label = "Notify URL", value = state.cloudNotifyUrl, options = state.cloudNotifyUrlOptions, fieldName = "notifyUrl", onValueChange = onValueChange, onAddOption = onAddOption, supportingText = "Notification callback URL")
+        Spacer(modifier = Modifier.height(8.dp))
+        CloudDropdownField(label = "Terminal Event Notify URL", value = state.cloudTerminalEventNotifyUrl, options = state.cloudTerminalEventNotifyUrlOptions, fieldName = "terminalEventNotifyUrl", onValueChange = onValueChange, onAddOption = onAddOption, supportingText = "Terminal event callback URL")
         Spacer(modifier = Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {

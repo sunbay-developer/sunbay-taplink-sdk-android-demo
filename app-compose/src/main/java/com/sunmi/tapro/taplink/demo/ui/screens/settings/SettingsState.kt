@@ -76,7 +76,8 @@ data class SettingsState(
     val cloudTerminalSn: String = "",
     val cloudMerchantId: String = "",
     val cloudAppId: String = EnvironmentDefaults.Prod.CLOUD_APP_ID,
-    val cloudNotifyUrl: String = "http://52.76.178.47:8880/api/notify",
+    val cloudNotifyUrl: String = EnvironmentDefaults.Prod.CLOUD_NOTIFY_URL,
+    val cloudTerminalEventNotifyUrl: String = EnvironmentDefaults.Prod.CLOUD_TERMINAL_EVENT_NOTIFY_URL,
     val cloudPushToTerminal: Boolean = true,
 
     // Cloud dropdown options (loaded from CloudPreferences)
@@ -86,6 +87,7 @@ data class SettingsState(
     val cloudMerchantIdOptions: List<CloudPreferences.LabeledOption> = emptyList(),
     val cloudAppIdOptions: List<CloudPreferences.LabeledOption> = emptyList(),
     val cloudNotifyUrlOptions: List<CloudPreferences.LabeledOption> = emptyList(),
+    val cloudTerminalEventNotifyUrlOptions: List<CloudPreferences.LabeledOption> = emptyList(),
 
     // Tax Configuration
     val taxConfigEnabled: Boolean = false,

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import kotlin.random.Random
 
 /**
  * TransactionDetailViewModel
@@ -62,7 +63,14 @@ class TransactionDetailViewModel(
             is TransactionDetailIntent.PerformOperation -> performOperation(intent.operationType)
             is TransactionDetailIntent.ShowOperationDialog -> showOperationDialog(intent.operationType)
             is TransactionDetailIntent.HideOperationDialog -> hideOperationDialog()
-            is TransactionDetailIntent.ConfirmOperation -> confirmOperation(intent.operationType, intent.amount, intent.tipAmount, intent.taxAmount, intent.surchargeAmount)
+            is TransactionDetailIntent.ConfirmOperation -> confirmOperation(
+                operationType = intent.operationType,
+                amountString = intent.amount,
+                tipAmountString = intent.tipAmount,
+                taxAmountString = intent.taxAmount,
+                surchargeAmountString = intent.surchargeAmount,
+                requestCount = intent.requestCount
+            )
             is TransactionDetailIntent.NavigateBack -> navigateBack()
             is TransactionDetailIntent.DismissMessage -> dismissMessageHandler()
             is TransactionDetailIntent.ClearNavigationEvent -> clearNavigationEventHandler()
@@ -185,7 +193,8 @@ class TransactionDetailViewModel(
         amountString: String,
         tipAmountString: String? = null,
         taxAmountString: String? = null,
-        surchargeAmountString: String? = null
+        surchargeAmountString: String? = null,
+        requestCount: Int = 1
     ) {
         hideOperationDialog()
         
@@ -226,7 +235,164 @@ class TransactionDetailViewModel(
         val taxAmount = taxAmountString?.takeIf { it.isNotBlank() }?.let { BigDecimal(it) }
         val surchargeAmount = surchargeAmountString?.takeIf { it.isNotBlank() }?.let { BigDecimal(it) }
         
-        executeOperation(operationType, amount, tipAmount, taxAmount, surchargeAmount)
+        if (operationType == TransactionType.REFUND && requestCount > 1) {
+            executeRefundBatch(amount, requestCount)
+        } else {
+            executeOperation(operationType, amount, tipAmount, taxAmount, surchargeAmount)
+        }
+    }
+
+    private fun executeRefundBatch(amount: BigDecimal, requestCount: Int) {
+        val originalTransaction = _state.value.transaction ?: return
+        if (requestCount !in 2..10) {
+            showInvalidRefundBatchMessage("Refund request count must be between 2 and 10")
+            return
+        }
+
+        val connectionMode = try {
+            com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.getConnectionMode(
+                DependencyProvider.requireContext()
+            )
+        } catch (e: Exception) {
+            null
+        }
+        if (connectionMode !=
+            com.sunmi.tapro.taplink.demo.util.ConnectionPreferences.ConnectionMode.CLOUD
+        ) {
+            showInvalidRefundBatchMessage("Multiple refund requests are available in Cloud mode only")
+            return
+        }
+
+        val originalAmount = originalTransaction.getDisplayAmount()
+        val committedRefundAmount = originalTransaction.referenceOrderId
+            ?.let(transactionRepository::getTransactionsByOrderId)
+            .orEmpty()
+            .filter {
+                it.type == TransactionType.REFUND &&
+                    it.status != TransactionStatus.FAILED
+            }
+            .sumOf(Transaction::getDisplayAmount)
+        val remainingRefundAmount = originalAmount.subtract(committedRefundAmount)
+            .coerceAtLeast(BigDecimal.ZERO)
+        val totalRequested = amount.multiply(BigDecimal(requestCount))
+        if (totalRequested > remainingRefundAmount) {
+            showInvalidRefundBatchMessage(
+                "Total refund amount cannot exceed the remaining refundable amount: " +
+                    "$requestCount × $amount > $remainingRefundAmount"
+            )
+            return
+        }
+
+        _state.update {
+            it.copy(
+                isLoading = true,
+                message = Message(
+                    type = MessageType.INFO,
+                    title = "Submitting Refunds",
+                    content = "Submitting $requestCount independent refund requests...",
+                    actions = emptyList()
+                )
+            )
+        }
+
+        viewModelScope.launch {
+            val referenceOrderId = originalTransaction.referenceOrderId
+                ?: "${Constants.ORDER_ID_PREFIX}${System.currentTimeMillis()}"
+            val refundPaymentCategory = resolveRefundPaymentCategory(originalTransaction)
+            val staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext())
+            var submittedCount = 0
+            val requestIds = buildList {
+                repeat(requestCount) { index ->
+                    val transactionRequestId = generateUniqueTransactionRequestId()
+                    val description = "Refund ${index + 1}/$requestCount for ${originalTransaction.type.name}"
+                    val refundTransaction = Transaction(
+                        transactionRequestId = transactionRequestId,
+                        referenceOrderId = referenceOrderId,
+                        type = TransactionType.REFUND,
+                        amount = amount,
+                        currency = originalTransaction.currency,
+                        status = TransactionStatus.PENDING,
+                        timestamp = System.currentTimeMillis() + index,
+                        originalTransactionId = originalTransaction.transactionId.orEmpty(),
+                        originalTransactionRequestId = originalTransaction.transactionRequestId,
+                        description = description,
+                        reason = "Cloud multi-refund test",
+                        paymentCategory = refundPaymentCategory,
+                        cardNetworkType = originalTransaction.cardNetworkType
+                    )
+                    transactionRepository.addTransaction(refundTransaction)
+                    add(transactionRequestId)
+                    try {
+                        paymentService.executeRefund(
+                            referenceOrderId = referenceOrderId,
+                            transactionRequestId = transactionRequestId,
+                            originalTransactionId = originalTransaction.transactionId.orEmpty(),
+                            originalTransactionRequestId = originalTransaction.transactionRequestId,
+                            amount = amount,
+                            currency = originalTransaction.currency,
+                            description = description,
+                            reason = "Cloud multi-refund test",
+                            paymentCategory = refundPaymentCategory,
+                            cardNetworkType = originalTransaction.cardNetworkType,
+                            staffInfo = staffInfo,
+                            callback = createPaymentCallback(transactionRequestId)
+                        )
+                        submittedCount++
+                    } catch (e: Exception) {
+                        transactionRepository.updateTransactionStatus(
+                            transactionRequestId = transactionRequestId,
+                            status = TransactionStatus.FAILED,
+                            errorCode = Constants.ErrorCodes.REQUEST_SEND_FAILED,
+                            errorMessage = e.message ?: "Failed to submit refund request"
+                        )
+                    }
+                }
+            }
+
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    message = Message(
+                        type = if (submittedCount == requestCount) {
+                            MessageType.SUCCESS
+                        } else {
+                            MessageType.WARNING
+                        },
+                        title = "Refund Requests Submitted",
+                        content = "$submittedCount of $requestCount requests submitted for the same order.\n" +
+                            requestIds.joinToString(separator = "\n"),
+                        actions = listOf(MessageAction.DISMISS)
+                    )
+                )
+            }
+        }
+    }
+
+    private fun generateUniqueTransactionRequestId(): String {
+        var candidate: String
+        do {
+            candidate = buildString {
+                append(Constants.TRANSACTION_REQUEST_ID_PREFIX)
+                append(System.currentTimeMillis())
+                append('_')
+                append(Random.nextInt(100_000, 1_000_000))
+            }
+        } while (transactionRepository.isTransactionRequestIdExists(candidate))
+        return candidate
+    }
+
+    private fun showInvalidRefundBatchMessage(content: String) {
+        _state.update {
+            it.copy(
+                isLoading = false,
+                message = Message(
+                    type = MessageType.ERROR,
+                    title = "Invalid Refund Batch",
+                    content = content,
+                    actions = listOf(MessageAction.DISMISS)
+                )
+            )
+        }
     }
     
     /**

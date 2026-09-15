@@ -141,14 +141,15 @@ fun TransactionDetailScreen(
         OperationInputDialog(
             operationType = state.currentOperationType!!,
             onDismiss = { viewModel.handleIntent(TransactionDetailIntent.HideOperationDialog) },
-            onConfirm = { amount, tipAmount, taxAmount, surchargeAmount ->
+            onConfirm = { amount, tipAmount, taxAmount, surchargeAmount, requestCount ->
                 viewModel.handleIntent(
                     TransactionDetailIntent.ConfirmOperation(
                         operationType = state.currentOperationType!!,
                         amount = amount,
                         tipAmount = tipAmount,
                         taxAmount = taxAmount,
-                        surchargeAmount = surchargeAmount
+                        surchargeAmount = surchargeAmount,
+                        requestCount = requestCount
                     )
                 )
             }
@@ -341,20 +342,33 @@ private fun buildTipLabelOverride(transaction: com.sunmi.tapro.taplink.demo.mode
 private fun OperationInputDialog(
     operationType: TransactionType,
     onDismiss: () -> Unit,
-    onConfirm: (amount: String, tipAmount: String?, taxAmount: String?, surchargeAmount: String?) -> Unit
+    onConfirm: (
+        amount: String,
+        tipAmount: String?,
+        taxAmount: String?,
+        surchargeAmount: String?,
+        requestCount: Int
+    ) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
     var tipAmount by remember { mutableStateOf("") }
     var taxAmount by remember { mutableStateOf("") }
     var surchargeAmount by remember { mutableStateOf("") }
+    var requestCount by remember { mutableStateOf("1") }
     val isPostAuth = operationType == TransactionType.POST_AUTH
+    val isRefund = operationType == TransactionType.REFUND
     val amountRegex = remember { Regex("^\\d*\\.?\\d{0,2}$") }
+    val parsedRequestCount = requestCount.toIntOrNull()
+    val isRequestCountValid = !isRefund || parsedRequestCount in 1..10
 
     PosDialog(
         onDismissRequest = onDismiss,
         title = operationType.displayName(),
-        subtitle = if (isPostAuth) "Enter completion amount and optional additional amounts"
-                   else "Enter the amount for this operation",
+        subtitle = when {
+            isPostAuth -> "Enter completion amount and optional additional amounts"
+            isRefund -> "Submit multiple small refunds against the same original order"
+            else -> "Enter the amount for this operation"
+        },
         icon = Icons.Default.AttachMoney,
         iconTint = MaterialTheme.colorScheme.primary,
         iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
@@ -364,10 +378,11 @@ private fun OperationInputDialog(
                 amount,
                 tipAmount.takeIf { isPostAuth && it.isNotBlank() },
                 taxAmount.takeIf { isPostAuth && it.isNotBlank() },
-                surchargeAmount.takeIf { isPostAuth && it.isNotBlank() }
+                surchargeAmount.takeIf { isPostAuth && it.isNotBlank() },
+                parsedRequestCount ?: 1
             )
         },
-        confirmEnabled = amount.isNotBlank(),
+        confirmEnabled = amount.isNotBlank() && isRequestCountValid,
         dismissText = "Cancel",
         onDismiss = onDismiss
     ) {
@@ -381,6 +396,26 @@ private fun OperationInputDialog(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
         )
+        if (isRefund) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = requestCount,
+                onValueChange = { value ->
+                    if (value.length <= 2 && value.all(Char::isDigit)) {
+                        requestCount = value
+                    }
+                },
+                label = { Text("Refund request count") },
+                supportingText = {
+                    Text("1-10 requests. Each request uses a unique transaction request ID.")
+                },
+                isError = requestCount.isNotEmpty() && !isRequestCountValid,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            )
+        }
         if (isPostAuth) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(

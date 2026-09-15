@@ -425,6 +425,7 @@ class ConnectionManager(
             // Sync cached preferences to CloudPaymentService so they are
             // available even if the user never opens the Settings screen.
             paymentService.setNotifyUrl(cloudConfig.notifyUrl)
+            paymentService.setTerminalEventNotifyUrl(cloudConfig.terminalEventNotifyUrl)
             paymentService.setPushToTerminal(cloudConfig.pushToTerminal)
             val printReceipt = ConnectionPreferences.getPrintReceipt(context)
             paymentService.setPrintReceipt(printReceipt.name)

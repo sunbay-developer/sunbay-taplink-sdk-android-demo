@@ -49,6 +49,7 @@ sealed class SettingsIntent {
     data class UpdateCloudMerchantId(val merchantId: String) : SettingsIntent()
     data class UpdateCloudAppId(val appId: String) : SettingsIntent()
     data class UpdateCloudNotifyUrl(val notifyUrl: String) : SettingsIntent()
+    data class UpdateCloudTerminalEventNotifyUrl(val terminalEventNotifyUrl: String) : SettingsIntent()
     data class UpdateCloudPushToTerminal(val enabled: Boolean) : SettingsIntent()
     /** Add a custom value to a cloud field's dropdown option list */
     data class AddCloudOption(val field: String, val value: String) : SettingsIntent()

@@ -184,6 +184,9 @@ class CloudPaymentService : PaymentService {
     /** Notify URL for transaction result callbacks. Set from app layer when loading preferences. */
     private var notifyUrl: String = ""
 
+    /** Notify URL for terminal event callbacks. Set from app layer when loading preferences. */
+    private var terminalEventNotifyUrl: String = ""
+
     /** Whether to push transaction to terminal device. Set from app layer settings toggle. */
     private var pushToTerminal: Boolean = true
     /** Whether to include tipMode field under tipConfig in Cloud requests. */
@@ -199,6 +202,11 @@ class CloudPaymentService : PaymentService {
         Log.d(TAG, "Notify URL set to: $url")
     }
 
+    fun setTerminalEventNotifyUrl(url: String) {
+        this.terminalEventNotifyUrl = url
+        Log.d(TAG, "Terminal event notify URL set to: $url")
+    }
+
     fun setPushToTerminal(enabled: Boolean) {
         this.pushToTerminal = enabled
         Log.d(TAG, "Push to terminal set to: $enabled")
@@ -210,12 +218,15 @@ class CloudPaymentService : PaymentService {
     }
 
     /**
-     * Apply notifyUrl to a request body if configured.
+     * Apply transaction-result and terminal-event callback URLs when configured.
      * Supported by: SALE, AUTH, FORCED_AUTH, REFUND, VOID, POST_AUTH, INCREMENTAL_AUTH
      */
     private fun ObjectNode.applyNotifyUrl() {
         if (notifyUrl.isNotBlank()) {
             put("notifyUrl", notifyUrl)
+        }
+        if (terminalEventNotifyUrl.isNotBlank()) {
+            put("terminalEventNotifyUrl", terminalEventNotifyUrl)
         }
     }
 

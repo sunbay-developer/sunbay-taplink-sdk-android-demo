@@ -122,6 +122,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCloudMerchantId -> updateCloudMerchantId(intent.merchantId)
             is SettingsIntent.UpdateCloudAppId -> updateCloudAppId(intent.appId)
             is SettingsIntent.UpdateCloudNotifyUrl -> updateCloudNotifyUrl(intent.notifyUrl)
+            is SettingsIntent.UpdateCloudTerminalEventNotifyUrl ->
+                updateCloudTerminalEventNotifyUrl(intent.terminalEventNotifyUrl)
             is SettingsIntent.UpdateCloudPushToTerminal -> updateCloudPushToTerminal(intent.enabled)
             is SettingsIntent.AddCloudOption -> addCloudOption(intent.field, intent.value)
             is SettingsIntent.UpdateTipConfigEnabled -> updateTipConfigEnabled(intent.enabled)
@@ -207,8 +209,10 @@ class SettingsViewModel(
                 // Load Cloud configuration
                 val cloudConfig = CloudPreferences.getConfig(context)
                 
-                // Sync notifyUrl and pushToTerminal to cloud payment service
+                // Sync callback URLs and pushToTerminal to cloud payment service
                 com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setNotifyUrl(cloudConfig.notifyUrl)
+                com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
+                    .setTerminalEventNotifyUrl(cloudConfig.terminalEventNotifyUrl)
                 com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setPushToTerminal(cloudConfig.pushToTerminal)
 
                 // Load dropdown options for Cloud fields
@@ -218,6 +222,8 @@ class SettingsViewModel(
                 val merchantIdOptions = CloudPreferences.getFieldOptions(context, CloudPreferences.CloudField.MERCHANT_ID)
                 val appIdOptions = CloudPreferences.getFieldOptions(context, CloudPreferences.CloudField.APP_ID)
                 val notifyUrlOptions = CloudPreferences.getNotifyUrlOptions(context)
+                val terminalEventNotifyUrlOptions =
+                    CloudPreferences.getTerminalEventNotifyUrlOptions(context)
 
                 // Load Tip Configuration
                 val tipConfig = TipConfigPreferences.getConfig(context)
@@ -259,6 +265,7 @@ class SettingsViewModel(
                         cloudMerchantId = cloudConfig.merchantId,
                         cloudAppId = cloudConfig.appId,
                         cloudNotifyUrl = cloudConfig.notifyUrl,
+                        cloudTerminalEventNotifyUrl = cloudConfig.terminalEventNotifyUrl,
                         cloudPushToTerminal = cloudConfig.pushToTerminal,
                         cloudApiKeyOptions = apiKeyOptions,
                         cloudBaseUrlOptions = baseUrlOptions,
@@ -266,6 +273,7 @@ class SettingsViewModel(
                         cloudMerchantIdOptions = merchantIdOptions,
                         cloudAppIdOptions = appIdOptions,
                         cloudNotifyUrlOptions = notifyUrlOptions,
+                        cloudTerminalEventNotifyUrlOptions = terminalEventNotifyUrlOptions,
                         sdkEnvironment = sdkEnvironment,
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
@@ -506,6 +514,16 @@ class SettingsViewModel(
         } else {
             EnvironmentDefaults.Prod.CLOUD_TERMINAL_SN
         }
+        val cloudNotifyUrl = if (environment == SdkEnvironment.UAT) {
+            EnvironmentDefaults.Uat.CLOUD_NOTIFY_URL
+        } else {
+            EnvironmentDefaults.Prod.CLOUD_NOTIFY_URL
+        }
+        val cloudTerminalEventNotifyUrl = if (environment == SdkEnvironment.UAT) {
+            EnvironmentDefaults.Uat.CLOUD_TERMINAL_EVENT_NOTIFY_URL
+        } else {
+            EnvironmentDefaults.Prod.CLOUD_TERMINAL_EVENT_NOTIFY_URL
+        }
         _state.update {
             it.copy(
                 sdkEnvironment = environment,
@@ -517,7 +535,9 @@ class SettingsViewModel(
                 cloudApiKey = cloudApiKey,
                 cloudBaseUrl = cloudBaseUrl,
                 cloudMerchantId = cloudMerchantId,
-                cloudTerminalSn = cloudTerminalSn
+                cloudTerminalSn = cloudTerminalSn,
+                cloudNotifyUrl = cloudNotifyUrl,
+                cloudTerminalEventNotifyUrl = cloudTerminalEventNotifyUrl
             )
         }
 
@@ -535,11 +555,14 @@ class SettingsViewModel(
                     merchantId = current.cloudMerchantId.trim(),
                     appId = current.cloudAppId.trim(),
                     notifyUrl = current.cloudNotifyUrl.trim(),
+                    terminalEventNotifyUrl = current.cloudTerminalEventNotifyUrl.trim(),
                     pushToTerminal = current.cloudPushToTerminal
                 )
             )
             com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
                 .setNotifyUrl(current.cloudNotifyUrl.trim())
+            com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
+                .setTerminalEventNotifyUrl(current.cloudTerminalEventNotifyUrl.trim())
             com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
                 .setPushToTerminal(current.cloudPushToTerminal)
         }
@@ -569,13 +592,18 @@ class SettingsViewModel(
         _state.update { it.copy(cloudNotifyUrl = notifyUrl) }
     }
 
+    private fun updateCloudTerminalEventNotifyUrl(terminalEventNotifyUrl: String) {
+        _state.update { it.copy(cloudTerminalEventNotifyUrl = terminalEventNotifyUrl) }
+    }
+
     private fun updateCloudPushToTerminal(enabled: Boolean) {
         _state.update { it.copy(cloudPushToTerminal = enabled) }
     }
 
     /**
      * Add a custom value to a cloud field's dropdown option list and refresh options.
-     * [field] is one of: "apiKey", "baseUrl", "terminalSn", "merchantId", "appId", "notifyUrl"
+     * [field] is one of: "apiKey", "baseUrl", "terminalSn", "merchantId", "appId",
+     * "notifyUrl", "terminalEventNotifyUrl"
      */
     private fun addCloudOption(field: String, value: String) {
         if (value.isBlank()) return
@@ -622,6 +650,14 @@ class SettingsViewModel(
                     _state.update { it.copy(
                         cloudNotifyUrl = value,
                         cloudNotifyUrlOptions = CloudPreferences.getNotifyUrlOptions(context)
+                    ) }
+                }
+                "terminalEventNotifyUrl" -> {
+                    CloudPreferences.addTerminalEventNotifyUrlOption(context, value)
+                    _state.update { it.copy(
+                        cloudTerminalEventNotifyUrl = value,
+                        cloudTerminalEventNotifyUrlOptions =
+                            CloudPreferences.getTerminalEventNotifyUrlOptions(context)
                     ) }
                 }
             }
@@ -1609,11 +1645,14 @@ class SettingsViewModel(
                             merchantId = currentState.cloudMerchantId.trim(),
                             appId = currentState.cloudAppId.trim(),
                             notifyUrl = currentState.cloudNotifyUrl.trim(),
+                            terminalEventNotifyUrl = currentState.cloudTerminalEventNotifyUrl.trim(),
                             pushToTerminal = currentState.cloudPushToTerminal
                         )
                     )
-                    // Sync notifyUrl and pushToTerminal to cloud payment service
+                    // Sync callback URLs and pushToTerminal to cloud payment service
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setNotifyUrl(currentState.cloudNotifyUrl.trim())
+                    com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService
+                        .setTerminalEventNotifyUrl(currentState.cloudTerminalEventNotifyUrl.trim())
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setPushToTerminal(currentState.cloudPushToTerminal)
                     com.sunmi.tapro.taplink.demo.di.DependencyProvider.cloudPaymentService.setTipModeFieldEnabled(currentState.tipIncludeModeField)
                 }
