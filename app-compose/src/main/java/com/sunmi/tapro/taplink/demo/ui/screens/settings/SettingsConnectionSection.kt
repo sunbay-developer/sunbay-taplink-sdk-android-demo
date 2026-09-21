@@ -1036,7 +1036,7 @@ private fun SdkSectionContent(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = {
-            Text("Applied to SALE, AUTH, and FORCED_AUTH. Default: 180000 ms.")
+            Text("Optional. Leave blank to use the SDK default timeout.")
         }
     )
     Spacer(modifier = Modifier.height(16.dp))

@@ -20,7 +20,7 @@ object TaplinkSdkPreferences {
         val appId: String,
         val merchantId: String,
         val secretKey: String,
-        val requestTimeoutMillis: Int = 180_000
+        val requestTimeoutMillis: Int? = null
     )
 
     private fun prefs(context: Context) =
@@ -35,11 +35,11 @@ object TaplinkSdkPreferences {
             if (p.contains(KEY_MERCHANT_ID)) p.getString(KEY_MERCHANT_ID, "") ?: "" else defaultConfig.merchantId
         val secretKey =
             if (p.contains(KEY_SECRET_KEY)) p.getString(KEY_SECRET_KEY, "") ?: "" else defaultConfig.secretKey
-        val requestTimeoutMillis = if (p.contains(KEY_REQUEST_TIMEOUT_MILLIS)) {
-            p.getInt(KEY_REQUEST_TIMEOUT_MILLIS, defaultConfig.requestTimeoutMillis)
-        } else {
-            defaultConfig.requestTimeoutMillis
-        }.coerceAtLeast(1)
+        val requestTimeoutMillis = when {
+            p.contains(KEY_REQUEST_TIMEOUT_MILLIS) -> p.getInt(KEY_REQUEST_TIMEOUT_MILLIS, -1)
+                .takeIf { it > 0 }
+            else -> defaultConfig.requestTimeoutMillis
+        }
 
         return SdkConfig(
             appId = appId,
@@ -54,7 +54,11 @@ object TaplinkSdkPreferences {
             putString(KEY_APP_ID, config.appId)
             putString(KEY_MERCHANT_ID, config.merchantId)
             putString(KEY_SECRET_KEY, config.secretKey)
-            putInt(KEY_REQUEST_TIMEOUT_MILLIS, config.requestTimeoutMillis.coerceAtLeast(1))
+            if (config.requestTimeoutMillis != null && config.requestTimeoutMillis > 0) {
+                putInt(KEY_REQUEST_TIMEOUT_MILLIS, config.requestTimeoutMillis)
+            } else {
+                remove(KEY_REQUEST_TIMEOUT_MILLIS)
+            }
         }
     }
 }

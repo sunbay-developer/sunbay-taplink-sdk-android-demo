@@ -207,6 +207,7 @@ class SettingsViewModel(
 
                 // Load SDK credentials (TaplinkSDK.init params)
                 val sdkConfig = TaplinkSdkPreferences.getConfig(context, TaplinkSdkInitializer.DEFAULT_CONFIG)
+                val requestTimeoutValue = sdkConfig.requestTimeoutMillis?.toString() ?: ""
 
                 // Load Cloud configuration
                 val cloudConfig = CloudPreferences.getConfig(context)
@@ -280,7 +281,7 @@ class SettingsViewModel(
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
                         sdkSecretKey = "", // Don't load existing secret key for security
-                        sdkRequestTimeoutMillis = sdkConfig.requestTimeoutMillis.toString(),
+                        sdkRequestTimeoutMillis = requestTimeoutValue,
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
                         tipConfigEnabled = tipConfig.enabled,
@@ -477,7 +478,11 @@ class SettingsViewModel(
     }
 
     private fun updateSdkRequestTimeoutMillis(timeoutMillis: String) {
-        _state.update { it.copy(sdkRequestTimeoutMillis = timeoutMillis.filter(Char::isDigit)) }
+        _state.update {
+            it.copy(
+                sdkRequestTimeoutMillis = timeoutMillis.filter(Char::isDigit)
+            )
+        }
     }
 
     private fun switchSdkEnvironment(environment: SdkEnvironment) {
@@ -878,8 +883,11 @@ class SettingsViewModel(
             val currentState = _state.value
             val appId = currentState.sdkAppId.trim()
             val merchantId = currentState.sdkMerchantId.trim()
-            val requestTimeoutMillis = currentState.sdkRequestTimeoutMillis.toIntOrNull()
-            
+            val requestTimeoutMillis = currentState.sdkRequestTimeoutMillis
+                .takeIf { it.isNotBlank() }
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+
             // Determine which secret key to use:
             // - If user entered a new key, use it
             // - Otherwise, keep the existing key from storage
@@ -905,13 +913,13 @@ class SettingsViewModel(
                 return@launch
             }
 
-            if (requestTimeoutMillis == null || requestTimeoutMillis <= 0) {
+            if (currentState.sdkRequestTimeoutMillis.isNotBlank() && requestTimeoutMillis == null) {
                 _state.update {
                     it.copy(
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Invalid Request Timeout",
-                            content = "Request timeout must be a positive number of milliseconds.",
+                            content = "Request timeout must be a positive number of milliseconds when provided.",
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )
