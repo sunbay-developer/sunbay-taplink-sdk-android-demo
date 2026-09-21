@@ -1026,6 +1026,19 @@ private fun SdkSectionContent(
             )
         }
     )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = state.sdkRequestTimeoutMillis,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkRequestTimeoutMillis(it)) },
+        label = { Text("Payment Request Timeout") },
+        suffix = { Text("ms") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        supportingText = {
+            Text("Applied to SALE, AUTH, and FORCED_AUTH. Default: 180000 ms.")
+        }
+    )
     Spacer(modifier = Modifier.height(16.dp))
     Button(
         onClick = rememberDebouncedClick { onIntent(SettingsIntent.ApplySdkConfig) },

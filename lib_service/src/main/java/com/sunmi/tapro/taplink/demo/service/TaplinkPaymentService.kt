@@ -92,6 +92,10 @@ class TaplinkPaymentService : PaymentService {
     /** SDK print receipt option. Set from app/app-compose when loading preferences; default NONE. */
     private var printReceipt: PrintReceipt = PrintReceipt.NONE
 
+    /** Explicit request timeout for foreground payment requests, in the SDK wire unit. */
+    @Volatile
+    private var requestTimeout: Long? = null
+
     /** Whether this app has enabled the secondary display in Settings. */
     @Volatile
     private var secondaryDisplayEnabled = true
@@ -111,6 +115,11 @@ class TaplinkPaymentService : PaymentService {
      */
     fun setPrintReceipt(receipt: PrintReceipt) {
         this.printReceipt = receipt
+    }
+
+    fun setRequestTimeoutMillis(timeoutMillis: Long) {
+        requestTimeout = timeoutMillis.takeIf { it > 0L }
+        Log.d(TAG, "Foreground request timeout configured: ${requestTimeout}ms")
     }
 
     override fun setSecondaryDisplayEnabled(enabled: Boolean) {
@@ -780,19 +789,23 @@ class TaplinkPaymentService : PaymentService {
             emitTipProcessing(callback)
         }
         val saleRequest = SaleRequest(
-            referenceOrderId,
-            transactionRequestId,
-            amountInfo,
-            description,
-            buildPaymentMethodInfo(paymentCategory, sdkPaymentMethodId, sdkSubPaymentMethodId),
-            sdkCardNetworkType,
-            attach,
-            null,
-            null,
-            staffInfo,
-            tipConfig,
-            printReceipt,
-            signatureConfig,
+            referenceOrderId = referenceOrderId,
+            transactionRequestId = transactionRequestId,
+            amount = amountInfo,
+            description = description,
+            paymentMethod = buildPaymentMethodInfo(
+                paymentCategory,
+                sdkPaymentMethodId,
+                sdkSubPaymentMethodId
+            ),
+            cardNetworkType = sdkCardNetworkType,
+            attach = attach,
+            notifyUrl = null,
+            requestTimeout = requestTimeout,
+            staffInfo = staffInfo,
+            tipConfig = tipConfig,
+            printReceipt = printReceipt,
+            signatureConfig = signatureConfig
         )
         logSdkRequest("SALE", saleRequest)
         getClient().sale(saleRequest, object : SdkPaymentCallback {
@@ -844,7 +857,8 @@ class TaplinkPaymentService : PaymentService {
             staffInfo = staffInfo,
             attach = attach,
             printReceipt = printReceipt,
-            signatureConfig = signatureConfig
+            signatureConfig = signatureConfig,
+            requestTimeout = requestTimeout
         )
         logSdkRequest("AUTH", authRequest)
         getClient().auth(authRequest, object : SdkPaymentCallback {
@@ -873,7 +887,8 @@ class TaplinkPaymentService : PaymentService {
             description = description,
             staffInfo = staffInfo,
             attach = attach,
-            printReceipt = printReceipt
+            printReceipt = printReceipt,
+            requestTimeout = requestTimeout
         )
         logSdkRequest("FORCED_AUTH", forcedAuthRequest)
         getClient().forcedAuth(forcedAuthRequest, object : SdkPaymentCallback {

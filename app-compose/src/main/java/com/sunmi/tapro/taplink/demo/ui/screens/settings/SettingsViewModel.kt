@@ -113,6 +113,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
+            is SettingsIntent.UpdateSdkRequestTimeoutMillis ->
+                updateSdkRequestTimeoutMillis(intent.timeoutMillis)
             is SettingsIntent.SwitchSdkEnvironment -> switchSdkEnvironment(intent.environment)
             is SettingsIntent.ApplySdkConfig -> applySdkConfig()
             is SettingsIntent.RefreshProfile -> refreshProfile()
@@ -278,6 +280,7 @@ class SettingsViewModel(
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
                         sdkSecretKey = "", // Don't load existing secret key for security
+                        sdkRequestTimeoutMillis = sdkConfig.requestTimeoutMillis.toString(),
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
                         tipConfigEnabled = tipConfig.enabled,
@@ -471,6 +474,10 @@ class SettingsViewModel(
                 sdkSecretKeyChanged = true // Mark that user has entered a new secret key
             ) 
         }
+    }
+
+    private fun updateSdkRequestTimeoutMillis(timeoutMillis: String) {
+        _state.update { it.copy(sdkRequestTimeoutMillis = timeoutMillis.filter(Char::isDigit)) }
     }
 
     private fun switchSdkEnvironment(environment: SdkEnvironment) {
@@ -871,6 +878,7 @@ class SettingsViewModel(
             val currentState = _state.value
             val appId = currentState.sdkAppId.trim()
             val merchantId = currentState.sdkMerchantId.trim()
+            val requestTimeoutMillis = currentState.sdkRequestTimeoutMillis.toIntOrNull()
             
             // Determine which secret key to use:
             // - If user entered a new key, use it
@@ -897,6 +905,20 @@ class SettingsViewModel(
                 return@launch
             }
 
+            if (requestTimeoutMillis == null || requestTimeoutMillis <= 0) {
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Invalid Request Timeout",
+                            content = "Request timeout must be a positive number of milliseconds.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+                return@launch
+            }
+
             _state.update { it.copy(isApplyingSdkConfig = true, message = null) }
 
             try {
@@ -904,7 +926,8 @@ class SettingsViewModel(
                 val config = TaplinkSdkPreferences.SdkConfig(
                     appId = appId,
                     merchantId = merchantId,
-                    secretKey = secretKey
+                    secretKey = secretKey,
+                    requestTimeoutMillis = requestTimeoutMillis
                 )
 
                 TaplinkSdkPreferences.saveConfig(context, config)

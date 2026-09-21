@@ -2,6 +2,7 @@ package com.sunmi.tapro.taplink.demo.util
 
 import android.content.Context
 import android.util.Log
+import com.sunmi.tapro.taplink.demo.service.TaplinkPaymentService
 import com.sunmi.tapro.taplink.sdk.TaplinkSDK
 import com.sunmi.tapro.taplink.sdk.config.TaplinkConfig
 import com.sunmi.tapro.taplink.sdk.enums.LogLevel
@@ -35,6 +36,7 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "App ID: ${config.appId}")
             Log.d(TAG, "Merchant ID: ${config.merchantId ?: "(not provided)"}")
             Log.d(TAG, "Secret Key: ${maskSecret(config.secretKey)}")
+            Log.d(TAG, "Payment request timeout: ${config.requestTimeoutMillis}ms")
             Log.d(TAG, "Auto open USB screen player: $secondaryDisplayEnabled")
 
             val taplinkConfig = TaplinkConfig(
@@ -49,6 +51,8 @@ object TaplinkSdkInitializer {
 
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
+            TaplinkPaymentService.getInstance()
+                .setRequestTimeoutMillis(config.requestTimeoutMillis.toLong())
 
             Log.d(TAG, "=== Taplink SDK Initialization Response ===")
             Log.d(TAG, "Status: SUCCESS")
