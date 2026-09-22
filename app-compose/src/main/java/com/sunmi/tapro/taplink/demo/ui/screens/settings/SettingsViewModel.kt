@@ -113,8 +113,10 @@ class SettingsViewModel(
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
-            is SettingsIntent.UpdateSdkRequestTimeoutMillis ->
-                updateSdkRequestTimeoutMillis(intent.timeoutMillis)
+            is SettingsIntent.UpdateSdkRequestTimeoutSeconds ->
+                updateSdkRequestTimeoutSeconds(intent.timeoutSeconds)
+            is SettingsIntent.UpdateSdkConfigTimeoutSeconds ->
+                updateSdkConfigTimeoutSeconds(intent.timeoutSeconds)
             is SettingsIntent.SwitchSdkEnvironment -> switchSdkEnvironment(intent.environment)
             is SettingsIntent.ApplySdkConfig -> applySdkConfig()
             is SettingsIntent.RefreshProfile -> refreshProfile()
@@ -207,7 +209,7 @@ class SettingsViewModel(
 
                 // Load SDK credentials (TaplinkSDK.init params)
                 val sdkConfig = TaplinkSdkPreferences.getConfig(context, TaplinkSdkInitializer.DEFAULT_CONFIG)
-                val requestTimeoutValue = sdkConfig.requestTimeoutMillis?.toString() ?: ""
+                val requestTimeoutValue = sdkConfig.requestTimeoutSeconds?.toString() ?: ""
 
                 // Load Cloud configuration
                 val cloudConfig = CloudPreferences.getConfig(context)
@@ -281,7 +283,8 @@ class SettingsViewModel(
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
                         sdkSecretKey = "", // Don't load existing secret key for security
-                        sdkRequestTimeoutMillis = requestTimeoutValue,
+                        sdkRequestTimeoutSeconds = requestTimeoutValue,
+                        sdkConfigTimeoutSeconds = sdkConfig.configTimeoutSeconds.toString(),
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
                         tipConfigEnabled = tipConfig.enabled,
@@ -477,10 +480,18 @@ class SettingsViewModel(
         }
     }
 
-    private fun updateSdkRequestTimeoutMillis(timeoutMillis: String) {
+    private fun updateSdkRequestTimeoutSeconds(timeoutSeconds: String) {
         _state.update {
             it.copy(
-                sdkRequestTimeoutMillis = timeoutMillis.filter(Char::isDigit)
+                sdkRequestTimeoutSeconds = timeoutSeconds.filter(Char::isDigit)
+            )
+        }
+    }
+
+    private fun updateSdkConfigTimeoutSeconds(timeoutSeconds: String) {
+        _state.update {
+            it.copy(
+                sdkConfigTimeoutSeconds = timeoutSeconds.filter(Char::isDigit)
             )
         }
     }
@@ -883,9 +894,12 @@ class SettingsViewModel(
             val currentState = _state.value
             val appId = currentState.sdkAppId.trim()
             val merchantId = currentState.sdkMerchantId.trim()
-            val requestTimeoutMillis = currentState.sdkRequestTimeoutMillis
+            val requestTimeoutSeconds = currentState.sdkRequestTimeoutSeconds
                 .takeIf { it.isNotBlank() }
                 ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+            val configTimeoutSeconds = currentState.sdkConfigTimeoutSeconds
+                .toIntOrNull()
                 ?.takeIf { it > 0 }
 
             // Determine which secret key to use:
@@ -913,13 +927,27 @@ class SettingsViewModel(
                 return@launch
             }
 
-            if (currentState.sdkRequestTimeoutMillis.isNotBlank() && requestTimeoutMillis == null) {
+            if (configTimeoutSeconds == null) {
+                _state.update {
+                    it.copy(
+                        message = Message(
+                            type = MessageType.ERROR,
+                            title = "Invalid TaplinkConfig Timeout",
+                            content = "TaplinkConfig timeout must be a positive number of seconds.",
+                            actions = listOf(MessageAction.DISMISS)
+                        )
+                    )
+                }
+                return@launch
+            }
+
+            if (currentState.sdkRequestTimeoutSeconds.isNotBlank() && requestTimeoutSeconds == null) {
                 _state.update {
                     it.copy(
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Invalid Request Timeout",
-                            content = "Request timeout must be a positive number of milliseconds when provided.",
+                            content = "Per-request timeout must be a positive number of seconds when provided.",
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )
@@ -935,7 +963,8 @@ class SettingsViewModel(
                     appId = appId,
                     merchantId = merchantId,
                     secretKey = secretKey,
-                    requestTimeoutMillis = requestTimeoutMillis
+                    requestTimeoutSeconds = requestTimeoutSeconds,
+                    configTimeoutSeconds = configTimeoutSeconds
                 )
 
                 TaplinkSdkPreferences.saveConfig(context, config)
@@ -956,7 +985,10 @@ class SettingsViewModel(
                             type = if (initOk) MessageType.SUCCESS else MessageType.ERROR,
                             title = if (initOk) "SDK Updated" else "SDK Update Failed",
                             content = if (initOk) {
-                                "SDK initialized with the updated parameters and connection is being refreshed."
+                                "SDK initialized with TaplinkConfig timeout " +
+                                    "${configTimeoutSeconds}s and per-request timeout " +
+                                    "${requestTimeoutSeconds?.let { "${it}s" } ?: "unset"}; " +
+                                    "the connection is being refreshed."
                             } else {
                                 "Failed to initialize SDK with updated parameters. Please verify values and try again."
                             },

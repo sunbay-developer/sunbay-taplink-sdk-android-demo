@@ -1028,15 +1028,28 @@ private fun SdkSectionContent(
     )
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedTextField(
-        value = state.sdkRequestTimeoutMillis,
-        onValueChange = { onIntent(SettingsIntent.UpdateSdkRequestTimeoutMillis(it)) },
-        label = { Text("Payment Request Timeout") },
-        suffix = { Text("ms") },
+        value = state.sdkConfigTimeoutSeconds,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkConfigTimeoutSeconds(it)) },
+        label = { Text("TaplinkConfig Timeout") },
+        suffix = { Text("s") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = {
-            Text("Optional. Leave blank to use the SDK default timeout.")
+            Text("Global fallback timeout. SDK default: 180 seconds.")
+        }
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = state.sdkRequestTimeoutSeconds,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkRequestTimeoutSeconds(it)) },
+        label = { Text("Per-request Timeout") },
+        suffix = { Text("s") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        supportingText = {
+            Text("Optional. When set, this value takes precedence over TaplinkConfig timeout.")
         }
     )
     Spacer(modifier = Modifier.height(16.dp))

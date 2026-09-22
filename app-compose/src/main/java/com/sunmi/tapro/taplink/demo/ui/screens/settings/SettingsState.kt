@@ -120,7 +120,8 @@ data class SettingsState(
     val sdkAppId: String = "",
     val sdkMerchantId: String = "",
     val sdkSecretKey: String = "",
-    val sdkRequestTimeoutMillis: String = "",
+    val sdkRequestTimeoutSeconds: String = "",
+    val sdkConfigTimeoutSeconds: String = "180",
     val sdkSecretKeyChanged: Boolean = false, // Track if user has entered a new secret key
     val hasExistingSecretKey: Boolean = false, // Track if there's a saved secret key
     val isApplyingSdkConfig: Boolean = false,

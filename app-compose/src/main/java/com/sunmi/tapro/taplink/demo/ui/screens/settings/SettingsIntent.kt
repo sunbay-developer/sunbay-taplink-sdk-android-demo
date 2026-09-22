@@ -36,7 +36,8 @@ sealed class SettingsIntent {
     data class UpdateSdkAppId(val appId: String) : SettingsIntent()
     data class UpdateSdkMerchantId(val merchantId: String) : SettingsIntent()
     data class UpdateSdkSecretKey(val secretKey: String) : SettingsIntent()
-    data class UpdateSdkRequestTimeoutMillis(val timeoutMillis: String) : SettingsIntent()
+    data class UpdateSdkRequestTimeoutSeconds(val timeoutSeconds: String) : SettingsIntent()
+    data class UpdateSdkConfigTimeoutSeconds(val timeoutSeconds: String) : SettingsIntent()
     data class SwitchSdkEnvironment(val environment: SdkEnvironment) : SettingsIntent()
     object ApplySdkConfig : SettingsIntent()
 

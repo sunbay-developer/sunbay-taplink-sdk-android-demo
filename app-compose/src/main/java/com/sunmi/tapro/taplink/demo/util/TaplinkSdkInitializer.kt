@@ -36,14 +36,20 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "App ID: ${config.appId}")
             Log.d(TAG, "Merchant ID: ${config.merchantId ?: "(not provided)"}")
             Log.d(TAG, "Secret Key: ${maskSecret(config.secretKey)}")
-            val timeoutSeconds = config.requestTimeoutMillis
-            Log.d(TAG, "Payment request timeout: ${if (timeoutSeconds != null) "${timeoutSeconds}ms" else "not set (SDK default)"}")
+            val requestTimeoutSeconds = config.requestTimeoutSeconds
+            Log.d(
+                TAG,
+                "Payment request timeout: " +
+                    if (requestTimeoutSeconds != null) "${requestTimeoutSeconds}s" else "not set"
+            )
+            Log.d(TAG, "TaplinkConfig timeout: ${config.configTimeoutSeconds}s")
             Log.d(TAG, "Auto open USB screen player: $secondaryDisplayEnabled")
 
             val taplinkConfig = TaplinkConfig(
                 appId = config.appId,
                 merchantId = config.merchantId,
-                secretKey = config.secretKey
+                secretKey = config.secretKey,
+                timeout = config.configTimeoutSeconds
             )
                 .setLogEnabled(true)
                 .setLogLevel(LogLevel.DEBUG)
@@ -53,7 +59,7 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
             TaplinkPaymentService.getInstance()
-                .setRequestTimeoutMillis(timeoutSeconds?.toLong() ?: -1L)
+                .setRequestTimeoutSeconds(requestTimeoutSeconds?.toLong() ?: -1L)
 
             Log.d(TAG, "=== Taplink SDK Initialization Response ===")
             Log.d(TAG, "Status: SUCCESS")
@@ -74,4 +80,3 @@ object TaplinkSdkInitializer {
         return secretKey.take(2) + "***" + secretKey.takeLast(2)
     }
 }
-
