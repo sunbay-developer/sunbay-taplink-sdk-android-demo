@@ -216,10 +216,12 @@ internal fun ConnectionSectionContent(
         ConnectionMode.LAN -> LanConfiguration(
             ipAddress = state.ipAddress,
             port = state.port,
+            autoReconnect = state.lanAutoReconnect,
             isAutoDiscovering = state.isAutoDiscovering,
             isQrScanning = state.isQrScanning,
             onIpAddressChange = { onIntent(SettingsIntent.UpdateIpAddress(it)) },
             onPortChange = { onIntent(SettingsIntent.UpdatePort(it)) },
+            onAutoReconnectChange = { onIntent(SettingsIntent.UpdateLanAutoReconnect(it)) },
             onAutoDiscover = { onIntent(SettingsIntent.AutoDiscoverAndConnect) },
             onScanQr = { onIntent(SettingsIntent.ScanQrAndConnect) }
         )
@@ -356,6 +358,11 @@ fun CrossDeviceConfiguration(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 supportingText = { Text("Port number for LAN strategy") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LanAutoReconnectSetting(
+                enabled = state.lanAutoReconnect,
+                onEnabledChange = { onIntent(SettingsIntent.UpdateLanAutoReconnect(it)) }
             )
         } else {
             Spacer(modifier = Modifier.height(8.dp))
@@ -614,10 +621,12 @@ fun CableConfiguration(
 fun LanConfiguration(
     ipAddress: String,
     port: String,
+    autoReconnect: Boolean,
     isAutoDiscovering: Boolean,
     isQrScanning: Boolean,
     onIpAddressChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
+    onAutoReconnectChange: (Boolean) -> Unit,
     onAutoDiscover: () -> Unit,
     onScanQr: () -> Unit
 ) {
@@ -627,6 +636,11 @@ fun LanConfiguration(
         OutlinedTextField(value = ipAddress, onValueChange = onIpAddressChange, label = { Text("IP Address") }, placeholder = { Text("") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), supportingText = { Text("IP address of the payment terminal") })
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(value = port, onValueChange = onPortChange, label = { Text("Port") }, placeholder = { Text("8080") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), supportingText = { Text("Port number (8443-8463)") })
+        Spacer(modifier = Modifier.height(8.dp))
+        LanAutoReconnectSetting(
+            enabled = autoReconnect,
+            onEnabledChange = onAutoReconnectChange
+        )
         Spacer(modifier = Modifier.height(12.dp))
 
         // ── New SDK features: auto-discover & QR scan connect ──────────────────
@@ -661,6 +675,7 @@ fun LanConfiguration(
                 Text("Scan QR")
             }
         }
+
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(12.dp)) {
@@ -671,6 +686,34 @@ fun LanConfiguration(
                 Text("• Auto Discover: finds Taplink services on the LAN and connects automatically.\n• Scan QR: scans the QR code shown on the terminal's LAN screen to connect.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun LanAutoReconnectSetting(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Auto Reconnect", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                if (enabled) {
+                    "Enabled: direct-connect fallback, LAN monitoring, and service-change reconnect are active. Reconnect to apply."
+                } else {
+                    "Disabled: SDK automatic LAN discovery fallback, monitoring, and reconnect are off. Reconnect to apply."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onEnabledChange
+        )
     }
 }
 
@@ -1036,7 +1079,7 @@ private fun SdkSectionContent(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = {
-            Text("Global fallback timeout. SDK default: 180 seconds.")
+            Text("Optional. Leave empty to use the SDK default (180 seconds).")
         }
     )
     Spacer(modifier = Modifier.height(8.dp))
@@ -1049,7 +1092,7 @@ private fun SdkSectionContent(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = {
-            Text("Optional. When set, this value takes precedence over TaplinkConfig timeout.")
+            Text("Optional. Leave empty to test TaplinkConfig timeout or the SDK default.")
         }
     )
     Spacer(modifier = Modifier.height(16.dp))

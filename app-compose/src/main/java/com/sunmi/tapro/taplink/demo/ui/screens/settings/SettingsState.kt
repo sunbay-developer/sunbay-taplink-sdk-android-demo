@@ -51,6 +51,7 @@ data class SettingsState(
     // LAN Configuration
     val ipAddress: String = "",
     val port: String = "",
+    val lanAutoReconnect: Boolean = false,
 
     // Cross-Device Configuration (ConnectionMode.CROSS_DEVICE)
     val crossDeviceStrategy: ConnectionPreferences.CrossDeviceStrategy = ConnectionPreferences.CrossDeviceStrategy.LAN,
@@ -121,7 +122,7 @@ data class SettingsState(
     val sdkMerchantId: String = "",
     val sdkSecretKey: String = "",
     val sdkRequestTimeoutSeconds: String = "",
-    val sdkConfigTimeoutSeconds: String = "180",
+    val sdkConfigTimeoutSeconds: String = "",
     val sdkSecretKeyChanged: Boolean = false, // Track if user has entered a new secret key
     val hasExistingSecretKey: Boolean = false, // Track if there's a saved secret key
     val isApplyingSdkConfig: Boolean = false,

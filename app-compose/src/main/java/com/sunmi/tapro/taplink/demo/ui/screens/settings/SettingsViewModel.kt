@@ -95,6 +95,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateCableProtocol -> updateCableProtocol(intent.protocol)
             is SettingsIntent.UpdateIpAddress -> updateIpAddress(intent.ipAddress)
             is SettingsIntent.UpdatePort -> updatePort(intent.port)
+            is SettingsIntent.UpdateLanAutoReconnect ->
+                updateLanAutoReconnect(intent.enabled)
             is SettingsIntent.UpdateCrossDeviceStrategy -> updateCrossDeviceStrategy(intent.strategy)
             is SettingsIntent.UpdateCrossDeviceIpAddress -> updateCrossDeviceIpAddress(intent.ipAddress)
             is SettingsIntent.UpdateCrossDevicePort -> updateCrossDevicePort(intent.port)
@@ -184,6 +186,8 @@ class SettingsViewModel(
                 
                 // Load LAN configuration
                 val (savedIp, savedPort) = ConnectionPreferences.getLanConfig(context)
+                val savedLanAutoReconnect =
+                    ConnectionPreferences.isLanAutoReconnectEnabled(context)
 
                 // Load Cross-Device configuration
                 val savedCrossDeviceStrategy = ConnectionPreferences.getCrossDeviceStrategy(context)
@@ -280,11 +284,12 @@ class SettingsViewModel(
                         cloudNotifyUrlOptions = notifyUrlOptions,
                         cloudTerminalEventNotifyUrlOptions = terminalEventNotifyUrlOptions,
                         sdkEnvironment = sdkEnvironment,
+                        lanAutoReconnect = savedLanAutoReconnect,
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
                         sdkSecretKey = "", // Don't load existing secret key for security
                         sdkRequestTimeoutSeconds = requestTimeoutValue,
-                        sdkConfigTimeoutSeconds = sdkConfig.configTimeoutSeconds.toString(),
+                        sdkConfigTimeoutSeconds = sdkConfig.configTimeoutSeconds?.toString() ?: "",
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
                         tipConfigEnabled = tipConfig.enabled,
@@ -371,6 +376,14 @@ class SettingsViewModel(
      */
     private fun updatePort(port: String) {
         _state.update { it.copy(port = port) }
+    }
+
+    private fun updateLanAutoReconnect(enabled: Boolean) {
+        _state.update { it.copy(lanAutoReconnect = enabled) }
+        ConnectionPreferences.saveLanAutoReconnect(
+            getApplication<Application>(),
+            enabled
+        )
     }
 
     /** Update Cross-Device connection strategy (LAN / CABLE). */
@@ -899,7 +912,8 @@ class SettingsViewModel(
                 ?.toIntOrNull()
                 ?.takeIf { it > 0 }
             val configTimeoutSeconds = currentState.sdkConfigTimeoutSeconds
-                .toIntOrNull()
+                .takeIf { it.isNotBlank() }
+                ?.toIntOrNull()
                 ?.takeIf { it > 0 }
 
             // Determine which secret key to use:
@@ -927,13 +941,13 @@ class SettingsViewModel(
                 return@launch
             }
 
-            if (configTimeoutSeconds == null) {
+            if (currentState.sdkConfigTimeoutSeconds.isNotBlank() && configTimeoutSeconds == null) {
                 _state.update {
                     it.copy(
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Invalid TaplinkConfig Timeout",
-                            content = "TaplinkConfig timeout must be a positive number of seconds.",
+                            content = "TaplinkConfig timeout must be a positive number of seconds when provided.",
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )
@@ -986,7 +1000,8 @@ class SettingsViewModel(
                             title = if (initOk) "SDK Updated" else "SDK Update Failed",
                             content = if (initOk) {
                                 "SDK initialized with TaplinkConfig timeout " +
-                                    "${configTimeoutSeconds}s and per-request timeout " +
+                                    "${configTimeoutSeconds?.let { "${it}s" } ?: "unset (SDK default)"} " +
+                                    "and per-request timeout " +
                                     "${requestTimeoutSeconds?.let { "${it}s" } ?: "unset"}; " +
                                     "the connection is being refreshed."
                             } else {

@@ -12,6 +12,7 @@ object ConnectionPreferences {
     private const val KEY_MODE = "connection_mode"
     private const val KEY_LAN_IP = "lan_ip"
     private const val KEY_LAN_PORT = "lan_port"
+    private const val KEY_LAN_AUTO_RECONNECT = "lan_auto_reconnect"
     private const val KEY_CABLE_PROTOCOL = "cable_protocol"
     private const val KEY_APP_TO_APP_MODE = "app_to_app_mode"
     private const val KEY_PRINT_RECEIPT = "print_receipt"
@@ -95,6 +96,14 @@ object ConnectionPreferences {
             prefs.getString(KEY_LAN_IP, null),
             prefs.getInt(KEY_LAN_PORT, DEFAULT_LAN_PORT)
         )
+    }
+
+    fun saveLanAutoReconnect(context: Context, enabled: Boolean) {
+        getPreferences(context).edit { putBoolean(KEY_LAN_AUTO_RECONNECT, enabled) }
+    }
+
+    fun isLanAutoReconnectEnabled(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_LAN_AUTO_RECONNECT, false)
     }
 
     fun saveCableProtocol(context: Context, protocol: CableProtocol) {

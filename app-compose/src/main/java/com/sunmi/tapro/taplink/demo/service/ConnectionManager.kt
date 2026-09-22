@@ -616,13 +616,19 @@ class ConnectionManager(
                     ConnectionPreferences.CableProtocol.RS232 ->
                         com.sunmi.tapro.taplink.sdk.enums.CableProtocol.RS232
                 }
-                Log.d(TAG, "Creating Cross-Device connection config, strategy=$sdkStrategy, host=$host, port=$port")
+                val autoReconnect = sdkStrategy == CrossDeviceStrategy.LAN &&
+                    ConnectionPreferences.isLanAutoReconnectEnabled(context)
+                Log.d(
+                    TAG,
+                    "Creating Cross-Device connection config, strategy=$sdkStrategy, " +
+                        "host=$host, port=$port, autoReconnect=$autoReconnect"
+                )
                 ConnectionConfig.createCrossDeviceMode(
                     strategy = sdkStrategy,
                     host = host,
                     port = port,
                     cableProtocol = cableProtocol
-                )
+                ).setAutoReconnect(autoReconnect)
             }
             ConnectionMode.APP_TO_APP -> {
                 val appToAppMode = when (ConnectionPreferences.getAppToAppMode(context)) {
@@ -646,12 +652,19 @@ class ConnectionManager(
                 ConnectionConfig.createCableMode(sdkProtocol)
             }
             ConnectionMode.LAN -> {
-                Log.d(TAG, "Creating LAN connection config")
                 val (ip, port) = ConnectionPreferences.getLanConfig(context)
                 if (ip.isNullOrBlank()) {
                     throw IllegalStateException("LAN IP address not configured")
                 }
+                val autoReconnect =
+                    ConnectionPreferences.isLanAutoReconnectEnabled(context)
+                Log.d(
+                    TAG,
+                    "Creating LAN connection config, host=$ip, port=$port, " +
+                        "autoReconnect=$autoReconnect"
+                )
                 ConnectionConfig.createLanMode(ip, port)
+                    .setAutoReconnect(autoReconnect)
             }
             ConnectionMode.CLOUD -> {
                 // Cloud mode uses its own initialization via CloudPaymentService.initialize()

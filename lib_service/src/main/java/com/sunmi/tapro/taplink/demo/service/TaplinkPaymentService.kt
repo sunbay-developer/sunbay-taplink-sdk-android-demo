@@ -117,9 +117,13 @@ class TaplinkPaymentService : PaymentService {
         this.printReceipt = receipt
     }
 
-    fun setRequestTimeoutSeconds(timeoutSeconds: Long) {
-        requestTimeout = timeoutSeconds.takeIf { it > 0L }
-        Log.d(TAG, "Foreground request timeout configured: ${requestTimeout}s")
+    fun setRequestTimeoutSeconds(timeoutSeconds: Long?) {
+        requestTimeout = timeoutSeconds?.takeIf { it > 0L }
+        Log.d(
+            TAG,
+            "Foreground request timeout configured: " +
+                (requestTimeout?.let { "${it}s" } ?: "not set")
+        )
     }
 
     override fun setSecondaryDisplayEnabled(enabled: Boolean) {

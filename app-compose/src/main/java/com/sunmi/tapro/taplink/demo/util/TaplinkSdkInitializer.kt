@@ -42,15 +42,29 @@ object TaplinkSdkInitializer {
                 "Payment request timeout: " +
                     if (requestTimeoutSeconds != null) "${requestTimeoutSeconds}s" else "not set"
             )
-            Log.d(TAG, "TaplinkConfig timeout: ${config.configTimeoutSeconds}s")
+            Log.d(
+                TAG,
+                "TaplinkConfig timeout: " +
+                    if (config.configTimeoutSeconds != null) {
+                        "${config.configTimeoutSeconds}s"
+                    } else {
+                        "not set (SDK default)"
+                    }
+            )
             Log.d(TAG, "Auto open USB screen player: $secondaryDisplayEnabled")
 
-            val taplinkConfig = TaplinkConfig(
+            val taplinkConfig = (config.configTimeoutSeconds?.let { timeoutSeconds ->
+                TaplinkConfig(
+                    appId = config.appId,
+                    merchantId = merchantId,
+                    secretKey = config.secretKey,
+                    timeout = timeoutSeconds
+                )
+            } ?: TaplinkConfig(
                 appId = config.appId,
-                merchantId = config.merchantId,
-                secretKey = config.secretKey,
-                timeout = config.configTimeoutSeconds
-            )
+                merchantId = merchantId,
+                secretKey = config.secretKey
+            ))
                 .setLogEnabled(true)
                 .setLogLevel(LogLevel.DEBUG)
                 // 副屏挂在 tapro 侧设备上时，由 SDK 在 connect 内部先拉起 tapro 的副屏播放器。
@@ -59,7 +73,7 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
             TaplinkPaymentService.getInstance()
-                .setRequestTimeoutSeconds(requestTimeoutSeconds?.toLong() ?: -1L)
+                .setRequestTimeoutSeconds(requestTimeoutSeconds?.toLong())
 
             Log.d(TAG, "=== Taplink SDK Initialization Response ===")
             Log.d(TAG, "Status: SUCCESS")

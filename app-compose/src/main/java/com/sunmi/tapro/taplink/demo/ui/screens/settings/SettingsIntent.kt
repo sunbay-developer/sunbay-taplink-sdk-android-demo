@@ -17,6 +17,7 @@ sealed class SettingsIntent {
     data class UpdateCableProtocol(val protocol: ConnectionPreferences.CableProtocol) : SettingsIntent()
     data class UpdateIpAddress(val ipAddress: String) : SettingsIntent()
     data class UpdatePort(val port: String) : SettingsIntent()
+    data class UpdateLanAutoReconnect(val enabled: Boolean) : SettingsIntent()
 
     // Cross-Device Configuration (ConnectionMode.CROSS_DEVICE)
     data class UpdateCrossDeviceStrategy(val strategy: ConnectionPreferences.CrossDeviceStrategy) : SettingsIntent()
