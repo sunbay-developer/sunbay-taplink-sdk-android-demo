@@ -36,11 +36,11 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "App ID: ${config.appId}")
             Log.d(TAG, "Merchant ID: ${config.merchantId ?: "(not provided)"}")
             Log.d(TAG, "Secret Key: ${maskSecret(config.secretKey)}")
-            val requestTimeoutSeconds = config.requestTimeoutSeconds
+            val requestTimeoutMillis = config.requestTimeoutMillis
             Log.d(
                 TAG,
                 "Payment request timeout: " +
-                    if (requestTimeoutSeconds != null) "${requestTimeoutSeconds}s" else "not set"
+                    if (requestTimeoutMillis != null) "${requestTimeoutMillis}ms" else "not set"
             )
             Log.d(
                 TAG,
@@ -73,7 +73,7 @@ object TaplinkSdkInitializer {
             Log.d(TAG, "=== Calling TaplinkSDK.init() ===")
             TaplinkSDK.init(context, taplinkConfig)
             TaplinkPaymentService.getInstance()
-                .setRequestTimeoutSeconds(requestTimeoutSeconds?.toLong())
+                .setRequestTimeoutMillis(requestTimeoutMillis?.toLong())
 
             Log.d(TAG, "=== Taplink SDK Initialization Response ===")
             Log.d(TAG, "Status: SUCCESS")

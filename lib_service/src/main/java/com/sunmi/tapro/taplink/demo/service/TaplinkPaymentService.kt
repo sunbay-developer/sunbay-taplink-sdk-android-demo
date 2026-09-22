@@ -92,7 +92,7 @@ class TaplinkPaymentService : PaymentService {
     /** SDK print receipt option. Set from app/app-compose when loading preferences; default NONE. */
     private var printReceipt: PrintReceipt = PrintReceipt.NONE
 
-    /** Explicit per-request timeout for foreground payment requests, in seconds. */
+    /** Explicit per-request timeout for foreground payment requests, in milliseconds. */
     @Volatile
     private var requestTimeout: Long? = null
 
@@ -117,12 +117,12 @@ class TaplinkPaymentService : PaymentService {
         this.printReceipt = receipt
     }
 
-    fun setRequestTimeoutSeconds(timeoutSeconds: Long?) {
-        requestTimeout = timeoutSeconds?.takeIf { it > 0L }
+    fun setRequestTimeoutMillis(timeoutMillis: Long?) {
+        requestTimeout = timeoutMillis?.takeIf { it > 0L }
         Log.d(
             TAG,
             "Foreground request timeout configured: " +
-                (requestTimeout?.let { "${it}s" } ?: "not set")
+                (requestTimeout?.let { "${it}ms" } ?: "not set")
         )
     }
 

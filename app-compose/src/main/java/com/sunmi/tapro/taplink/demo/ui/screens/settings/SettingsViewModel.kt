@@ -115,8 +115,8 @@ class SettingsViewModel(
             is SettingsIntent.UpdateSdkAppId -> updateSdkAppId(intent.appId)
             is SettingsIntent.UpdateSdkMerchantId -> updateSdkMerchantId(intent.merchantId)
             is SettingsIntent.UpdateSdkSecretKey -> updateSdkSecretKey(intent.secretKey)
-            is SettingsIntent.UpdateSdkRequestTimeoutSeconds ->
-                updateSdkRequestTimeoutSeconds(intent.timeoutSeconds)
+            is SettingsIntent.UpdateSdkRequestTimeoutMillis ->
+                updateSdkRequestTimeoutMillis(intent.timeoutMillis)
             is SettingsIntent.UpdateSdkConfigTimeoutSeconds ->
                 updateSdkConfigTimeoutSeconds(intent.timeoutSeconds)
             is SettingsIntent.SwitchSdkEnvironment -> switchSdkEnvironment(intent.environment)
@@ -213,7 +213,7 @@ class SettingsViewModel(
 
                 // Load SDK credentials (TaplinkSDK.init params)
                 val sdkConfig = TaplinkSdkPreferences.getConfig(context, TaplinkSdkInitializer.DEFAULT_CONFIG)
-                val requestTimeoutValue = sdkConfig.requestTimeoutSeconds?.toString() ?: ""
+                val requestTimeoutValue = sdkConfig.requestTimeoutMillis?.toString() ?: ""
 
                 // Load Cloud configuration
                 val cloudConfig = CloudPreferences.getConfig(context)
@@ -288,7 +288,7 @@ class SettingsViewModel(
                         sdkAppId = sdkConfig.appId,
                         sdkMerchantId = sdkConfig.merchantId,
                         sdkSecretKey = "", // Don't load existing secret key for security
-                        sdkRequestTimeoutSeconds = requestTimeoutValue,
+                        sdkRequestTimeoutMillis = requestTimeoutValue,
                         sdkConfigTimeoutSeconds = sdkConfig.configTimeoutSeconds?.toString() ?: "",
                         sdkSecretKeyChanged = false,
                         hasExistingSecretKey = sdkConfig.secretKey.isNotBlank(), // Track if secret key exists
@@ -493,10 +493,10 @@ class SettingsViewModel(
         }
     }
 
-    private fun updateSdkRequestTimeoutSeconds(timeoutSeconds: String) {
+    private fun updateSdkRequestTimeoutMillis(timeoutMillis: String) {
         _state.update {
             it.copy(
-                sdkRequestTimeoutSeconds = timeoutSeconds.filter(Char::isDigit)
+                sdkRequestTimeoutMillis = timeoutMillis.filter(Char::isDigit)
             )
         }
     }
@@ -907,7 +907,7 @@ class SettingsViewModel(
             val currentState = _state.value
             val appId = currentState.sdkAppId.trim()
             val merchantId = currentState.sdkMerchantId.trim()
-            val requestTimeoutSeconds = currentState.sdkRequestTimeoutSeconds
+            val requestTimeoutMillis = currentState.sdkRequestTimeoutMillis
                 .takeIf { it.isNotBlank() }
                 ?.toIntOrNull()
                 ?.takeIf { it > 0 }
@@ -955,13 +955,13 @@ class SettingsViewModel(
                 return@launch
             }
 
-            if (currentState.sdkRequestTimeoutSeconds.isNotBlank() && requestTimeoutSeconds == null) {
+            if (currentState.sdkRequestTimeoutMillis.isNotBlank() && requestTimeoutMillis == null) {
                 _state.update {
                     it.copy(
                         message = Message(
                             type = MessageType.ERROR,
                             title = "Invalid Request Timeout",
-                            content = "Per-request timeout must be a positive number of seconds when provided.",
+                            content = "Per-request timeout must be a positive number of milliseconds when provided.",
                             actions = listOf(MessageAction.DISMISS)
                         )
                     )
@@ -977,7 +977,7 @@ class SettingsViewModel(
                     appId = appId,
                     merchantId = merchantId,
                     secretKey = secretKey,
-                    requestTimeoutSeconds = requestTimeoutSeconds,
+                    requestTimeoutMillis = requestTimeoutMillis,
                     configTimeoutSeconds = configTimeoutSeconds
                 )
 
@@ -1002,7 +1002,7 @@ class SettingsViewModel(
                                 "SDK initialized with TaplinkConfig timeout " +
                                     "${configTimeoutSeconds?.let { "${it}s" } ?: "unset (SDK default)"} " +
                                     "and per-request timeout " +
-                                    "${requestTimeoutSeconds?.let { "${it}s" } ?: "unset"}; " +
+                                    "${requestTimeoutMillis?.let { "${it}ms" } ?: "unset"}; " +
                                     "the connection is being refreshed."
                             } else {
                                 "Failed to initialize SDK with updated parameters. Please verify values and try again."

@@ -1084,10 +1084,10 @@ private fun SdkSectionContent(
     )
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedTextField(
-        value = state.sdkRequestTimeoutSeconds,
-        onValueChange = { onIntent(SettingsIntent.UpdateSdkRequestTimeoutSeconds(it)) },
+        value = state.sdkRequestTimeoutMillis,
+        onValueChange = { onIntent(SettingsIntent.UpdateSdkRequestTimeoutMillis(it)) },
         label = { Text("Per-request Timeout") },
-        suffix = { Text("s") },
+        suffix = { Text("ms") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
