@@ -115,7 +115,7 @@ fun CardInfoSection(
                     // Card Network Type
                     cardInfo.cardNetworkType?.let {
                         CardDetailRow(
-                            label = "Card Type",
+                            label = "Card Network Type",
                             value = it
                         )
                         Spacer(modifier = Modifier.height(6.dp))
