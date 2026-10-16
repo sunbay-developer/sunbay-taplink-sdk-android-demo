@@ -56,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -126,6 +127,26 @@ fun TransactionProgressScreen(
     val connectionState by DependencyProvider.connectionManager.connectionState.collectAsState()
     var showManualEntryInputs by rememberSaveable(transactionId) { mutableStateOf(false) }
     val secondaryScreenScope = rememberCoroutineScope()
+
+    // Reconnect prompt: when the connection drops while a transaction is still in
+    // progress, ask the user whether to re-establish it. Confirming reuses the same
+    // ConnectionManager.recoverConnection() path as the test button above, which
+    // rebuilds the transport link WITHOUT calling disconnect(). Skipping disconnect
+    // keeps the in-flight traceId -> PaymentCallback mappings intact (disconnect would
+    // clearAllCallbacks()), so once the link is restored the Host-pushed events still
+    // match their callback and the ongoing transaction's progress/result updates keep
+    // flowing to the UI.
+    var showReconnectDialog by remember { mutableStateOf(false) }
+    val isConnectionDown = connectionState is ConnectionState.Disconnected ||
+        connectionState is ConnectionState.Error
+    LaunchedEffect(isConnectionDown, state.isPending()) {
+        if (isConnectionDown && state.isPending()) {
+            showReconnectDialog = true
+        } else if (!isConnectionDown) {
+            // Connection restored (or re-established) — dismiss the prompt.
+            showReconnectDialog = false
+        }
+    }
     
     // Load transaction on first composition
     LaunchedEffect(transactionId) {
@@ -185,6 +206,29 @@ fun TransactionProgressScreen(
                             onClick = rememberDebouncedClick { viewModel.handleIntent(TransactionProgressIntent.NavigateBack) }
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                actions = {
+                    // Test-only entry: manually re-establish the connection while a
+                    // transaction is in progress, so a dropped network / changed LAN port
+                    // can be recovered without leaving this screen. Uses
+                    // recoverConnection() which rebuilds the transport link WITHOUT
+                    // calling disconnect(), so the in-flight traceId -> PaymentCallback
+                    // mappings survive and Host-pushed events still update the UI.
+                    if (state.isPending()) {
+                        TextButton(
+                            onClick = rememberDebouncedClick {
+                                DependencyProvider.connectionManager.recoverConnection()
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Reconnect (Test)")
                         }
                     }
                 },
@@ -379,6 +423,39 @@ fun TransactionProgressScreen(
                                 viewModel.handleIntent(TransactionProgressIntent.CancelSecondaryTipSelection)
                                 secondaryDisplayManager.dismiss()
                             }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showReconnectDialog) {
+                AlertDialog(
+                    onDismissRequest = { showReconnectDialog = false },
+                    title = { Text("Connection Lost") },
+                    text = {
+                        Text(
+                            "The connection to the terminal dropped while the transaction " +
+                                "is still in progress. Reconnect now? The ongoing transaction " +
+                                "result will still update once the connection is restored."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = rememberDebouncedClick {
+                                showReconnectDialog = false
+                                // Rebuild the link WITHOUT disconnect() so the
+                                // in-flight transaction's callback is preserved.
+                                DependencyProvider.connectionManager.recoverConnection()
+                            }
+                        ) {
+                            Text("Reconnect")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = rememberDebouncedClick { showReconnectDialog = false }
                         ) {
                             Text("Cancel")
                         }

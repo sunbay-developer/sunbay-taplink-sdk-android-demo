@@ -85,9 +85,25 @@ class ConnectionManager(
      * Handles all exceptions to prevent app crashes.
      */
     fun connect() {
+        doConnect(skipSdkInit = false)
+    }
+
+    /**
+     * Shared connection body for [connect] and [recoverConnection].
+     *
+     * @param skipSdkInit when true, the [ensureSdkInitializedForLocalModes] step is
+     * skipped entirely. This is used by [recoverConnection]: during a reconnect for an
+     * in-flight transaction the SDK has necessarily already been initialized, so a
+     * second init would hit the SDK's "already initialized -> tear down + clear all
+     * callbacks" path and drop the in-flight traceId -> PaymentCallback mappings. All
+     * other logic (generation bump, mode read, IP validation, config creation,
+     * paymentService.connect + ConnectionListener registration) is identical to a
+     * normal connect.
+     */
+    private fun doConnect(skipSdkInit: Boolean) {
         scope.launch {
             try {
-                Log.d(TAG, "Starting connection...")
+                Log.d(TAG, "Starting connection... (skipSdkInit=$skipSdkInit)")
                 _connectionState.value = ConnectionState.Connecting
 
                 // Capture the current generation so that callbacks registered below
@@ -109,7 +125,11 @@ class ConnectionManager(
 
                 // Local SDK modes must have valid SDK credentials and a completed SDK init.
                 // This prevents late E201 ("SDK not initialized") errors during connect().
-                if (!ensureSdkInitializedForLocalModes()) {
+                //
+                // Skipped on recovery: re-initializing an already-initialized SDK tears
+                // down previous callbacks, which would orphan an in-flight transaction's
+                // traceId -> PaymentCallback mapping and cause Host push events to miss.
+                if (!skipSdkInit && !ensureSdkInitializedForLocalModes()) {
                     return@launch
                 }
 
@@ -539,6 +559,39 @@ class ConnectionManager(
 
             connect()
         }
+    }
+
+    /**
+     * Recover a dropped connection WITHOUT calling disconnect().
+     *
+     * Use this when the connection has already dropped (state DISCONNECTED/Error)
+     * while an in-flight transaction is still waiting for Host push events. Unlike
+     * [reconnect], this does NOT call any disconnect path:
+     * - It skips [PaymentService.disconnect] / TaplinkPaymentService.disconnect(),
+     *   so the SDK's TaplinkApiImpl.disconnect() -> clearAllCallbacks() is never
+     *   triggered.
+     * - The in-flight traceId -> PaymentCallback mappings therefore survive, so when
+     *   the transport link is rebuilt the Host-pushed events still match their
+     *   original callback (via getAndRemoveCallbackByTraceId) and the Demo UI keeps
+     *   updating.
+     *
+     * It simply rebuilds the transport connection through the shared [doConnect]
+     * body (with skipSdkInit = true) using the last saved connection config. Because
+     * the link is already DISCONNECTED here (not an open VSP/serial session),
+     * connecting directly is safe and does not need the disconnect +
+     * awaitSdkDisconnected() dance that [reconnect] performs for VSP port release.
+     *
+     * The generation counter advances inside [doConnect] as usual; that only guards
+     * ConnectionListener (connection-state) callbacks and does not affect the
+     * transaction callbacks routed through TransactionRepository.
+     */
+    fun recoverConnection() {
+        Log.d(TAG, "Recovering connection without disconnect (preserving in-flight callbacks)...")
+        // Skip SDK init on recovery: the SDK is already initialized (there is an
+        // in-flight transaction), and re-initializing would tear down and clear all
+        // registered callbacks, orphaning the in-flight traceId -> PaymentCallback
+        // mapping so the Host-pushed events would miss their callback.
+        doConnect(skipSdkInit = true)
     }
 
     /**
