@@ -1,2 +1,2 @@
 configurations.maybeCreate("default")
-artifacts.add("default",file('lib_taplink_sdk-release.aar'))
+artifacts.add("default",file('lib_taplink_sdk-debug.aar'))

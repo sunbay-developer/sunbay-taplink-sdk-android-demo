@@ -308,6 +308,12 @@ com.sunmi.tapro.taplink.demo.service
 └── util/                         # TLog, AmountConverter, Constants
 ```
 
+## SDD/TDD and Superpowers
+
+Follow the repository's authoritative `AGENT.md §10.1` and the workspace `SUPERPOWERS_WORKFLOW.md` when available. Superpowers assists clarification, planning, debugging and verification; approved SDK Spec/AC remains the behavior contract. Route missing or conflicting protocol behavior to SDK/Host Spec/SCR approval before implementation or test expectations. Preserve the two TDD human gates and task authorization.
+
+Read project rules before available upstream skills. If a skill is unavailable, disclose it and continue the local workflow without claiming invocation. Keep plans/review notes outside the repository; preserve user changes. Worktrees are optional and agents require task authorization and host support. Do not infer commit/merge/release authorization from upstream defaults. Record actual build/manual connection evidence and missing automated coverage; retain device/backend approval and maintainer-confirmed SDK versions. An unavailable independent review remains pending.
+
 ## Resources & Links
 
 - [README.md](../README.md) — Project overview, quick start, prerequisites, troubleshooting

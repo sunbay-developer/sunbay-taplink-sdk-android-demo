@@ -1,6 +1,7 @@
 package com.sunmi.tapro.taplink.demo.service
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.sunmi.tapro.taplink.demo.model.ConnectionMode
 import com.sunmi.tapro.taplink.demo.model.Message
@@ -184,22 +185,16 @@ class ConnectionManager(
                     }
                     
                     override fun onDisconnected(reason: String) {
-                        // Ignore if a newer connection has been initiated (e.g. switched to Cloud)
-                        if (generation != connectionGeneration) {
-                            Log.d(TAG, "Ignoring stale onDisconnected (gen $generation, current $connectionGeneration) - Reason: $reason")
-                            return
-                        }
+                        // 终态回调（断开/恢复失败 E213）始终投递给 UI，不按 generation 丢弃。
+                        // 断开是「这条连接确实结束了」的终态通知，对用户永远有效；
+                        // 真实 POS 应用必须处理它，否则会回到「连上又掉却无任何回调」的问题。
                         Log.d(TAG, "Disconnected - Reason: $reason")
                         _connectionState.value = ConnectionState.Disconnected
                         currentMode = null
                     }
                     
                     override fun onError(code: String, message: String) {
-                        // Ignore if a newer connection has been initiated
-                        if (generation != connectionGeneration) {
-                            Log.d(TAG, "Ignoring stale onError (gen $generation, current $connectionGeneration) - Code: $code")
-                            return
-                        }
+                        // 连接错误终态始终投递给 UI，不按 generation 丢弃（与 onDisconnected 同理，贴近真实 POS 应用）。
                         Log.e(TAG, "Connection error - Code: $code, Message: $message")
                         _connectionState.value = ConnectionState.Error(
                             code = code,
