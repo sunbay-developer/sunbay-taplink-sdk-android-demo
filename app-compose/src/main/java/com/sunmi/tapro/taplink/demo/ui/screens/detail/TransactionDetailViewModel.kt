@@ -502,8 +502,8 @@ class TransactionDetailViewModel(
                     cardNetworkType = originalTransaction.cardNetworkType,
                     tipAmount = tipAmount,
                     taxAmount = taxAmount,
-                    // UI 输入项目前命名是 surcharge，这里沿用现有 demo/service 映射到 serviceFee。
-                    serviceFee = surchargeAmount
+                    // Preserve the surcharge field in the local capture record.
+                    surchargeAmount = surchargeAmount
                 )
                 
                 transactionRepository.addTransaction(newTransaction)
@@ -575,7 +575,7 @@ class TransactionDetailViewModel(
                             description = "Post-authorization completion",
                             tipAmount = tipAmount,
                             taxAmount = taxAmount,
-                            serviceFee = surchargeAmount,
+                            surchargeAmount = surchargeAmount,
                             staffInfo = StaffInfoPreferences.buildSdkStaffInfo(DependencyProvider.requireContext()),
                             tipConfig = tipConfig,
                             callback = callback

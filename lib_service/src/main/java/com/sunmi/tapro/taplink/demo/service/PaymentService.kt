@@ -304,6 +304,7 @@ interface PaymentService {
         serviceFee: BigDecimal? = null,
         staffInfo: StaffInfo? = null,
         tipConfig: TipConfig? = null,
+        surchargeAmount: BigDecimal? = null,
         callback: PaymentCallback
     )
 

@@ -506,6 +506,7 @@ class CloudPaymentService : PaymentService {
         cashbackAmount: BigDecimal?, serviceFee: BigDecimal?,
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
+        surchargeAmount: BigDecimal?,
         callback: PaymentCallback
     ) {
         val body = baseJson().apply {
@@ -519,7 +520,8 @@ class CloudPaymentService : PaymentService {
             set<ObjectNode>("amount", amountJson(AmountConverter.toCents(amount), currency).apply {
                 tipAmount?.let { put("tipAmount", AmountConverter.toCents(it)) }
                 taxAmount?.let { put("taxAmount", AmountConverter.toCents(it)) }
-                serviceFee?.let { put("surchargeAmount", AmountConverter.toCents(it)) }
+                serviceFee?.let { put("serviceFee", AmountConverter.toCents(it)) }
+                surchargeAmount?.let { put("surchargeAmount", AmountConverter.toCents(it)) }
             })
             tipConfig?.let { tc -> set<ObjectNode>("tipConfig", buildTipConfigJson(tc)) }
         }

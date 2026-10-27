@@ -1007,9 +1007,12 @@ class TaplinkPaymentService : PaymentService {
         serviceFee: BigDecimal?,
         staffInfo: StaffInfo?,
         tipConfig: TipConfig?,
+        surchargeAmount: BigDecimal?,
         callback: PaymentCallback
     ) {
-        val amountInfo = buildAmountInfo(amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee)
+        val amountInfo = buildAmountInfo(
+            amount, currency, tipAmount, taxAmount, cashbackAmount, serviceFee, surchargeAmount
+        )
         if (tipConfig != null) {
             Log.d(TAG, "TIP_CONFIG [POST_AUTH]: applied tipConfig=$tipConfig")
         } else {
